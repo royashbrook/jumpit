@@ -43,6 +43,9 @@ export function createWorld(level) {
     seeds: level.objects
       .filter(([, kind]) => kind === 'seed')
       .map(([id,, x, y]) => ({ id, x: (x + .5) * TILE, y: (y + .45) * TILE, found: false })),
+    hiddenLights: level.objects
+      .filter(([, kind]) => kind === 'hidden-light')
+      .map(([id,, x, y]) => ({ id, x: (x + .5) * TILE, y: (y + 1) * TILE, found: false })),
     enemies: level.objects
       .filter(([, kind]) => ['mossling', 'drizzlet', 'gearling', 'mothlight', 'sentry', 'warden'].includes(kind))
       .map(([id, kind, x, y]) => {
@@ -271,6 +274,18 @@ export function stepSimulation(simulation, input = {}) {
     cloak.found = true
     player.glowing = true
     emit('cloak', 'power', 'GLOW CLOAK · BUMP CREATURES!', [cloak.x, cloak.y, '#B8F4BD'])
+  }
+
+  for (const hiddenLight of world.hiddenLights) {
+    if (hiddenLight.found || !overlaps(player, hiddenLight.x - 18, hiddenLight.y - 50, 36, 50)) continue
+    hiddenLight.found = true
+    emit(
+      'hidden-light',
+      'hidden-light',
+      'HIDDEN LIGHT FOUND!',
+      [hiddenLight.x, hiddenLight.y - 28, '#FFE377'],
+      { hiddenLightId: hiddenLight.id, region: world.level.region },
+    )
   }
 
   for (const enemy of world.enemies) {

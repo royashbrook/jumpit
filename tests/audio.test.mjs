@@ -55,6 +55,14 @@ test('the guardian fight has distinct hit, locked, and victory cues', async () =
   assert.equal(context.starts.length, 8)
 })
 
+test('a hidden light has its own three-note discovery cue', async () => {
+  const context = fakeContext()
+  const audio = createAudio({ contextFactory: () => context })
+  await audio.startFromGesture()
+  assert.equal(audio.cue('hidden-light'), true)
+  assert.equal(context.starts.length, 3)
+})
+
 test('background suspension silences queued cues until a fresh gesture resumes audio', async () => {
   const context = fakeContext()
   const audio = createAudio({ contextFactory: () => context })

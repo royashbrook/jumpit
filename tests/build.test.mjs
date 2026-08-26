@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { readdir, readFile } from 'node:fs/promises'
+import { readdir, readFile, stat } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
@@ -25,15 +25,20 @@ test('the production build is an exact allowlist without test controls', async (
   assert.doesNotMatch(build, /tests|solvability|playwright|node_modules/)
 
   execFileSync(process.execPath, ['tools/build.mjs'], { cwd: root })
-  assert.deepEqual(await walk(join(root, 'build')), [
-    'app.css', 'app.js', 'assets/backgrounds/final-atlas.png',
-    'assets/backgrounds/garden-walk.png', 'assets/backgrounds/region-atlas.png',
-    'assets/sprites/courier-sheet.png', 'assets/sprites/final-sheet.png',
-    'assets/sprites/region-sheet.png', 'assets/sprites/world-sheet.png',
+  const files = await walk(join(root, 'build'))
+  assert.deepEqual(files, [
+    'app.css', 'app.js', 'assets/backgrounds/final-atlas.webp',
+    'assets/backgrounds/garden-walk.webp', 'assets/backgrounds/region-atlas.webp',
+    'assets/sprites/courier-sheet.webp', 'assets/sprites/final-sheet.webp',
+    'assets/sprites/region-sheet.webp', 'assets/sprites/world-sheet.webp',
     'audio.js', 'daily.js', 'engine/physics.js', 'engine/simulation.js', 'game.js',
     'icon-180.png', 'icon-192.png',
     'icon-512.png', 'icon-maskable-512.png', 'index.html', 'install.js',
     'levels.js', 'manifest.json', 'release.js', 'save.js', 'seed.js', 'sw.js', 'update.js',
     'version.js',
   ])
+  assert.equal(files.some(file => file.startsWith('assets/') && file.endsWith('.png')), false)
+  let bytes = 0
+  for (const file of files) bytes += (await stat(join(root, 'build', file))).size
+  assert.ok(bytes <= 3_600_000, `production build is ${bytes} bytes`)
 })

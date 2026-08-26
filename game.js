@@ -22,6 +22,25 @@ const FIXED_STEP = 1000 / 60
 const PLAYER_FRAMES = { idle: 0, run: 1, jump: 4, fall: 5 }
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value))
 
+export const ART_SOURCES = Object.freeze({
+  gardenBackground: 'assets/backgrounds/garden-walk.webp',
+  regionBackground: 'assets/backgrounds/region-atlas.webp',
+  finalBackground: 'assets/backgrounds/final-atlas.webp',
+  courier: 'assets/sprites/courier-sheet.webp',
+  world: 'assets/sprites/world-sheet.webp',
+  region: 'assets/sprites/region-sheet.webp',
+  final: 'assets/sprites/final-sheet.webp',
+})
+
+export function artKeysForLevel(level) {
+  const keys = ['courier']
+  if (level.region === 'garden') return [...keys, 'gardenBackground', 'world']
+  if (['rooftop', 'workshop'].includes(level.region)) return [...keys, 'regionBackground', 'region']
+  keys.push('finalBackground', 'final')
+  if (level.objects.some(([, kind]) => kind === 'fan')) keys.push('region')
+  return keys
+}
+
 export function coachMessage({ moved, jumped, glowing, x }) {
   if (!moved) return 'HOLD ▶ TO RUN'
   if (!jumped) return 'TAP JUMP'
@@ -37,10 +56,10 @@ export function playHint({ finished, moved, jumped, glowing, x, finishX }) {
 }
 
 export function impactFeedback(type, reducedMotion = false) {
-  if (!['seed', 'stomp', 'checkpoint', 'finish'].includes(type)) return null
+  if (!['seed', 'stomp', 'checkpoint', 'finish', 'hidden-light'].includes(type)) return null
   return {
-    frames: type === 'finish' ? 12 : 9,
-    kick: reducedMotion ? 0 : type === 'finish' || type === 'checkpoint' ? 5 : 3,
+    frames: type === 'hidden-light' ? 48 : type === 'finish' ? 12 : 9,
+    kick: reducedMotion || type === 'hidden-light' ? 0 : type === 'finish' || type === 'checkpoint' ? 5 : 3,
     expands: !reducedMotion,
   }
 }
@@ -73,16 +92,14 @@ export function clearInputState(input, player) {
 
 export function createGame(canvas, onState = () => {}, onCue = () => {}) {
   const context = canvas.getContext('2d')
-  const art = [
-    'assets/backgrounds/garden-walk.png',
-    'assets/backgrounds/region-atlas.png',
-    'assets/backgrounds/final-atlas.png',
-    'assets/sprites/courier-sheet.png',
-    'assets/sprites/world-sheet.png',
-    'assets/sprites/region-sheet.png',
-    'assets/sprites/final-sheet.png',
-  ].map(source => ({ source, image: new Image() }))
-  const [background, regionAtlas, finalAtlas, courier, worldSheet, regionSheet, finalSheet] = art.map(item => item.image)
+  const art = Object.fromEntries(Object.entries(ART_SOURCES).map(([key, source]) => [key, { source, image: new Image() }]))
+  const background = art.gardenBackground.image
+  const regionAtlas = art.regionBackground.image
+  const finalAtlas = art.finalBackground.image
+  const courier = art.courier.image
+  const worldSheet = art.world.image
+  const regionSheet = art.region.image
+  const finalSheet = art.final.image
   const reducedMotion = Boolean(globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
   const input = { left: false, right: false, jumpHeld: false, jumpPressed: false }
   const particles = []
@@ -101,11 +118,19 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
   let lastTime = 0
   let accumulator = 0
   let raf = 0
+  let knownHiddenLights = []
 
-  function loadArt() {
-    for (const item of art) {
-      if (item.image.src) continue
-      item.image.src = item.source
+  function loadArt(level) {
+    const needed = new Set(artKeysForLevel(level))
+    for (const [key, item] of Object.entries(art)) {
+      if (!needed.has(key)) {
+        if (item.image.src) {
+          if (typeof item.image.removeAttribute === 'function') item.image.removeAttribute('src')
+          else item.image.src = ''
+        }
+        continue
+      }
+      if (!(item.image.src || '').endsWith(item.source)) item.image.src = item.source
       item.image.decode?.().catch(() => {})
     }
   }
@@ -119,7 +144,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     frame = simulation.frame
   }
 
-  function report(message = '') {
+  function report(message = '', { hiddenLightId = null } = {}) {
     const region = REGIONS.find(item => item.id === world.level.region)
     const seeds = world.seeds.filter(seed => seed.found).length
     onState({
@@ -131,6 +156,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       paused,
       finished,
       message,
+      hiddenLightId,
       ...guardianState(world),
     })
   }
@@ -172,6 +198,9 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     syncSimulation()
 
     for (const event of events) {
+      if (event.type === 'hidden-light' && !knownHiddenLights.includes(event.hiddenLightId)) {
+        knownHiddenLights.push(event.hiddenLightId)
+      }
       if (event.type === 'fan' && event.burst) {
         particles.push({ x: event.burst[0], y: event.burst[1], vx: 0, vy: -2.1, life: 28, color: event.burst[2] })
       } else if (event.burst) burst(...event.burst)
@@ -191,7 +220,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
         camera = clamp(player.x - 72, 0, Math.max(0, world.width - 320))
       }
       if (event.cue) onCue(event.cue)
-      if (event.message) report(event.message)
+      if (event.message) report(event.message, event)
     }
 
     advanceFeedback()
@@ -424,6 +453,35 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     context.strokeRect(px - 10, py - 45, 20, 20)
   }
 
+  function drawHiddenLights() {
+    for (const light of world.hiddenLights || []) {
+      const glow = light.found ? 18 : 11
+      context.save()
+      context.translate(light.x, light.y)
+      context.shadowColor = '#FFE377'
+      context.shadowBlur = glow
+      context.fillStyle = light.found ? '#FFF4B0' : '#FFE377'
+      context.beginPath()
+      context.roundRect(-10, -42, 20, 25, 7)
+      context.fill()
+      context.shadowBlur = 0
+      context.strokeStyle = '#5A4534'
+      context.lineWidth = 3
+      context.stroke()
+      context.beginPath()
+      context.arc(0, -42, 7, Math.PI, 0)
+      context.stroke()
+      context.fillStyle = '#5A4534'
+      context.fillRect(-2, -17, 4, 8)
+      if (!light.found) {
+        context.fillStyle = '#FFF4B0'
+        context.fillRect(-23, -43, 5, 3)
+        context.fillRect(18, -33, 5, 3)
+      }
+      context.restore()
+    }
+  }
+
   function drawBell() {
     const { x, y } = world.finish
     const floor = (y + 1) * TILE
@@ -574,6 +632,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     drawSprings()
     drawFansAndSwitches()
     drawLampsAndGates()
+    drawHiddenLights()
     drawCheckpoint()
     drawBell()
     drawEnemies()
@@ -627,19 +686,17 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
 
   window.addEventListener('keydown', onKey)
   window.addEventListener('keyup', onKey)
-  background.addEventListener('load', paint)
-  regionAtlas.addEventListener('load', paint)
-  finalAtlas.addEventListener('load', paint)
-  courier.addEventListener('load', paint)
-  worldSheet.addEventListener('load', paint)
-  regionSheet.addEventListener('load', paint)
-  finalSheet.addEventListener('load', paint)
+  for (const { image } of Object.values(art)) image.addEventListener('load', paint)
 
   return {
-    start(levelId = 'garden-1') {
+    start(levelId = 'garden-1', options = {}) {
       const level = LEVELS.find(item => item.id === levelId) || LEVELS[0]
-      loadArt()
+      if (Array.isArray(options?.foundHiddenLights)) knownHiddenLights = [...new Set(options.foundHiddenLights)]
+      loadArt(level)
       simulation = createSimulation(level)
+      for (const light of simulation.world.hiddenLights || []) {
+        light.found = knownHiddenLights.includes(light.id)
+      }
       syncSimulation()
       clearInput()
       resetFeedback()
@@ -653,7 +710,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       raf = requestAnimationFrame(loop)
     },
     restart() {
-      this.start(world.level.id)
+      this.start(world.level.id, { foundHiddenLights: knownHiddenLights })
     },
     stop() {
       running = false

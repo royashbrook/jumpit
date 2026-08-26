@@ -56,6 +56,7 @@ export const LEVELS = [
     ['g03-seed-c', 'seed', 37, 11], ['g03-seed-d', 'seed', 51, 11],
     ['g03-check', 'checkpoint', 33, 14], ['g03-moss-a', 'mossling', 18, 14],
     ['g03-moss-b', 'mossling', 45, 14], ['g03-spring', 'spring', 55, 14],
+    ['g03-hidden-light', 'hidden-light', 7, 11],
   ]),
 
   level('garden-4', 4, 'garden', 'Bramble Bank', 70, [2, 14], ['g04-bell', 67, 14], ['crumble-banks'], [
@@ -108,6 +109,7 @@ export const LEVELS = [
     ['r03-seed-c', 'seed', 34, 11], ['r03-seed-d', 'seed', 47, 11],
     ['r03-seed-e', 'seed', 57, 11], ['r03-check', 'checkpoint', 42, 14],
     ['r03-drop-a', 'drizzlet', 17, 14], ['r03-drop-b', 'drizzlet', 52, 14],
+    ['r03-hidden-light', 'hidden-light', 31, 11],
   ]),
 
   level('rooftop-4', 8, 'rooftop', 'Thunder Terrace', 76, [2, 14], ['r04-bell', 73, 14], ['crosswinds'], [
@@ -148,7 +150,7 @@ export const LEVELS = [
     ['w02-seed-a', 'seed', 10, 11], ['w02-seed-b', 'seed', 25, 11],
     ['w02-seed-c', 'seed', 37, 11], ['w02-seed-d', 'seed', 52, 11],
     ['w02-check', 'checkpoint', 44, 14], ['w02-gear-a', 'gearling', 18, 14],
-    ['w02-gear-b', 'gearling', 46, 14],
+    ['w02-gear-b', 'gearling', 46, 14], ['w02-hidden-light', 'hidden-light', 8, 11],
   ]),
 
   level('workshop-3', 11, 'workshop', 'Hoist House', 74, [2, 14], ['w03-bell', 71, 14], ['freight-lifts'], [
@@ -220,6 +222,7 @@ export const LEVELS = [
     ['m03-seed-c', 'seed', 35, 11], ['m03-seed-d', 'seed', 48, 11],
     ['m03-seed-e', 'seed', 60, 11], ['m03-check', 'checkpoint', 43, 14],
     ['m03-moth-a', 'mothlight', 18, 14], ['m03-moth-b', 'mothlight', 54, 14],
+    ['m03-hidden-light', 'hidden-light', 26, 11],
   ]),
 
   level('market-4', 16, 'market', 'Last-Light Arcade', 80, [2, 14], ['m04-bell', 77, 14], ['shadow-gates'], [
@@ -253,6 +256,7 @@ export const LEVELS = [
     ['k01-seed-c', 'seed', 21, 8], ['k01-seed-d', 'seed', 32, 12],
     ['k01-seed-e', 'seed', 55, 10], ['k01-seed-f', 'seed', 62, 8],
     ['k01-check', 'checkpoint', 46, 14], ['k01-sentry-a', 'sentry', 34, 14],
+    ['k01-hidden-light', 'hidden-light', 8, 12],
   ]),
 
   level('keep-2', 18, 'keep', 'Bellrope Gallery', 78, [2, 14], ['k02-bell', 75, 6], ['keep-lifts'], [
@@ -321,7 +325,7 @@ const TERRAIN_KINDS = new Set([
 ])
 const OBJECT_KINDS = new Set([
   'seed', 'checkpoint', 'mossling', 'spring', 'drizzlet', 'fan', 'gearling',
-  'switch', 'mothlight', 'lamp', 'gate', 'sentry', 'warden', 'cloak',
+  'switch', 'mothlight', 'lamp', 'gate', 'sentry', 'warden', 'cloak', 'hidden-light',
 ])
 const ENEMY_KINDS = new Set(['mossling', 'drizzlet', 'gearling', 'mothlight', 'sentry', 'warden'])
 const integer = value => Number.isInteger(value)
@@ -377,6 +381,7 @@ export function validateCampaign(campaign = LEVELS) {
 
   const ids = new Map()
   const features = new Set()
+  const hiddenLightsByRegion = new Map(REGIONS.map(region => [region.id, 0]))
   const claim = (id, where) => {
     if (typeof id !== 'string' || !id) return errors.push(`${where}: id must be a non-empty string`)
     if (ids.has(id)) errors.push(`${where}: duplicate id ${id} (first used by ${ids.get(id)})`)
@@ -455,13 +460,16 @@ export function validateCampaign(campaign = LEVELS) {
       else validObjects.push(object)
       if (object[1] === 'seed') seeds += 1
       if (object[1] === 'checkpoint') checkpoints += 1
+      if (object[1] === 'hidden-light') {
+        hiddenLightsByRegion.set(entry.region, (hiddenLightsByRegion.get(entry.region) || 0) + 1)
+      }
       if (ENEMY_KINDS.has(object[1])) enemies += 1
     }
     if (seeds < 3) errors.push(`${where}: needs at least three seed collectibles`)
     if (checkpoints !== 1) errors.push(`${where}: needs exactly one checkpoint`)
     if (index > 0 && enemies === 0) errors.push(`${where}: needs a progressive enemy encounter`)
 
-    for (const object of validObjects.filter(item => item[1] === 'seed' || item[1] === 'checkpoint')) {
+    for (const object of validObjects.filter(item => ['seed', 'checkpoint', 'hidden-light'].includes(item[1]))) {
       if (validTerrain.some(tile => contains(tile, object[2], object[3]))) {
         errors.push(`${where}: ${object[0]} is embedded in terrain`)
       }
@@ -478,11 +486,16 @@ export function validateCampaign(campaign = LEVELS) {
       const reachable = reachableTerrain(validTerrain, entry.spawn)
       const reachablePoint = ([x, y]) => validTerrain.some((tile, tileIndex) => reachable.has(tileIndex) && supports(tile, x, y))
       if (finishOk && !reachablePoint(entry.finish.slice(1))) errors.push(`${where}: finish bell is outside the conservative jump envelope`)
-      for (const object of validObjects.filter(item => item[1] === 'seed' || item[1] === 'checkpoint')) {
+      for (const object of validObjects.filter(item => ['seed', 'checkpoint', 'hidden-light'].includes(item[1]))) {
         if (!reachablePoint(object.slice(2))) errors.push(`${where}: ${object[0]} is outside the conservative jump envelope`)
       }
     }
   })
+
+  for (const region of REGIONS) {
+    const count = hiddenLightsByRegion.get(region.id) || 0
+    if (count !== 1) errors.push(`${region.name}: needs exactly one hidden light, found ${count}`)
+  }
 
   return errors
 }

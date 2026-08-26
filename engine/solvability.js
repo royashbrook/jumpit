@@ -34,7 +34,7 @@ function dangerAhead(simulation, direction) {
   })
 }
 
-function nextInput(simulation, memory) {
+function nextInput(simulation, memory, seekHiddenLight = false) {
   const { player, world } = simulation
   const crumbleUnderfoot = world.terrain.find(rect =>
     rect.kind === 'crumble' && rect.active && player.onGround &&
@@ -44,6 +44,10 @@ function nextInput(simulation, memory) {
   const guardian = world.enemies.find(enemy => enemy.kind === 'warden' && enemy.alive)
   const center = player.x + player.w / 2
   const guardianDistance = guardian ? guardian.x + guardian.w / 2 - center : 0
+  const hiddenLight = seekHiddenLight ? world.hiddenLights.find(item => !item.found) : null
+  const hiddenLightDistance = hiddenLight ? hiddenLight.x - center : Infinity
+  const hiddenLightAhead = Boolean(hiddenLight && hiddenLightDistance > 5 && hiddenLightDistance < 155 &&
+    hiddenLight.y < player.y + player.h)
   const direction = witnessingCrumble
     ? 0
     : guardian && (world.finish.blocked || center > guardian.home - 150)
@@ -52,7 +56,8 @@ function nextInput(simulation, memory) {
   const shouldJump = !witnessingCrumble && player.onGround && (
     !hasLandingAhead(simulation) ||
     dangerAhead(simulation, direction || 1) ||
-    (guardian && Math.abs(guardianDistance) < 150)
+    (guardian && Math.abs(guardianDistance) < 150) ||
+    hiddenLightAhead
   )
 
   if (shouldJump) {
@@ -79,6 +84,7 @@ function stateVector(simulation, events) {
     player.jumpBuffer, Number(player.jumpWasHeld), Number(player.glowing), player.spawnX, player.spawnY,
     ...world.terrain.flatMap(rect => [rect.id, rect.y, Number(rect.active), rect.timer]),
     ...world.seeds.flatMap(seed => [seed.id, Number(seed.found)]),
+    ...world.hiddenLights.flatMap(hiddenLight => [hiddenLight.id, Number(hiddenLight.found)]),
     ...world.enemies.flatMap(enemy => [enemy.id, enemy.x, enemy.y, enemy.vx, Number(enemy.alive), enemy.health, enemy.invulnerable, enemy.squash]),
     ...world.switches.flatMap(item => [item.id, Number(item.active)]),
     ...world.gates.flatMap(gate => [gate.id, Number(gate.active), Number(gate.open)]),
@@ -127,12 +133,12 @@ function runReplay(level, inputs) {
   }
 }
 
-export function recordReplay(level, maxFrames = 7200) {
+function record(level, maxFrames, seekHiddenLight) {
   const simulation = createSimulation(level)
   const memory = { jumpFrames: 0, jumps: 0, sawCrumble: false }
   const inputs = []
   for (let frame = 0; frame < maxFrames && !simulation.finished; frame += 1) {
-    const input = nextInput(simulation, memory)
+    const input = nextInput(simulation, memory, seekHiddenLight)
     inputs.push(encodeInput(input))
     const events = stepSimulation(simulation, input)
     if (events.some(event => event.type === 'crumble')) memory.sawCrumble = true
@@ -144,6 +150,14 @@ export function recordReplay(level, maxFrames = 7200) {
     inputs,
     reason: replay.finishable ? '' : simulation.respawns ? 'timeout after respawns' : 'timeout',
   }
+}
+
+export function recordReplay(level, maxFrames = 7200) {
+  return record(level, maxFrames, false)
+}
+
+export function recordHiddenLightReplay(level, maxFrames = 7200) {
+  return record(level, maxFrames, true)
 }
 
 export function replayLevel(level, inputs) {

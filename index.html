@@ -32,6 +32,10 @@
           <button id="play" class="big">PLAY THE TRAIL</button>
         </div>
         <p class="play-promise">Run. Jump. Find light. Ring the bell.</p>
+        <section id="hidden-lights" class="hidden-lights" aria-label="Hidden lights found: 0 of 5" hidden>
+          <div><b>HIDDEN LIGHTS</b><small id="hidden-light-label">1 OF 5 GLOW</small></div>
+          <div id="hidden-light-stamps" class="hidden-light-stamps"></div>
+        </section>
       </section>
 
       <section id="trails-panel" class="tab-panel" hidden>
@@ -118,7 +122,11 @@
       <p id="guardian-status" class="guardian-status" role="status" aria-live="polite" aria-atomic="true" hidden></p>
       <section id="game-overlay" class="game-overlay" role="dialog" aria-modal="true" aria-labelledby="overlay-title" aria-describedby="overlay-copy" hidden>
         <div class="game-card">
-          <div id="ending-art" class="ending-art" aria-hidden="true" hidden></div>
+          <div id="ending-art" class="ending-art" aria-hidden="true" hidden>
+            <span class="ending-light"></span><span class="ending-light"></span>
+            <span class="ending-light"></span><span class="ending-light"></span>
+            <span class="ending-light"></span>
+          </div>
           <p id="overlay-kicker" class="overlay-kicker">TAKE A BREATH</p>
           <h2 id="overlay-title">PAUSED</h2>
           <p id="overlay-copy">The trail waits for you.</p>

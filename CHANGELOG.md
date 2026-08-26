@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.9.0: 2026-08-26
+
+- Added one optional, reachable Hidden Light to each place. Discoveries persist from
+  campaign, daily, or friend runs, survive restart and reload, and never guard a bell.
+- Kept Hidden Lights surprising: no empty checklist appears before the first discovery;
+  later Home and Trails marks stay compact, and only the final ending reflects the set.
+- Replaced the 15.8 MB canvas PNG payload with 2.1 MB of selectively loaded WebPs while
+  retaining the source PNGs and a closed, hash-verified derivation manifest.
+- Proved real WebP MIME, decode, dimensions, and sprite alpha in both phone engines,
+  exact v1.8 installed-client migration, and AA token contrast across all four looks.
+
 ## 1.8.0: 2026-08-26
 
 - Rebuilt the opening trail as a short, zero-fall run-jump-stomp lesson with its

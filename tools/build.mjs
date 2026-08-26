@@ -6,13 +6,13 @@ const files = [
   'levels.js', 'manifest.json', 'release.js', 'save.js', 'seed.js', 'sw.js', 'update.js',
   'version.js', 'icon-180.png', 'icon-192.png', 'icon-512.png',
   'icon-maskable-512.png', 'engine/physics.js', 'engine/simulation.js',
-  'assets/backgrounds/garden-walk.png',
-  'assets/backgrounds/region-atlas.png',
-  'assets/backgrounds/final-atlas.png',
-  'assets/sprites/courier-sheet.png',
-  'assets/sprites/world-sheet.png',
-  'assets/sprites/region-sheet.png',
-  'assets/sprites/final-sheet.png',
+  'assets/backgrounds/garden-walk.webp',
+  'assets/backgrounds/region-atlas.webp',
+  'assets/backgrounds/final-atlas.webp',
+  'assets/sprites/courier-sheet.webp',
+  'assets/sprites/world-sheet.webp',
+  'assets/sprites/region-sheet.webp',
+  'assets/sprites/final-sheet.webp',
 ]
 
 await rm('build', { recursive: true, force: true })

@@ -17,6 +17,11 @@ const completedBeforeKeep = [
   'keep-1', 'keep-2', 'keep-3',
 ]
 
+const allHiddenLights = [
+  'g03-hidden-light', 'r03-hidden-light', 'w02-hidden-light',
+  'm03-hidden-light', 'k01-hidden-light',
+]
+
 const endingGameStub = `
 export function createGame(_canvas, onState = () => {}, onCue = () => {}) {
   let levelId = 'garden-1'
@@ -127,6 +132,33 @@ export function createGame(_canvas, onState = () => {}) {
 }
 `
 
+const hiddenLightGameStub = `
+export function createGame(_canvas, onState = () => {}, onCue = () => {}) {
+  let levelId = 'garden-3'
+  let found = false
+  const report = message => onState({
+    levelId, levelName: 'Sunleaf Rise', regionName: 'Garden Walk',
+    seeds: 0, maxSeeds: 4, paused: false, finished: false, message,
+    hiddenLightId: found ? 'g03-hidden-light' : null,
+  })
+  const start = (id, options = {}) => {
+    levelId = id
+    found = Boolean(options.foundHiddenLights?.includes('g03-hidden-light'))
+    report('')
+  }
+  return {
+    start, restart() { start(levelId) }, stop() {}, resize() {}, clearInput() {},
+    setInput(action, value) {
+      if (!value || action !== 'jump' || found) return
+      found = true
+      onCue('hidden-light')
+      report('HIDDEN LIGHT FOUND!')
+    },
+    togglePause() { return false }, pause() { return false },
+  }
+}
+`
+
 test('the first visible action pays off inside five seconds with a real seed', async ({ page }) => {
   await page.goto('/')
   const started = Date.now()
@@ -181,6 +213,62 @@ test('a clear names place progress and the trail or place it just opened', async
   await expect(page.locator('#overlay-copy')).toHaveText('GARDEN WALK: 4 OF 4 TRAILS LIT. ROOFTOP RAIN IS NOW OPEN.')
   await expect(page.getByRole('button', { name: 'NEXT TRAIL' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'NEXT TRAIL' })).toBeFocused()
+})
+
+test('a hidden light stamps once, survives reload, and only then reveals Home progress', async ({ page }) => {
+  await page.route('**/game.js', route => route.fulfill({ contentType: 'text/javascript', body: hiddenLightGameStub }))
+  await page.addInitScript(() => {
+    if (localStorage.getItem('jumpit-save-v1')) return
+    localStorage.setItem('jumpit-save-v1', JSON.stringify({
+      version: 3,
+      completed: ['garden-1', 'garden-2'],
+      unlocked: ['garden-1', 'garden-2', 'garden-3'],
+      bestSeeds: {},
+      selectedLevel: 'garden-3',
+      theme: 'garden',
+      muted: true,
+      dailyWins: [],
+      hiddenLights: [],
+    }))
+  })
+  await page.goto('/')
+  await expect(page.locator('#hidden-lights')).toBeHidden()
+  await launchTrail(page)
+  await page.locator('#jump').click()
+  await page.locator('#jump').click()
+  await expect(page.locator('#game-status')).toHaveText('HIDDEN LIGHT FOUND!')
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('jumpit-save-v1')).hiddenLights)).toEqual([
+    'g03-hidden-light',
+  ])
+
+  await page.getByRole('button', { name: 'MENU' }).click()
+  await expect(page.locator('#hidden-lights')).toBeVisible()
+  await expect(page.locator('#hidden-light-label')).toHaveText('1 OF 5 GLOW')
+  await expect(page.locator('.hidden-light-stamp.found')).toHaveCount(1)
+  await page.evaluate(async () => {
+    for (const registration of await navigator.serviceWorker.getRegistrations()) await registration.unregister()
+  })
+  await page.reload()
+  await expect(page.locator('#hidden-lights')).toBeVisible()
+  await expect(page.locator('#hidden-light-label')).toHaveText('1 OF 5 GLOW')
+  await launchTrail(page)
+  await page.locator('#jump').click()
+  await expect(page.locator('#game-status')).not.toHaveText('HIDDEN LIGHT FOUND!')
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('jumpit-save-v1')).hiddenLights)).toEqual([
+    'g03-hidden-light',
+  ])
+})
+
+test('a Hidden Light found in a challenge keeps its stamp', async ({ page }) => {
+  await page.route('**/game.js', route => route.fulfill({ contentType: 'text/javascript', body: hiddenLightGameStub }))
+  await page.goto('/')
+  await page.getByRole('button', { name: 'MORE' }).click()
+  await page.locator('#daily-play').click()
+  await page.locator('#jump').click()
+  await expect(page.locator('#game-status')).toHaveText('HIDDEN LIGHT FOUND!')
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('jumpit-save-v1')).hiddenLights)).toEqual([
+    'g03-hidden-light',
+  ])
 })
 
 test('ArrowRight moves from the focused PAUSE button without a blur workaround', async ({ page }) => {
@@ -256,6 +344,7 @@ test('beating the guardian gives the campaign a focused mobile ending with repla
   await expect(ending).toBeVisible()
   await expect(page.getByRole('heading', { name: 'THE GARDEN GLOWS!' })).toBeVisible()
   await expect(page.locator('#ending-art')).toBeVisible()
+  await expect(page.locator('#overlay-copy')).not.toContainText('HIDDEN LIGHT')
   await expect(page.getByRole('button', { name: 'PLAY THE KEEP AGAIN' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'HOME' })).toBeFocused()
   await expect(page.locator('#game-bar')).toHaveAttribute('inert', '')
@@ -285,4 +374,46 @@ test('beating the guardian gives the campaign a focused mobile ending with repla
   await page.getByRole('button', { name: 'HOME' }).click()
   await expect(page.getByRole('heading', { name: 'You brought light home.' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'RUN THE KEEP AGAIN' })).toBeFocused()
+})
+
+test('the ungated ending reflects partial or complete hidden light discovery', async ({ page }) => {
+  await page.route('**/game.js', route => route.fulfill({ contentType: 'text/javascript', body: endingGameStub }))
+  await page.addInitScript(({ completed, lights }) => {
+    if (localStorage.getItem('jumpit-save-v1')) return
+    localStorage.setItem('jumpit-save-v1', JSON.stringify({
+      version: 3,
+      completed,
+      unlocked: ['garden-1', 'keep-4'],
+      bestSeeds: {},
+      selectedLevel: 'keep-4',
+      theme: 'garden',
+      muted: true,
+      dailyWins: [],
+      hiddenLights: lights,
+    }))
+  }, { completed: completedBeforeKeep, lights: allHiddenLights.slice(0, 2) })
+  await page.goto('/')
+  await launchTrail(page)
+  for (let hit = 0; hit < 3; hit += 1) await page.locator('#jump').click()
+  await page.locator('#move-right').click()
+  await expect(page.locator('#overlay-copy')).toContainText('THE HIDDEN LIGHTS YOU FOUND TWINKLE TOO.')
+  await expect(page.locator('.ending-light.found')).toHaveCount(2)
+
+  await page.evaluate(lights => {
+    const state = JSON.parse(localStorage.getItem('jumpit-save-v1'))
+    state.hiddenLights = lights
+    localStorage.setItem('jumpit-save-v1', JSON.stringify(state))
+  }, allHiddenLights)
+  await page.evaluate(async () => {
+    for (const registration of await navigator.serviceWorker.getRegistrations()) await registration.unregister()
+  })
+  await page.reload()
+  const replay = page.getByRole('button', { name: 'RUN THE KEEP AGAIN' })
+  await expect(replay).toBeVisible()
+  await expect(replay).toBeEnabled()
+  await replay.dispatchEvent('click')
+  for (let hit = 0; hit < 3; hit += 1) await page.locator('#jump').click()
+  await page.locator('#move-right').click()
+  await expect(page.locator('#overlay-copy')).toContainText('EVERY HIDDEN LIGHT JOINS THE BEACON.')
+  await expect(page.locator('.ending-light.found')).toHaveCount(5)
 })

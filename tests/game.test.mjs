@@ -171,6 +171,8 @@ test('coaching is one short action at a time and then gets out of the way', () =
 test('reward feedback adds a short impact without moving reduced-motion play', () => {
   assert.deepEqual(impactFeedback('seed'), { frames: 9, kick: 3, expands: true })
   assert.deepEqual(impactFeedback('checkpoint'), { frames: 9, kick: 5, expands: true })
+  assert.deepEqual(impactFeedback('hidden-light'), { frames: 48, kick: 0, expands: true })
+  assert.deepEqual(impactFeedback('hidden-light', true), { frames: 48, kick: 0, expands: false })
   assert.deepEqual(impactFeedback('finish', true), { frames: 12, kick: 0, expands: false })
   assert.equal(impactFeedback('fan'), null)
 })
@@ -225,7 +227,11 @@ test('large game art waits for the first play gesture', () => {
     assert.equal(images.length, 7)
     assert.ok(images.every(image => image.src === ''))
     game.start('garden-1')
-    assert.ok(images.every(image => image.src.startsWith('assets/')))
+    assert.deepEqual(images.map(image => image.src).filter(Boolean).sort(), [
+      'assets/backgrounds/garden-walk.webp',
+      'assets/sprites/courier-sheet.webp',
+      'assets/sprites/world-sheet.webp',
+    ])
     game.stop()
   } finally {
     for (const [key, value] of originals) {

@@ -46,6 +46,24 @@ test('every stop has its kid-readable goals and the hazards progress by place', 
   assert.ok(LEVELS.at(-1).objects.some(object => object[1] === 'warden'))
 })
 
+test('each place has one authored optional hidden light on a reachable side ledge', () => {
+  const hiddenLights = LEVELS.flatMap(entry => entry.objects
+    .filter(([, kind]) => kind === 'hidden-light')
+    .map(([id, kind, x, y]) => [entry.id, entry.region, id, kind, x, y]))
+
+  assert.deepEqual(hiddenLights, [
+    ['garden-3', 'garden', 'g03-hidden-light', 'hidden-light', 7, 11],
+    ['rooftop-3', 'rooftop', 'r03-hidden-light', 'hidden-light', 31, 11],
+    ['workshop-2', 'workshop', 'w02-hidden-light', 'hidden-light', 8, 11],
+    ['market-3', 'market', 'm03-hidden-light', 'hidden-light', 26, 11],
+    ['keep-1', 'keep', 'k01-hidden-light', 'hidden-light', 8, 12],
+  ])
+  assert.deepEqual(
+    REGIONS.map(region => hiddenLights.filter(([, itemRegion]) => itemRegion === region.id).length),
+    [1, 1, 1, 1, 1],
+  )
+})
+
 test('First Light is a short run-jump-stomp lesson before the glow cloak', () => {
   const first = LEVELS[0]
   const second = LEVELS[1]
@@ -126,6 +144,29 @@ test('validator catches embedded seeds and checkpoints', () => {
     object[3] = 15
     assert.match(validateCampaign(campaign).join('\n'), new RegExp(`${object[0]} is embedded in terrain`), kind)
   }
+})
+
+test('validator keeps every hidden light unique, supported, and reachable', () => {
+  const missing = copy()
+  const missingGarden = missing.find(entry => entry.id === 'garden-3')
+  missingGarden.objects = missingGarden.objects.filter(([, kind]) => kind !== 'hidden-light')
+  assert.match(validateCampaign(missing).join('\n'), /Garden Walk: needs exactly one hidden light, found 0/)
+
+  const duplicate = copy()
+  duplicate.find(entry => entry.id === 'garden-4').objects.push(['g04-hidden-light', 'hidden-light', 9, 11])
+  assert.match(validateCampaign(duplicate).join('\n'), /Garden Walk: needs exactly one hidden light, found 2/)
+
+  const embedded = copy()
+  const embeddedLight = embedded.find(entry => entry.id === 'garden-3').objects
+    .find(([, kind]) => kind === 'hidden-light')
+  embeddedLight[3] = 12
+  assert.match(validateCampaign(embedded).join('\n'), /g03-hidden-light is embedded in terrain/)
+
+  const unreachable = copy()
+  const unreachableLight = unreachable.find(entry => entry.id === 'garden-3').objects
+    .find(([, kind]) => kind === 'hidden-light')
+  unreachableLight[3] = 7
+  assert.match(validateCampaign(unreachable).join('\n'), /g03-hidden-light is outside the conservative jump envelope/)
 })
 
 test('validator catches a finish beyond the conservative three-tile jump gap', () => {

@@ -12,6 +12,54 @@
       "sha256": "7d8275ea2a5903ca161bfeedfe857511a6b45651117e71971b8a4e3664df819d"
     },
     {
+      "id": "jumpit-icon-ios-180",
+      "file": "icon-180.png",
+      "dimensions": "180x180",
+      "kind": "derived-brand-icon",
+      "source": "Deterministic sips-316 resizing of the project-original icon master",
+      "derivedFrom": "assets/source/icon-master.png",
+      "transform": "sips -z 180 180 assets/source/icon-master.png --out icon-180.png",
+      "prompt": "Mobile home-screen derivative of the original moss-cloaked courier and lantern icon, without new or borrowed imagery.",
+      "license": "project-original",
+      "sha256": "40738e43031589ea15dbc732d0b405d4427e3e60f6e690f1aa142c15f4d0a6e3"
+    },
+    {
+      "id": "jumpit-icon-pwa-192",
+      "file": "icon-192.png",
+      "dimensions": "192x192",
+      "kind": "derived-brand-icon",
+      "source": "Deterministic sips-316 resizing of the project-original icon master",
+      "derivedFrom": "assets/source/icon-master.png",
+      "transform": "sips -z 192 192 assets/source/icon-master.png --out icon-192.png",
+      "prompt": "PWA launcher derivative of the original moss-cloaked courier and lantern icon, without new or borrowed imagery.",
+      "license": "project-original",
+      "sha256": "0ab5c53924495e8977ea3ac9c59079530a5f7e84f50e54a1536b458e4bfeff88"
+    },
+    {
+      "id": "jumpit-icon-pwa-512",
+      "file": "icon-512.png",
+      "dimensions": "512x512",
+      "kind": "derived-brand-icon",
+      "source": "Deterministic sips-316 resizing of the project-original icon master",
+      "derivedFrom": "assets/source/icon-master.png",
+      "transform": "sips -z 512 512 assets/source/icon-master.png --out icon-512.png",
+      "prompt": "Large PWA launcher derivative of the original moss-cloaked courier and lantern icon, without new or borrowed imagery.",
+      "license": "project-original",
+      "sha256": "ffd2bc20fdbad5ccab53f82070b285c1e34d41f91c96144ebe45516bb19384d2"
+    },
+    {
+      "id": "jumpit-icon-maskable-512",
+      "file": "icon-maskable-512.png",
+      "dimensions": "512x512",
+      "kind": "derived-maskable-brand-icon",
+      "source": "Deterministic sips-316 resizing of the project-original icon master",
+      "derivedFrom": "assets/source/icon-master.png",
+      "transform": "sips -z 512 512 assets/source/icon-master.png --out icon-maskable-512.png",
+      "prompt": "Maskable PWA declaration of the original large courier and lantern launcher icon, without new or borrowed imagery.",
+      "license": "project-original",
+      "sha256": "ffd2bc20fdbad5ccab53f82070b285c1e34d41f91c96144ebe45516bb19384d2"
+    },
+    {
       "id": "courier-sprite-sheet",
       "file": "assets/sprites/courier-sheet.png",
       "dimensions": "1536x1024",
@@ -67,6 +115,10 @@
       "dimensions": "1536x1024",
       "kind": "two-region-background-atlas",
       "source": "OpenAI built-in image generation with style reference",
+      "styleReference": {
+        "file": "assets/backgrounds/region-atlas.png",
+        "sha256": "195cc5d64da51d24d2bdfb7d1cea1eb565237e8950b0dad65a3b9ec9b8d9c182"
+      },
       "prompt": "Original two-row panorama atlas: a grounded paper-lantern market at blue hour and a welcoming mossy beacon keep at predawn, polished storybook pixel art, no characters, text, logos, or borrowed imagery.",
       "license": "project-original",
       "sha256": "48589a2121c829fe034fe409ea71965015180cdd7de7046cea33cc1596bead12"
@@ -80,6 +132,90 @@
       "prompt": "Original true-alpha exact 4x2 pixel-art sheet with paired Mothlight and Beacon Sentry poses, unlit and lit lamp pedestals, a shadow gate, and a mossy three-light Warden; mobile-readable and trademark-free.",
       "license": "project-original",
       "sha256": "227a1d8b88495a5c203a5c682773c9a233469830ffa565ecceda171d40bc4d53"
+    },
+    {
+      "id": "garden-walk-background-webp",
+      "file": "assets/backgrounds/garden-walk.webp",
+      "dimensions": "1774x887",
+      "kind": "optimized-region-background",
+      "source": "Deterministic cwebp 1.6.0 with libsharpyuv 0.4.2 conversion of the project-original PNG",
+      "derivedFrom": "assets/backgrounds/garden-walk.png",
+      "transform": "cwebp 1.6.0 -q 82 -m 6 -sharp_yuv assets/backgrounds/garden-walk.png -o assets/backgrounds/garden-walk.webp",
+      "prompt": "Mobile-optimized derivative of the original grounded Garden Walk panorama, preserving its authored composition without adding or borrowing imagery.",
+      "license": "project-original",
+      "sha256": "3fba04ed21942cd8c11e11433f38e8c06ebac284bd9d1c84970ca4087530a633"
+    },
+    {
+      "id": "rooftop-workshop-background-atlas-webp",
+      "file": "assets/backgrounds/region-atlas.webp",
+      "dimensions": "1536x1024",
+      "kind": "optimized-two-region-background-atlas",
+      "source": "Deterministic cwebp 1.6.0 with libsharpyuv 0.4.2 conversion of the project-original PNG",
+      "derivedFrom": "assets/backgrounds/region-atlas.png",
+      "transform": "cwebp 1.6.0 -q 82 -m 6 -sharp_yuv assets/backgrounds/region-atlas.png -o assets/backgrounds/region-atlas.webp",
+      "prompt": "Mobile-optimized derivative of the original Rooftop Rain and Workshop Loft panorama atlas, preserving authored scenery without new imagery.",
+      "license": "project-original",
+      "sha256": "50555c7662ed97ce787b2d902ea8ede4f41c44483230a4cea86e19b1e17a7672"
+    },
+    {
+      "id": "market-keep-background-atlas-webp",
+      "file": "assets/backgrounds/final-atlas.webp",
+      "dimensions": "1536x1024",
+      "kind": "optimized-two-region-background-atlas",
+      "source": "Deterministic cwebp 1.6.0 with libsharpyuv 0.4.2 conversion of the project-original PNG",
+      "derivedFrom": "assets/backgrounds/final-atlas.png",
+      "transform": "cwebp 1.6.0 -q 82 -m 6 -sharp_yuv assets/backgrounds/final-atlas.png -o assets/backgrounds/final-atlas.webp",
+      "prompt": "Mobile-optimized derivative of the original Lantern Market and Beacon Keep panorama atlas, preserving authored scenery without new imagery.",
+      "license": "project-original",
+      "sha256": "3cca4c4867011c4760d37b3b6c5bedaeedc0ad52522fa36c1bd547caf7ca2cb8"
+    },
+    {
+      "id": "courier-sprite-sheet-webp",
+      "file": "assets/sprites/courier-sheet.webp",
+      "dimensions": "768x512",
+      "kind": "optimized-character-sprite-sheet",
+      "source": "Deterministic lossless cwebp 1.6.0 with libsharpyuv 0.4.2 half-size conversion of the project-original PNG",
+      "derivedFrom": "assets/sprites/courier-sheet.png",
+      "transform": "cwebp 1.6.0 -lossless -m 6 -resize 768 512 assets/sprites/courier-sheet.png -o assets/sprites/courier-sheet.webp",
+      "prompt": "Mobile-sized lossless derivative of the original moss-cloaked courier animation sheet, preserving transparency and all eight authored poses.",
+      "license": "project-original",
+      "sha256": "e44ee26a2727c1a867d839ab22038b2731072e8574b78609a7a90c92cbffe66f"
+    },
+    {
+      "id": "garden-world-sprite-sheet-webp",
+      "file": "assets/sprites/world-sheet.webp",
+      "dimensions": "768x512",
+      "kind": "optimized-world-sprite-sheet",
+      "source": "Deterministic lossless cwebp 1.6.0 with libsharpyuv 0.4.2 half-size conversion of the project-original PNG",
+      "derivedFrom": "assets/sprites/world-sheet.png",
+      "transform": "cwebp 1.6.0 -lossless -m 6 -resize 768 512 assets/sprites/world-sheet.png -o assets/sprites/world-sheet.webp",
+      "prompt": "Mobile-sized lossless derivative of the original Garden Walk object sheet, preserving transparency and every authored world prop.",
+      "license": "project-original",
+      "sha256": "4cf75156d286193735bb05da42556c5239dec3ab8d974609b359c70eef606376"
+    },
+    {
+      "id": "rooftop-workshop-sprite-sheet-webp",
+      "file": "assets/sprites/region-sheet.webp",
+      "dimensions": "768x512",
+      "kind": "optimized-region-sprite-sheet",
+      "source": "Deterministic lossless cwebp 1.6.0 with libsharpyuv 0.4.2 half-size conversion of the project-original PNG",
+      "derivedFrom": "assets/sprites/region-sheet.png",
+      "transform": "cwebp 1.6.0 -lossless -m 6 -resize 768 512 assets/sprites/region-sheet.png -o assets/sprites/region-sheet.webp",
+      "prompt": "Mobile-sized lossless derivative of the original Rooftop Rain and Workshop Loft sprite sheet, preserving transparency and authored mechanics.",
+      "license": "project-original",
+      "sha256": "0b57968f734606138543bb231971bbd7eea84574a464572c808da6a4a222e1c4"
+    },
+    {
+      "id": "market-keep-sprite-sheet-webp",
+      "file": "assets/sprites/final-sheet.webp",
+      "dimensions": "768x512",
+      "kind": "optimized-region-sprite-sheet",
+      "source": "Deterministic lossless cwebp 1.6.0 with libsharpyuv 0.4.2 half-size conversion of the project-original PNG",
+      "derivedFrom": "assets/sprites/final-sheet.png",
+      "transform": "cwebp 1.6.0 -lossless -m 6 -resize 768 512 assets/sprites/final-sheet.png -o assets/sprites/final-sheet.webp",
+      "prompt": "Mobile-sized lossless derivative of the original Lantern Market and Beacon Keep sprite sheet, preserving transparency and authored creatures.",
+      "license": "project-original",
+      "sha256": "48c2eb509b8fa26112c4d8098fd3090682ee0b26dd1d3b9d453aa2f27ca9e5d1"
     }
   ]
 }

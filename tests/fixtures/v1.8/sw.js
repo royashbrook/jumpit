@@ -15,7 +15,7 @@
 //      worker, so it cannot replace a known-good offline version with half a game.
 //
 // bump CACHE when the shell list changes.
-const CACHE = 'jumpit-v1.9.0'
+const CACHE = 'jumpit-v1.8.0'
 const SHELL = [
   './',
   './index.html',
@@ -38,13 +38,13 @@ const SHELL = [
   './icon-192.png',
   './icon-512.png',
   './icon-maskable-512.png',
-  './assets/backgrounds/garden-walk.webp',
-  './assets/backgrounds/region-atlas.webp',
-  './assets/backgrounds/final-atlas.webp',
-  './assets/sprites/courier-sheet.webp',
-  './assets/sprites/world-sheet.webp',
-  './assets/sprites/region-sheet.webp',
-  './assets/sprites/final-sheet.webp',
+  './assets/backgrounds/garden-walk.png',
+  './assets/backgrounds/region-atlas.png',
+  './assets/backgrounds/final-atlas.png',
+  './assets/sprites/courier-sheet.png',
+  './assets/sprites/world-sheet.png',
+  './assets/sprites/region-sheet.png',
+  './assets/sprites/final-sheet.png',
 ]
 
 self.addEventListener('install', event => {

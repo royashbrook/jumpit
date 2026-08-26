@@ -25,6 +25,10 @@ const HOW_TO_PLAY = Object.freeze({
 })
 const release = createRelease(LEVELS, 20)
 const releaseLevels = release.levels
+const hiddenLights = releaseLevels.flatMap(level => level.objects
+  .filter(([, kind]) => kind === 'hidden-light')
+  .map(([id]) => ({ id, region: level.region })))
+const hiddenLightByRegion = new Map(hiddenLights.map(light => [light.region, light.id]))
 const activeSeed = currentSeed()
 const directChallenge = new URLSearchParams(location.search).has('seed')
 const featuredChallenge = {
@@ -88,8 +92,15 @@ const audio = createAudio({
 })
 
 const game = createGame($('stage'), state => {
+  if (state.hiddenLightId) store.findHiddenLight(state.hiddenLightId)
   const challengeFinished = Boolean(activeChallenge && state.finished)
   const campaignFinished = !activeChallenge && state.finished && state.levelId === 'keep-4'
+  const foundHiddenLights = new Set(save.hiddenLights)
+  const hiddenLightEnding = foundHiddenLights.size === hiddenLights.length
+    ? ' EVERY HIDDEN LIGHT JOINS THE BEACON.'
+    : foundHiddenLights.size
+      ? ' THE HIDDEN LIGHTS YOU FOUND TWINKLE TOO.'
+      : ''
   const stamped = challengeFinished && challengeWon(activeChallenge, state)
   $('level-name').textContent = state.levelName.toUpperCase()
   $('seed-count').textContent = `◆ ${state.seeds}/${state.maxSeeds}`
@@ -122,7 +133,7 @@ const game = createGame($('stage'), state => {
       ? `${activeChallenge.goalSeeds} SEEDS + BELL · STAMP EARNED`
       : `FOUND ${state.seeds}/${activeChallenge.goalSeeds} SEEDS · TRY AGAIN`
     : campaignFinished
-      ? `${completionCopy(state)} YOU LIT THE BEACON. ALL FIVE PLACES GLOW AGAIN.`
+      ? `${completionCopy(state)} YOU LIT THE BEACON. ALL FIVE PLACES GLOW AGAIN.${hiddenLightEnding}`
       : state.finished
       ? completionCopy(state)
       : 'The trail waits for you.'
@@ -131,6 +142,9 @@ const game = createGame($('stage'), state => {
     ? 'PLAY THE KEEP AGAIN'
     : state.finished ? challengeFinished && !stamped ? 'TRY AGAIN' : 'RUN IT AGAIN' : 'START OVER'
   $('ending-home').hidden = !overlayVisible
+  for (const [index, mark] of [...document.querySelectorAll('.ending-light')].entries()) {
+    mark.classList.toggle('found', foundHiddenLights.has(hiddenLights[index]?.id))
+  }
 
   if (overlayVisible && !overlayOpen) {
     overlayOpen = true
@@ -160,6 +174,7 @@ const game = createGame($('stage'), state => {
   audio.cue(cue)
   const pulse = cue === 'guardian-defeated' ? [35, 25, 35, 25, 80]
     : cue === 'finish' ? [35, 35, 60]
+      : cue === 'hidden-light' ? [18, 24, 18, 24, 80]
       : cue === 'guardian-hit' ? [24, 24, 34]
         : ['seed', 'stomp', 'checkpoint', 'guardian-locked'].includes(cue) ? 24 : 0
   if (pulse) navigator.vibrate?.(pulse)
@@ -218,7 +233,7 @@ function playLevel(levelId = store.get().selectedLevel, challenge = null) {
   queuedNext = null
   lastCompleted = null
   show(gameScreen)
-  game.start(levelId, challenge?.seed ?? activeSeed)
+  game.start(levelId, { foundHiddenLights: store.get().hiddenLights })
   $('pause').focus({ preventScroll: true })
 }
 
@@ -316,11 +331,27 @@ function renderMenu(nextState = store.get()) {
     }
     const heading = document.createElement('h3')
     heading.className = 'region-divider'
-    heading.textContent = region.name.toUpperCase()
+    const lightFound = save.hiddenLights.includes(hiddenLightByRegion.get(region.id))
+    heading.textContent = `${region.name.toUpperCase()}${lightFound ? ' · ✦ LIGHT FOUND' : ''}`
     trailNodes.push(heading)
     for (const level of placeLevels) trailNodes.push(trailButton(level, releaseLevels.indexOf(level), save))
   }
   $('trail-list').replaceChildren(...trailNodes)
+  const hiddenLightStrip = $('hidden-lights')
+  if (hiddenLightStrip) {
+    const found = new Set(save.hiddenLights)
+    hiddenLightStrip.hidden = found.size === 0
+    hiddenLightStrip.setAttribute('aria-label', `Hidden lights found: ${found.size} of ${hiddenLights.length}`)
+    $('hidden-light-label').textContent = found.size === hiddenLights.length ? 'ALL FIVE GLOW' : `${found.size} OF ${hiddenLights.length} GLOW`
+    $('hidden-light-stamps').replaceChildren(...REGIONS.map(region => {
+      const stamp = document.createElement('span')
+      const lit = found.has(hiddenLightByRegion.get(region.id))
+      stamp.className = `hidden-light-stamp${lit ? ' found' : ''}`
+      stamp.textContent = lit ? '✦' : '◇'
+      stamp.setAttribute('aria-label', `${region.name}: ${lit ? 'found' : 'sleeping'}`)
+      return stamp
+    }))
+  }
   for (const look of looks) {
     const button = $('look-' + look.id)
     if (!button) continue

@@ -1,10 +1,12 @@
 import { LEVELS } from './levels.js'
 
-export const SAVE_VERSION = 2
+export const SAVE_VERSION = 3
 export const SAVE_KEY = 'jumpit-save-v1'
 export const DAILY_WIN_LIMIT = 14
 
 const THEMES = new Set(['garden', 'dusk', 'rain', 'lantern'])
+const HIDDEN_LIGHT_IDS = new Set(LEVELS.flatMap(level =>
+  level.objects.filter(([, kind]) => kind === 'hidden-light').map(([id]) => id)))
 const SEED_MAX = new Map(LEVELS.map(level => [
   level.id,
   level.objects.filter(([, kind]) => kind === 'seed').length,
@@ -20,6 +22,7 @@ export function freshSave() {
     theme: 'garden',
     muted: false,
     dailyWins: [],
+    hiddenLights: [],
   }
 }
 
@@ -39,6 +42,9 @@ export function migrateSave(value) {
   clean.muted = Boolean(value.muted)
   if (Array.isArray(value.dailyWins)) {
     clean.dailyWins = [...new Set(value.dailyWins.filter(seed => Number.isInteger(seed) && seed > 0))].slice(-DAILY_WIN_LIMIT)
+  }
+  if (Array.isArray(value.hiddenLights)) {
+    clean.hiddenLights = [...new Set(value.hiddenLights.filter(id => HIDDEN_LIGHT_IDS.has(id)))]
   }
   return clean
 }
@@ -88,6 +94,12 @@ export function createSaveStore({ storage = globalThis.localStorage, onChange = 
       if (!Number.isInteger(seed) || seed <= 0 || state.dailyWins.includes(seed)) return false
       state.dailyWins.push(seed)
       state.dailyWins = state.dailyWins.slice(-DAILY_WIN_LIMIT)
+      write()
+      return true
+    },
+    findHiddenLight(id) {
+      if (!HIDDEN_LIGHT_IDS.has(id) || state.hiddenLights.includes(id)) return false
+      state.hiddenLights.push(id)
       write()
       return true
     },

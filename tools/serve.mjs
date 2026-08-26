@@ -8,7 +8,7 @@ const root = resolve(process.argv[2] ?? 'template')
 const port = Number(process.argv[3] ?? 4310)
 const TYPES = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
-  '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png',
+  '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp',
   '.webmanifest': 'application/manifest+json',
 }
 

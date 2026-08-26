@@ -9,20 +9,29 @@ const updateSource = await readFile(resolve(releaseRoot, 'update.js'), 'utf8')
 const versionSource = await readFile(resolve(releaseRoot, 'version.js'), 'utf8')
 const legacyWorkerSource = await readFile(new URL('../fixtures/v1.5/sw.js', import.meta.url), 'utf8')
 const legacyUpdateSource = await readFile(new URL('../fixtures/v1.5/update.js', import.meta.url), 'utf8')
-const previousWorkerSource = await readFile(new URL('../fixtures/v1.7/sw.js', import.meta.url), 'utf8')
-const previousUpdateSource = await readFile(new URL('../fixtures/v1.7/update.js', import.meta.url), 'utf8')
-const previousVersion = '1.7.0'
+const previousWorkerSource = await readFile(new URL('../fixtures/v1.8/sw.js', import.meta.url), 'utf8')
+const previousUpdateSource = await readFile(new URL('../fixtures/v1.8/update.js', import.meta.url), 'utf8')
+const previousVersion = '1.8.0'
 const currentVersion = versionSource.match(/VERSION\s*=\s*['"]([^'"]+)/)?.[1]
-const nextVersion = '1.9.0'
+const nextVersion = '2.0.0'
 const REQUIRED_SHELL = [
   './', './index.html', './app.css', './app.js', './audio.js', './daily.js',
   './game.js', './levels.js', './release.js', './save.js', './engine/physics.js',
   './engine/simulation.js', './version.js', './seed.js', './install.js', './update.js', './manifest.json',
   './icon-180.png', './icon-192.png', './icon-512.png', './icon-maskable-512.png',
-  './assets/backgrounds/garden-walk.png', './assets/backgrounds/region-atlas.png',
-  './assets/backgrounds/final-atlas.png', './assets/sprites/courier-sheet.png',
-  './assets/sprites/world-sheet.png', './assets/sprites/region-sheet.png',
-  './assets/sprites/final-sheet.png',
+  './assets/backgrounds/garden-walk.webp', './assets/backgrounds/region-atlas.webp',
+  './assets/backgrounds/final-atlas.webp', './assets/sprites/courier-sheet.webp',
+  './assets/sprites/world-sheet.webp', './assets/sprites/region-sheet.webp',
+  './assets/sprites/final-sheet.webp',
+]
+const ART_ASSETS = [
+  { file: './assets/backgrounds/garden-walk.webp', width: 1774, height: 887, alpha: false },
+  { file: './assets/backgrounds/region-atlas.webp', width: 1536, height: 1024, alpha: false },
+  { file: './assets/backgrounds/final-atlas.webp', width: 1536, height: 1024, alpha: false },
+  { file: './assets/sprites/courier-sheet.webp', width: 768, height: 512, alpha: true },
+  { file: './assets/sprites/world-sheet.webp', width: 768, height: 512, alpha: true },
+  { file: './assets/sprites/region-sheet.webp', width: 768, height: 512, alpha: true },
+  { file: './assets/sprites/final-sheet.webp', width: 768, height: 512, alpha: true },
 ]
 
 async function startVersionServer(initial = '1.5.0') {
@@ -57,7 +66,7 @@ async function startVersionServer(initial = '1.5.0') {
           ? previousWorkerSource
         : release === currentVersion
           ? workerSource
-          : workerSource.replace("'jumpit-v1.8.0'", `'jumpit-v${release}'`)
+          : workerSource.replace("'jumpit-v1.9.0'", `'jumpit-v${release}'`)
       response.writeHead(200, { ...headers, 'content-type': 'text/javascript' }).end(worker)
       return
     }
@@ -85,8 +94,8 @@ async function startVersionServer(initial = '1.5.0') {
       response.writeHead(404, headers).end('required shell entry missing')
       return
     }
-    if (path.endsWith('.png')) {
-      response.writeHead(200, { ...headers, 'content-type': 'image/png' }).end(release)
+    if (path.endsWith('.png') || path.endsWith('.webp')) {
+      response.writeHead(200, { ...headers, 'content-type': path.endsWith('.webp') ? 'image/webp' : 'image/png' }).end(release)
       return
     }
     if (path.endsWith('.css')) {
@@ -126,8 +135,8 @@ test('the installed shell is controlled with a complete precache; Chromium also 
       caches: (await globalThis.caches.keys()).filter(name => name.startsWith('jumpit-')),
       missing,
     }
-  }, { cacheName: 'jumpit-v1.8.0', required: REQUIRED_SHELL })
-  expect(proof).toEqual({ controlled: true, caches: ['jumpit-v1.8.0'], missing: [] })
+  }, { cacheName: 'jumpit-v1.9.0', required: REQUIRED_SHELL })
+  expect(proof).toEqual({ controlled: true, caches: ['jumpit-v1.9.0'], missing: [] })
 
   // Playwright WebKit cannot reliably force network loss. The worker-event oracle
   // proves its fallback branches; an actual iPhone offline receipt remains a v2 gate.
@@ -148,6 +157,49 @@ test('the installed shell is controlled with a complete precache; Chromium also 
   }, REQUIRED_SHELL)
   expect(offline).toEqual([])
   await context.setOffline(false)
+})
+
+test('every shipped WebP has the right MIME, decodes, and preserves sprite alpha', async ({ page }) => {
+  await page.goto('/')
+  const proof = await page.evaluate(async assets => {
+    const results = []
+    for (const asset of assets) {
+      const response = await fetch(asset.file, { cache: 'no-store' })
+      const image = new Image()
+      image.src = asset.file
+      await image.decode()
+      let transparent = false
+      if (asset.alpha) {
+        const canvas = document.createElement('canvas')
+        canvas.width = image.naturalWidth
+        canvas.height = image.naturalHeight
+        const context = canvas.getContext('2d', { willReadFrequently: true })
+        context.drawImage(image, 0, 0)
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data
+        for (let index = 3; index < pixels.length; index += 4) {
+          if (pixels[index] < 255) { transparent = true; break }
+        }
+      }
+      results.push({
+        file: asset.file,
+        ok: response.ok,
+        contentType: response.headers.get('content-type')?.split(';')[0],
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+        transparent,
+      })
+    }
+    return results
+  }, ART_ASSETS)
+
+  expect(proof).toEqual(ART_ASSETS.map(asset => ({
+    file: asset.file,
+    ok: true,
+    contentType: 'image/webp',
+    width: asset.width,
+    height: asset.height,
+    transparent: asset.alpha,
+  })))
 })
 
 test('the exact shipped v1.5 client migrates once into a coherent current shell', async ({ page, context, browserName }) => {
@@ -178,7 +230,7 @@ test('the exact shipped v1.5 client migrates once into a coherent current shell'
         app: await app.text(),
       }
     })
-    expect(proof.cacheNames).toEqual(['jumpit-v1.8.0'])
+    expect(proof.cacheNames).toEqual(['jumpit-v1.9.0'])
     expect(proof.index).toContain(`content="${currentVersion}"`)
     expect(proof.version).toContain(`VERSION = '${currentVersion}'`)
     expect(proof.app).toContain(`BUILD = '${currentVersion}'`)
@@ -195,7 +247,7 @@ test('the exact shipped v1.5 client migrates once into a coherent current shell'
   }
 })
 
-test('the exact shipped v1.7 client upgrades once into a coherent current shell', async ({ page, context, browserName }) => {
+test('the exact shipped v1.8 client upgrades once into a coherent current shell', async ({ page, context, browserName }) => {
   const server = await startVersionServer(previousVersion)
   try {
     await page.goto(server.origin, { waitUntil: 'domcontentloaded' })
@@ -222,7 +274,7 @@ test('the exact shipped v1.7 client upgrades once into a coherent current shell'
         app: await app.text(),
       }
     })
-    expect(proof.cacheNames).toEqual(['jumpit-v1.8.0'])
+    expect(proof.cacheNames).toEqual(['jumpit-v1.9.0'])
     expect(proof.index).toContain(`content="${currentVersion}"`)
     expect(proof.version).toContain(`VERSION = '${currentVersion}'`)
     expect(proof.app).toContain(`BUILD = '${currentVersion}'`)
@@ -254,11 +306,11 @@ test('failed next precache cannot mutate the active shell; Chromium reloads that
       const index = await cache.match('./index.html')
       const app = await cache.match('./app.js')
       return { root: await root.text(), index: await index.text(), app: await app.text() }
-    }, 'jumpit-v1.8.0')
+    }, 'jumpit-v1.9.0')
     const navigationCount = server.navigations.length
 
     server.use(nextVersion)
-    server.fail('/assets/sprites/final-sheet.png')
+    server.fail('/assets/sprites/final-sheet.webp')
     await page.reload({ waitUntil: 'domcontentloaded' })
     await expect(page.locator('meta[name="build"]')).toHaveAttribute('content', nextVersion)
     await expect(page.locator('html')).toHaveAttribute('data-release', currentVersion)
@@ -278,7 +330,7 @@ test('failed next precache cannot mutate the active shell; Chromium reloads that
       const index = await cache.match('./index.html')
       const app = await cache.match('./app.js')
       return { root: await root.text(), index: await index.text(), app: await app.text() }
-    }, 'jumpit-v1.8.0')
+    }, 'jumpit-v1.9.0')
     expect(after).toEqual(before)
     expect(server.navigations.filter(release => release === nextVersion)).toHaveLength(1)
     expect(server.navigations.length).toBe(navigationCount + 1)
@@ -312,8 +364,38 @@ test('the update probe is network-fresh and reveals the reload banner', async ({
   await expect(page.locator('#update')).toBeVisible()
 })
 
+test('first play assigns only the three Garden canvas WebPs', async ({ page }) => {
+  await page.addInitScript(() => {
+    const NativeImage = window.Image
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src')
+    window.__jumpitImageSources = []
+    window.Image = function Image(...args) {
+      const image = new NativeImage(...args)
+      Object.defineProperty(image, 'src', {
+        configurable: true,
+        get() { return descriptor.get.call(this) },
+        set(value) {
+          if (value) window.__jumpitImageSources.push(value)
+          descriptor.set.call(this, value)
+        },
+      })
+      return image
+    }
+    window.Image.prototype = NativeImage.prototype
+  })
+  await page.goto('/')
+  expect(await page.evaluate(() => window.__jumpitImageSources)).toEqual([])
+  await page.getByRole('button', { name: 'PLAY THE TRAIL' }).click()
+  await expect.poll(() => page.evaluate(() => window.__jumpitImageSources)).toHaveLength(3)
+  expect((await page.evaluate(() => window.__jumpitImageSources)).sort()).toEqual([
+    'assets/backgrounds/garden-walk.webp',
+    'assets/sprites/courier-sheet.webp',
+    'assets/sprites/world-sheet.webp',
+  ])
+})
+
 test('delayed art cannot block the playable shell', async ({ page }) => {
-  await page.route('**/assets/**/*.png', async route => {
+  await page.route('**/assets/**/*.webp', async route => {
     await new Promise(resolveDelay => setTimeout(resolveDelay, 450))
     await route.continue()
   })

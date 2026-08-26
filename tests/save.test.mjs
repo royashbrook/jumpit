@@ -12,10 +12,12 @@ import {
 
 function memoryStorage(initial = null) {
   let value = initial
+  let writes = 0
   return {
     getItem: key => key === SAVE_KEY ? value : null,
-    setItem: (key, next) => { if (key === SAVE_KEY) value = next },
+    setItem: (key, next) => { if (key === SAVE_KEY) { value = next; writes += 1 } },
     read: () => value,
+    writes: () => writes,
   }
 }
 
@@ -95,6 +97,24 @@ test('the exact v1.7 four-seed opening score migrates to the shorter First Light
   const migrated = loadSave(storage)
   assert.equal(migrated.bestSeeds['garden-1'], 3)
   assert.ok(migrated.bestSeeds['garden-1'] <= LEVELS[0].objects.filter(([, kind]) => kind === 'seed').length)
+})
+
+test('hidden lights persist immediately, reject false stamps, and reset with progress', () => {
+  const ids = LEVELS.flatMap(level => level.objects.filter(([, kind]) => kind === 'hidden-light').map(([id]) => id))
+  assert.equal(ids.length, 5)
+  const storage = memoryStorage(JSON.stringify({ version: 2, hiddenLights: [ids[0], ids[0], 'made-up-light', 7] }))
+  const store = createSaveStore({ storage })
+  assert.deepEqual(store.get().hiddenLights, [ids[0]])
+  assert.equal(store.findHiddenLight('made-up-light'), false)
+  assert.equal(store.findHiddenLight(ids[0]), false)
+  assert.equal(storage.writes(), 0)
+  assert.equal(store.findHiddenLight(ids[1]), true)
+  assert.equal(storage.writes(), 1)
+  assert.deepEqual(loadSave(storage).hiddenLights, ids.slice(0, 2))
+
+  store.requestReset()
+  assert.equal(store.reset(), true)
+  assert.deepEqual(store.get().hiddenLights, [])
 })
 
 test('all four released looks persist and unknown looks are rejected', () => {

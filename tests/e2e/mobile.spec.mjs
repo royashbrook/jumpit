@@ -29,6 +29,89 @@ test('portrait shell stays inside the phone and keeps navigation visible', async
   await expect(page.getByRole('navigation', { name: 'game menu' })).toBeVisible()
 })
 
+test('all four looks keep every text token pair at WCAG AA contrast', async ({ page }) => {
+  await page.goto('/')
+  const ratios = await page.evaluate(() => {
+    const themes = ['garden', 'dusk', 'rain', 'lantern']
+    const pairs = [
+      ['ink', 'surface'], ['ink', 'surface-raised'],
+      ['ink-dim', 'surface'], ['ink-dim', 'surface-raised'],
+      ['ink-on-accent', 'accent'], ['ink-on-accent', 'warn'],
+      ['accent-dim', 'surface'], ['accent-dim', 'surface-raised'],
+    ]
+    const luminance = value => {
+      const hex = value.trim().replace('#', '')
+      const channels = [0, 2, 4].map(index => Number.parseInt(hex.slice(index, index + 2), 16) / 255)
+        .map(channel => channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4)
+      return .2126 * channels[0] + .7152 * channels[1] + .0722 * channels[2]
+    }
+    const contrast = (first, second) => {
+      const a = luminance(first)
+      const b = luminance(second)
+      return (Math.max(a, b) + .05) / (Math.min(a, b) + .05)
+    }
+    const results = []
+    for (const theme of themes) {
+      document.documentElement.dataset.theme = theme
+      const style = getComputedStyle(document.documentElement)
+      for (const [foreground, background] of pairs) {
+        results.push({
+          theme,
+          pair: `${foreground}/${background}`,
+          ratio: contrast(style.getPropertyValue(`--${foreground}`), style.getPropertyValue(`--${background}`)),
+        })
+      }
+    }
+    return results
+  })
+
+  for (const result of ratios) expect(result.ratio, `${result.theme} ${result.pair}`).toBeGreaterThanOrEqual(4.5)
+})
+
+test('discovered Hidden Lights fit Home at two-times text without becoming a menu', async ({ page }) => {
+  const lights = [
+    'g03-hidden-light', 'r03-hidden-light', 'w02-hidden-light',
+    'm03-hidden-light', 'k01-hidden-light',
+  ]
+  await page.goto('/')
+  await page.evaluate(light => localStorage.setItem('jumpit-save-v1', JSON.stringify({
+    version: 3,
+    completed: [],
+    unlocked: ['garden-1'],
+    bestSeeds: {},
+    selectedLevel: 'garden-1',
+    theme: 'garden',
+    muted: true,
+    dailyWins: [],
+    hiddenLights: [light],
+  })), lights[0])
+  await page.addInitScript(() => { document.documentElement.style.fontSize = '200%' })
+  await page.reload()
+
+  await expect(page.locator('#hidden-lights')).toBeVisible()
+  await expect(page.locator('#hidden-light-label')).toHaveText('1 OF 5 GLOW')
+  await expect(page.locator('#hidden-lights button, #hidden-lights a')).toHaveCount(0)
+  const fit = await page.evaluate(() => {
+    const strip = document.querySelector('#hidden-lights').getBoundingClientRect()
+    const stamps = [...document.querySelectorAll('.hidden-light-stamp')].map(stamp => stamp.getBoundingClientRect().toJSON())
+    return { width: innerWidth, scrollWidth: document.documentElement.scrollWidth, strip: strip.toJSON(), stamps }
+  })
+  expect(fit.scrollWidth).toBeLessThanOrEqual(fit.width)
+  for (const stamp of fit.stamps) {
+    expect(stamp.left).toBeGreaterThanOrEqual(fit.strip.left)
+    expect(stamp.right).toBeLessThanOrEqual(fit.strip.right)
+  }
+
+  await page.evaluate(all => {
+    const state = JSON.parse(localStorage.getItem('jumpit-save-v1'))
+    state.hiddenLights = all
+    localStorage.setItem('jumpit-save-v1', JSON.stringify(state))
+  }, lights)
+  await page.reload()
+  await expect(page.locator('#hidden-light-label')).toHaveText('ALL FIVE GLOW')
+  await expect(page.locator('.hidden-light-stamp.found')).toHaveCount(5)
+})
+
 test('Trails expands reached places while future places stay compact and readable', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('jumpit-save-v1', JSON.stringify({
     version: 2,

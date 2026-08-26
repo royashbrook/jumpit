@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { recordReplay, replayLevel } from '../engine/solvability.js'
+import { recordHiddenLightReplay, recordReplay, replayLevel } from '../engine/solvability.js'
 import { createSimulation, stepSimulation } from '../engine/simulation.js'
 import { LEVELS } from '../levels.js'
 
@@ -36,10 +36,31 @@ test('all twenty trails finish by replaying inputs through the runtime transitio
     assert.equal(replayed.hash, recorded.hash, `${entry.id} replay drifted`)
     assert.equal(replayed.frames, recorded.inputs.length, `${entry.id} did not consume its exact replay`)
     assert.equal(replayed.events.finish, 1, `${entry.id} did not ring its real finish bell once`)
+    assert.equal(replayed.events['hidden-light'] || 0, 0, `${entry.id} forced its optional hidden light`)
+    assert.ok(replayed.simulation.world.hiddenLights.every(item => !item.found), `${entry.id} auto-collected a hidden light`)
   }
 
   assert.deepEqual(receipts.filter(receipt => !receipt.finishable), [], JSON.stringify(receipts, null, 2))
   assert.equal(new Set(receipts.map(receipt => receipt.hash)).size, LEVELS.length)
+})
+
+test('five deterministic discovery replays find one hidden light and still ring the bell', () => {
+  const hiddenLightLevels = LEVELS.filter(entry => entry.objects.some(([, kind]) => kind === 'hidden-light'))
+  assert.equal(hiddenLightLevels.length, 5)
+
+  for (const entry of hiddenLightLevels) {
+    const recorded = recordHiddenLightReplay(entry)
+    const replayed = replayLevel(entry, recorded.inputs)
+    assert.equal(recorded.finishable, true, `${entry.id} discovery run did not finish`)
+    assert.equal(recorded.events['hidden-light'], 1, `${entry.id} did not find exactly one hidden light`)
+    assert.equal(recorded.events.finish, 1, `${entry.id} discovery run did not ring the bell`)
+    assert.equal(recorded.simulation.world.hiddenLights.length, 1, `${entry.id} has the wrong hidden-light count`)
+    assert.equal(recorded.simulation.world.hiddenLights[0].found, true, `${entry.id} did not retain discovery state`)
+    assert.equal(replayed.events['hidden-light'], 1, `${entry.id} replay lost its discovery`)
+    assert.equal(replayed.events.finish, 1, `${entry.id} replay lost its finish`)
+    assert.equal(replayed.frames, recorded.inputs.length, `${entry.id} replay did not consume the exact recording`)
+    assert.equal(replayed.hash, recorded.hash, `${entry.id} discovery replay hash drifted`)
+  }
 })
 
 test('the twenty replays exercise every progressive runtime mechanic', () => {
