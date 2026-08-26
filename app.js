@@ -8,7 +8,13 @@ const $ = id => document.getElementById(id)
 const menu = $('menu')
 const gameScreen = $('game')
 const howto = $('howto')
-const game = createGame($('stage'))
+const game = createGame($('stage'), state => {
+  $('level-name').textContent = state.levelName.toUpperCase()
+  $('seed-count').textContent = `◆ ${state.seeds}/${state.maxSeeds}`
+  $('pause').textContent = state.paused ? '▶' : 'Ⅱ'
+  $('pause').setAttribute('aria-label', state.paused ? 'resume game' : 'pause game')
+  $('game-status').textContent = state.message
+})
 window.addEventListener('resize', () => game.resize())
 
 function show(screen) {
@@ -17,7 +23,7 @@ function show(screen) {
 
 function play() {
   show(gameScreen)
-  game.start(currentSeed())
+  game.start('garden-1', currentSeed())
 }
 
 $('version').textContent = `v${VERSION}`
@@ -26,6 +32,25 @@ $('back').addEventListener('click', () => {
   game.stop()
   show(menu)
 })
+$('pause').addEventListener('click', () => game.togglePause())
+
+for (const [id, action] of [['move-left', 'left'], ['move-right', 'right'], ['jump', 'jump']]) {
+  const button = $(id)
+  const release = event => {
+    event.preventDefault()
+    button.removeAttribute('data-held')
+    game.setInput(action, false)
+  }
+  button.addEventListener('pointerdown', event => {
+    event.preventDefault()
+    button.setPointerCapture?.(event.pointerId)
+    button.setAttribute('data-held', '')
+    game.setInput(action, true)
+  })
+  button.addEventListener('pointerup', release)
+  button.addEventListener('pointercancel', release)
+  button.addEventListener('lostpointercapture', release)
+}
 $('howto-open').addEventListener('click', () => howto.showModal())
 $('howto-close').addEventListener('click', () => howto.close())
 $('about-open').addEventListener('click', () => $('about').showModal())

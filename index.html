@@ -36,16 +36,18 @@
   <main id="game" class="screen game-screen" hidden>
     <header class="bar">
       <button id="back" class="chip">MENU</button>
-      <span class="chip flat">GARDEN WALK</span>
-      <span class="chip flat">0 SEEDS</span>
+      <span id="level-name" class="chip flat level-name">GARDEN WALK</span>
+      <span id="seed-count" class="chip flat seed-count">◆ 0/4</span>
+      <button id="pause" class="chip pause" aria-label="pause game">Ⅱ</button>
     </header>
     <div class="stage-shell">
       <canvas id="stage" aria-label="Jumpit game world"></canvas>
+      <p id="game-status" class="game-status" role="status" aria-live="polite"></p>
     </div>
     <div class="controls" aria-label="touch controls">
-      <button class="control" disabled aria-label="move left">LEFT</button>
-      <button class="control" disabled aria-label="move right">RIGHT</button>
-      <button class="control jump" disabled aria-label="jump">JUMP</button>
+      <button id="move-left" class="control direction" aria-label="move left"><span aria-hidden="true">◀</span></button>
+      <button id="move-right" class="control direction" aria-label="move right"><span aria-hidden="true">▶</span></button>
+      <button id="jump" class="control jump" aria-label="jump">JUMP</button>
     </div>
   </main>
 
@@ -56,7 +58,7 @@
       <li>Jump over gaps and onto safe paths.</li>
       <li>Gather lantern seeds and reach the bell.</li>
     </ol>
-    <p class="small">The playable trail arrives in the next build. This first release proves the app shell and offline path.</p>
+    <p class="small">Hold a direction to run. Tap or hold JUMP for a short or high leap. Reach the golden bell.</p>
     <button id="howto-close" class="big">GOT IT</button>
   </dialog>
 

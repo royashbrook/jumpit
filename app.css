@@ -196,7 +196,25 @@ h1 {
 }
 
 .chip.flat:last-child {
-  margin-left: auto;
+  margin-left: 0;
+}
+
+.level-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.seed-count {
+  color: var(--ink) !important;
+  white-space: nowrap;
+}
+
+.chip.pause {
+  min-width: 2.75rem;
+  padding-inline: .45rem;
+  font-size: 1rem;
 }
 
 .game-screen {
@@ -204,6 +222,7 @@ h1 {
 }
 
 .stage-shell {
+  position: relative;
   flex: 1;
   width: 100%;
   min-height: 0;
@@ -212,6 +231,31 @@ h1 {
   border-radius: var(--radius);
   background: var(--surface-sunk);
   box-shadow: var(--shadow);
+}
+
+.game-status {
+  position: absolute;
+  top: .6rem;
+  left: 50%;
+  z-index: 1;
+  max-width: calc(100% - 1.2rem);
+  margin: 0;
+  padding: .35rem .7rem;
+  translate: -50% 0;
+  border: .12rem solid rgb(from var(--line) r g b / .55);
+  border-radius: 999px;
+  background: rgb(from var(--surface-raised) r g b / .9);
+  color: var(--ink);
+  font-size: .7rem;
+  font-weight: 900;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .16s ease;
+  white-space: nowrap;
+}
+
+.game-status:not(:empty) {
+  animation: status-pop 1.35s ease both;
 }
 
 #stage {
@@ -238,11 +282,22 @@ h1 {
   color: var(--ink);
   font: inherit;
   font-weight: 900;
+  touch-action: none;
+}
+
+.control.direction {
+  font-size: 1.65rem;
 }
 
 .control.jump {
   background: var(--accent);
   color: var(--ink-on-accent);
+}
+
+.control[data-held] {
+  transform: translateY(.2rem) scale(.98);
+  box-shadow: var(--shadow-pressed);
+  filter: brightness(.92);
 }
 
 .control:disabled {
@@ -384,4 +439,9 @@ dialog ol {
     animation-duration: .01ms !important;
     animation-iteration-count: 1 !important;
   }
+}
+
+@keyframes status-pop {
+  0%, 100% { opacity: 0; translate: -50% -.25rem; }
+  12%, 78% { opacity: 1; translate: -50% 0; }
 }

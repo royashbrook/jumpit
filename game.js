@@ -1,41 +1,388 @@
-export function createGame(canvas) {
-  const context = canvas.getContext('2d')
-  let running = false
+import { createBody, stepPhysics } from './engine/physics.js'
+import { LEVELS, REGIONS, TILE } from './levels.js'
 
-  function resize() {
-    const bounds = canvas.getBoundingClientRect()
-    const ratio = Math.min(devicePixelRatio || 1, 2)
-    canvas.width = Math.max(1, Math.round(bounds.width * ratio))
-    canvas.height = Math.max(1, Math.round(bounds.height * ratio))
-    context.setTransform(ratio, 0, 0, ratio, 0, 0)
-    paint(bounds.width, bounds.height)
+const WORLD_HEIGHT = 18 * TILE
+const FIXED_STEP = 1000 / 60
+const PLAYER_FRAMES = { idle: 0, run: 1, jump: 4, fall: 5 }
+const clamp = (value, low, high) => Math.max(low, Math.min(high, value))
+
+function loadImage(source) {
+  const image = new Image()
+  image.src = source
+  image.decode?.().catch(() => {})
+  return image
+}
+
+function overlaps(body, x, y, width, height) {
+  return body.x < x + width && body.x + body.w > x && body.y < y + height && body.y + body.h > y
+}
+
+function makeWorld(level) {
+  return {
+    level,
+    width: level.size[0] * TILE,
+    terrain: level.terrain.map(([, kind, x, y, width, height]) => ({
+      kind,
+      type: height === 1 ? 'oneway' : 'solid',
+      x: x * TILE,
+      y: y * TILE,
+      w: width * TILE,
+      h: height * TILE,
+    })),
+    seeds: level.objects
+      .filter(([, kind]) => kind === 'seed')
+      .map(([id,, x, y]) => ({ id, x: (x + 0.5) * TILE, y: (y + 0.45) * TILE, found: false })),
+    checkpoint: level.objects.find(([, kind]) => kind === 'checkpoint'),
+    finish: { id: level.finish[0], x: level.finish[1] * TILE, y: level.finish[2] * TILE },
+  }
+}
+
+export function createGame(canvas, onState = () => {}) {
+  const context = canvas.getContext('2d')
+  const background = loadImage('assets/backgrounds/garden-walk.png')
+  const courier = loadImage('assets/sprites/courier-sheet.png')
+  const input = { left: false, right: false, jumpHeld: false, jumpPressed: false }
+  const particles = []
+  let world = makeWorld(LEVELS[0])
+  let player = createPlayer(world.level)
+  let camera = 0
+  let running = false
+  let paused = false
+  let finished = false
+  let moved = false
+  let frame = 0
+  let lastTime = 0
+  let accumulator = 0
+  let raf = 0
+
+  function createPlayer(level) {
+    const [spawnX, spawnY] = level.spawn
+    const body = createBody({ x: spawnX * TILE + 2, y: (spawnY + 1) * TILE - 42 })
+    body.spawnX = body.x
+    body.spawnY = body.y
+    return body
   }
 
-  function paint(width, height) {
-    context.clearRect(0, 0, width, height)
+  function report(message = '') {
+    const region = REGIONS.find(item => item.id === world.level.region)
+    const seeds = world.seeds.filter(seed => seed.found).length
+    onState({
+      levelName: world.level.name,
+      regionName: region?.name || world.level.region,
+      seeds,
+      maxSeeds: world.seeds.length,
+      paused,
+      finished,
+      message,
+    })
+  }
+
+  function burst(x, y, color = '#FFD563') {
+    for (let index = 0; index < 10; index += 1) {
+      const angle = (Math.PI * 2 * index) / 10
+      particles.push({ x, y, vx: Math.cos(angle) * (1.5 + index % 3), vy: Math.sin(angle) * 2.2 - 1, life: 34, color })
+    }
+  }
+
+  function resetPlayer() {
+    player.x = player.spawnX
+    player.y = player.spawnY
+    player.vx = 0
+    player.vy = 0
+    camera = clamp(player.x - 72, 0, Math.max(0, world.width - 320))
+  }
+
+  function update() {
+    if (paused || finished) return
+    stepPhysics(player, input, world.terrain)
+    input.jumpPressed = false
+    if (Math.abs(player.vx) > 0.25 || !player.onGround) moved = true
+
+    for (const seed of world.seeds) {
+      if (!seed.found && overlaps(player, seed.x - 12, seed.y - 15, 24, 30)) {
+        seed.found = true
+        burst(seed.x, seed.y)
+        report('LANTERN SEED!')
+      }
+    }
+
+    const bell = world.finish
+    if (overlaps(player, bell.x - 6, bell.y - 48, 44, 72)) {
+      finished = true
+      burst(bell.x + 16, bell.y - 28, '#FFF4B0')
+      report('TRAIL CLEARED!')
+    }
+
+    if (player.y > WORLD_HEIGHT + 96) resetPlayer()
+
+    for (const particle of particles) {
+      particle.x += particle.vx
+      particle.y += particle.vy
+      particle.vy += 0.12
+      particle.life -= 1
+    }
+    while (particles[0]?.life <= 0) particles.shift()
+  }
+
+  function drawBackground(width, height) {
+    if (background.complete && background.naturalWidth) {
+      const sourceHeight = background.naturalHeight
+      const sourceWidth = Math.min(background.naturalWidth, sourceHeight * width / height)
+      const progress = camera / Math.max(1, world.width - width)
+      const sourceX = (background.naturalWidth - sourceWidth) * clamp(progress, 0, 1)
+      context.drawImage(background, sourceX, 0, sourceWidth, sourceHeight, 0, 0, width, height)
+      context.fillStyle = 'rgb(255 250 224 / .08)'
+      context.fillRect(0, 0, width, height)
+      return
+    }
     const sky = context.createLinearGradient(0, 0, 0, height)
-    sky.addColorStop(0, '#7BD7E7')
-    sky.addColorStop(1, '#E6F4C7')
+    sky.addColorStop(0, '#76CFCB')
+    sky.addColorStop(1, '#F7DFA7')
     context.fillStyle = sky
     context.fillRect(0, 0, width, height)
-    context.fillStyle = '#3B7A57'
-    context.fillRect(0, height * 0.76, width, height * 0.24)
-    context.fillStyle = '#214C45'
-    context.font = '700 18px ui-rounded, system-ui, sans-serif'
-    context.textAlign = 'center'
-    context.fillText('the trail is waking up', width / 2, height / 2)
   }
 
+  function terrainPalette(kind) {
+    if (kind === 'leaf') return ['#386B45', '#8ECF68', '#234A37']
+    return ['#72513A', '#8BC65A', '#3F372C']
+  }
+
+  function drawTerrain(rect) {
+    const [soil, moss, line] = terrainPalette(rect.kind)
+    context.fillStyle = soil
+    context.fillRect(rect.x, rect.y, rect.w, rect.h)
+    context.fillStyle = moss
+    context.fillRect(rect.x, rect.y, rect.w, Math.min(9, rect.h))
+    context.fillStyle = line
+    context.fillRect(rect.x, rect.y + Math.min(9, rect.h), rect.w, 3)
+    context.fillStyle = 'rgb(255 255 255 / .16)'
+    for (let x = rect.x + 12; x < rect.x + rect.w; x += 28) context.fillRect(x, rect.y + 2, 9, 2)
+    if (rect.h > 16) {
+      for (let y = rect.y + 22; y < rect.y + rect.h; y += 22) {
+        const offset = (Math.floor(y / 22) % 2) * 13
+        for (let x = rect.x + 9 + offset; x < rect.x + rect.w - 5; x += 29) {
+          context.fillStyle = (x + y) % 3 ? '#5C4437' : '#89644A'
+          context.fillRect(x, y, 9, 5)
+          context.fillStyle = 'rgb(255 255 255 / .08)'
+          context.fillRect(x + 1, y, 6, 1)
+        }
+      }
+    }
+  }
+
+  function drawSeed(seed) {
+    if (seed.found) return
+    const bob = Math.sin(frame * 0.08 + seed.x) * 3
+    context.save()
+    context.translate(seed.x, seed.y + bob)
+    context.shadowColor = '#FFE377'
+    context.shadowBlur = 12
+    context.fillStyle = '#FFF3A2'
+    context.beginPath()
+    context.moveTo(0, -13)
+    context.quadraticCurveTo(12, -4, 0, 15)
+    context.quadraticCurveTo(-12, -4, 0, -13)
+    context.fill()
+    context.shadowBlur = 0
+    context.fillStyle = '#9B6B28'
+    context.fillRect(-2, -18, 4, 6)
+    context.restore()
+  }
+
+  function drawCheckpoint() {
+    const data = world.checkpoint
+    if (!data) return
+    const [, , x, y] = data
+    const px = (x + 0.5) * TILE
+    const py = (y + 1) * TILE
+    context.fillStyle = '#5A4534'
+    context.fillRect(px - 2, py - 48, 4, 48)
+    context.fillStyle = '#FFE8A2'
+    context.fillRect(px - 10, py - 45, 20, 20)
+    context.strokeStyle = '#5A4534'
+    context.lineWidth = 3
+    context.strokeRect(px - 10, py - 45, 20, 20)
+  }
+
+  function drawBell() {
+    const { x, y } = world.finish
+    const floor = (y + 1) * TILE
+    context.strokeStyle = '#49382D'
+    context.lineWidth = 5
+    context.beginPath()
+    context.moveTo(x + 4, floor)
+    context.lineTo(x + 4, floor - 70)
+    context.lineTo(x + 34, floor - 70)
+    context.stroke()
+    context.fillStyle = '#F7C94C'
+    context.beginPath()
+    context.arc(x + 34, floor - 53, 15, Math.PI, 0)
+    context.lineTo(x + 49, floor - 38)
+    context.lineTo(x + 19, floor - 38)
+    context.closePath()
+    context.fill()
+    context.fillStyle = '#49382D'
+    context.beginPath()
+    context.arc(x + 34, floor - 35, 5, 0, Math.PI * 2)
+    context.fill()
+  }
+
+  function drawPlayer() {
+    const pose = PLAYER_FRAMES[player.pose] ?? 0
+    const animationFrame = player.pose === 'run' ? (Math.floor(frame / 7) % 3) + 1 : pose
+    const sourceWidth = courier.naturalWidth / 4
+    const sourceHeight = courier.naturalHeight / 2
+    const sourceX = (animationFrame % 4) * sourceWidth
+    const sourceY = Math.floor(animationFrame / 4) * sourceHeight
+    const width = 62
+    const height = 82
+    const x = player.x + player.w / 2
+    const y = player.y + player.h
+
+    context.save()
+    context.translate(x, y)
+    context.scale(player.facing, 1)
+    if (courier.complete && courier.naturalWidth) {
+      context.drawImage(courier, sourceX, sourceY, sourceWidth, sourceHeight, -width / 2, -height, width, height)
+    } else {
+      context.fillStyle = '#365A40'
+      context.fillRect(-12, -38, 24, 38)
+      context.fillStyle = '#E6B98A'
+      context.beginPath()
+      context.arc(0, -43, 10, 0, Math.PI * 2)
+      context.fill()
+    }
+    context.restore()
+  }
+
+  function drawParticles() {
+    for (const particle of particles) {
+      context.globalAlpha = clamp(particle.life / 24, 0, 1)
+      context.fillStyle = particle.color
+      context.fillRect(particle.x - 3, particle.y - 3, 6, 6)
+    }
+    context.globalAlpha = 1
+  }
+
+  function drawHint(width, height) {
+    if (moved || finished) return
+    const bubbleWidth = Math.min(250, width - 32)
+    context.setTransform(1, 0, 0, 1, 0, 0)
+    const ratio = Math.min(devicePixelRatio || 1, 2)
+    context.scale(ratio, ratio)
+    context.fillStyle = 'rgb(255 253 242 / .94)'
+    context.strokeStyle = '#173D3A'
+    context.lineWidth = 3
+    context.beginPath()
+    context.roundRect((width - bubbleWidth) / 2, height - 96, bubbleWidth, 48, 16)
+    context.fill()
+    context.stroke()
+    context.fillStyle = '#173D3A'
+    context.font = '900 16px ui-rounded, system-ui, sans-serif'
+    context.textAlign = 'center'
+    context.fillText('RUN RIGHT · TAP JUMP', width / 2, height - 65)
+  }
+
+  function paint() {
+    const bounds = canvas.getBoundingClientRect()
+    const ratio = Math.min(devicePixelRatio || 1, 2)
+    const width = bounds.width
+    const height = bounds.height
+    if (!width || !height) return
+    if (canvas.width !== Math.round(width * ratio) || canvas.height !== Math.round(height * ratio)) {
+      canvas.width = Math.round(width * ratio)
+      canvas.height = Math.round(height * ratio)
+    }
+    context.setTransform(ratio, 0, 0, ratio, 0, 0)
+    context.clearRect(0, 0, width, height)
+    drawBackground(width, height)
+
+    const scale = height / WORLD_HEIGHT
+    const viewWidth = width / scale
+    const maxCamera = Math.max(0, world.width - viewWidth)
+    const target = clamp(player.x - viewWidth * 0.34, 0, maxCamera)
+    camera += (target - camera) * 0.12
+
+    context.save()
+    context.scale(scale, scale)
+    context.translate(-camera, 0)
+    for (const rect of world.terrain) drawTerrain(rect)
+    for (const seed of world.seeds) drawSeed(seed)
+    drawCheckpoint()
+    drawBell()
+    drawParticles()
+    drawPlayer()
+    context.restore()
+    drawHint(width, height)
+  }
+
+  function loop(time) {
+    if (!running) return
+    if (!lastTime) lastTime = time
+    accumulator += Math.min(100, time - lastTime)
+    lastTime = time
+    while (accumulator >= FIXED_STEP) {
+      update()
+      accumulator -= FIXED_STEP
+      frame += 1
+    }
+    paint()
+    raf = requestAnimationFrame(loop)
+  }
+
+  function setInput(action, pressed) {
+    if (action === 'jump') {
+      if (pressed && !input.jumpHeld) input.jumpPressed = true
+      input.jumpHeld = pressed
+    } else if (action in input) input[action] = pressed
+  }
+
+  function onKey(event) {
+    const action = event.code === 'ArrowLeft' || event.code === 'KeyA'
+      ? 'left'
+      : event.code === 'ArrowRight' || event.code === 'KeyD'
+        ? 'right'
+        : event.code === 'Space' || event.code === 'ArrowUp' || event.code === 'KeyW'
+          ? 'jump'
+          : null
+    if (!action || !running) return
+    event.preventDefault()
+    setInput(action, event.type === 'keydown')
+  }
+
+  window.addEventListener('keydown', onKey)
+  window.addEventListener('keyup', onKey)
+  background.addEventListener('load', paint)
+  courier.addEventListener('load', paint)
+
   return {
-    start() {
+    start(levelId = 'garden-1') {
+      const level = LEVELS.find(item => item.id === levelId) || LEVELS[0]
+      world = makeWorld(level)
+      player = createPlayer(level)
+      camera = 0
+      paused = false
+      finished = false
+      moved = false
+      lastTime = 0
+      accumulator = 0
       running = true
-      resize()
+      report('RUN RIGHT · TAP JUMP')
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(loop)
     },
     stop() {
       running = false
+      cancelAnimationFrame(raf)
+      for (const action of ['left', 'right', 'jump']) setInput(action, false)
     },
-    resize() {
-      if (running) resize()
+    resize: paint,
+    setInput,
+    togglePause() {
+      if (!running || finished) return paused
+      paused = !paused
+      report(paused ? 'PAUSED' : 'GO!')
+      return paused
     },
   }
 }

@@ -10,6 +10,26 @@
       "prompt": "Original moss-cloaked woodland courier jumping toward a golden lantern seed in a grounded garden, polished hand-painted pixel art, no text or trademarks.",
       "license": "project-original",
       "sha256": "7d8275ea2a5903ca161bfeedfe857511a6b45651117e71971b8a4e3664df819d"
+    },
+    {
+      "id": "courier-sprite-sheet",
+      "file": "assets/sprites/courier-sheet.png",
+      "dimensions": "1536x1024",
+      "kind": "character-sprite-sheet",
+      "source": "OpenAI built-in image generation and edit",
+      "prompt": "Eight clean animation poses for an original childlike moss-cloaked woodland courier, four by two sheet, transparent-background extraction, readable at mobile scale, no text or trademarks.",
+      "license": "project-original",
+      "sha256": "1e2d0ab51e33796db9d4a2fba6660bf941d8af8e09de5b97a14afbde1f6e923e"
+    },
+    {
+      "id": "garden-walk-background",
+      "file": "assets/backgrounds/garden-walk.png",
+      "dimensions": "1774x887",
+      "kind": "region-background",
+      "source": "OpenAI built-in image generation",
+      "prompt": "Wide side-view storybook pixel-art Garden Walk village with cottages, hedges, paths, watermill and layered scenery, grounded physical place, no character, no text or trademarks.",
+      "license": "project-original",
+      "sha256": "d74b816bc38f24fd6519ee6c9ec317b9967aa5233e498a7a6680a42fad4eb0c5"
     }
   ]
 }
