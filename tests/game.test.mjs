@@ -26,3 +26,11 @@ test('the first playable trail includes its toy-layer objects', () => {
   assert.equal(world.cloak.length, 1)
   assert.equal(world.cloak[0].found, false)
 })
+
+test('later Garden Walk trails carry their authored mechanics into runtime worlds', () => {
+  const rise = makeWorld(LEVELS[2])
+  const bramble = makeWorld(LEVELS[3])
+  assert.equal(rise.springs.length, 1)
+  assert.ok(bramble.terrain.some(rect => rect.kind === 'crumble' && rect.active))
+  assert.ok(bramble.enemies.length >= 2)
+})

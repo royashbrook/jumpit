@@ -29,6 +29,8 @@ export function makeWorld(level) {
       y: y * TILE,
       w: width * TILE,
       h: height * TILE,
+      active: true,
+      timer: 0,
     })),
     seeds: level.objects
       .filter(([, kind]) => kind === 'seed')
@@ -50,6 +52,9 @@ export function makeWorld(level) {
     cloak: level.objects
       .filter(([, kind]) => kind === 'cloak')
       .map(([id,, x, y]) => ({ id, x: (x + 0.5) * TILE, y: (y + 0.4) * TILE, found: false })),
+    springs: level.objects
+      .filter(([, kind]) => kind === 'spring')
+      .map(([id,, x, y]) => ({ id, x: (x + 0.5) * TILE, y: (y + 1) * TILE })),
     checkpoint: checkpoint ? {
       id: checkpoint[0],
       x: (checkpoint[2] + 0.5) * TILE,
@@ -129,7 +134,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
 
   function update() {
     if (paused || finished) return
-    stepPhysics(player, input, world.terrain)
+    stepPhysics(player, input, world.terrain.filter(rect => rect.active))
     if (player.justJumped) onCue('jump')
     input.jumpPressed = false
     if (Math.abs(player.vx) > 0.25 || !player.onGround) moved = true
@@ -173,6 +178,36 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
         resetPlayer()
         onCue('hurt')
         report('OOPS · TRY AGAIN!')
+      }
+    }
+
+    for (const spring of world.springs) {
+      if (player.vy >= 0 && overlaps(player, spring.x - 18, spring.y - 14, 36, 16)) {
+        player.vy = -13.2
+        player.onGround = false
+        burst(spring.x, spring.y - 8, '#C9F58C')
+        onCue('power')
+        report('LEAF SPRING!')
+      }
+    }
+
+    for (const rect of world.terrain.filter(item => item.kind === 'crumble')) {
+      if (!rect.active) {
+        rect.timer -= 1
+        if (rect.timer <= 0) {
+          rect.active = true
+          rect.timer = 0
+        }
+        continue
+      }
+      const standing = player.onGround && Math.abs(player.y + player.h - rect.y) < 2 &&
+        player.x + player.w > rect.x && player.x < rect.x + rect.w
+      rect.timer = standing ? rect.timer + 1 : Math.max(0, rect.timer - 2)
+      if (rect.timer > 42) {
+        rect.active = false
+        rect.timer = 120
+        player.onGround = false
+        burst(player.x + player.w / 2, rect.y, '#C79458')
       }
     }
 
@@ -225,11 +260,16 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
 
   function terrainPalette(kind) {
     if (kind === 'leaf') return ['#386B45', '#8ECF68', '#234A37']
+    if (kind === 'crumble') return ['#8B5C3D', '#D1A257', '#5B3F31']
     return ['#72513A', '#8BC65A', '#3F372C']
   }
 
   function drawTerrain(rect) {
+    if (!rect.active) return
     const [soil, moss, line] = terrainPalette(rect.kind)
+    const shake = rect.kind === 'crumble' && rect.timer > 24 ? Math.sin(frame * 1.8) * 2 : 0
+    context.save()
+    context.translate(shake, 0)
     context.fillStyle = soil
     context.fillRect(rect.x, rect.y, rect.w, rect.h)
     context.fillStyle = moss
@@ -249,6 +289,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
         }
       }
     }
+    context.restore()
   }
 
   function drawSeed(seed) {
@@ -310,6 +351,23 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       if (cloak.found) continue
       const bob = Math.sin(frame * .06) * 3
       drawWorldCell(4, cloak.x - 26, cloak.y - 42 + bob, 52, 64)
+    }
+  }
+
+  function drawSprings() {
+    for (const spring of world.springs) {
+      context.save()
+      context.translate(spring.x, spring.y)
+      context.fillStyle = '#305E3D'
+      context.fillRect(-13, -6, 26, 6)
+      context.fillStyle = '#BDE879'
+      context.beginPath()
+      context.ellipse(0, -8, 19, 8, 0, 0, Math.PI * 2)
+      context.fill()
+      context.strokeStyle = '#305E3D'
+      context.lineWidth = 3
+      context.stroke()
+      context.restore()
     }
   }
 
@@ -446,6 +504,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     for (const rect of world.terrain) drawTerrain(rect)
     for (const seed of world.seeds) drawSeed(seed)
     drawCloaks()
+    drawSprings()
     drawCheckpoint()
     drawBell()
     drawEnemies()
