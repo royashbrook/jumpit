@@ -1,5 +1,6 @@
-import { currentSeed, shareSeed } from './seed.js'
+import { currentSeed, isDaily, shareSeed } from './seed.js'
 import { createAudio } from './audio.js'
+import { challengeWon, dailyChallenge } from './daily.js'
 import { createGame } from './game.js'
 import { wireInstall } from './install.js'
 import { LEVELS, REGIONS } from './levels.js'
@@ -15,9 +16,22 @@ const howto = $('howto')
 const overlay = $('game-overlay')
 const release = createRelease(LEVELS, 16)
 const releaseLevels = release.levels
+const activeSeed = currentSeed()
+const featuredChallenge = {
+  ...dailyChallenge(activeSeed),
+  seed: activeSeed,
+  daily: isDaily(activeSeed),
+}
+const looks = [
+  { id: 'garden', unlocked: () => true, label: 'Garden' },
+  { id: 'dusk', unlocked: () => true, label: 'Dusk' },
+  { id: 'rain', unlocked: state => state.completed.includes('rooftop-4'), label: 'Rain', goal: 'clear Rooftop Rain' },
+  { id: 'lantern', unlocked: state => state.completed.includes('market-4'), label: 'Lantern', goal: 'clear Lantern Market' },
+]
 let save
 let queuedNext = null
 let lastCompleted = null
+let activeChallenge = null
 
 const store = createSaveStore({ onChange: renderMenu })
 save = store.get()
@@ -27,21 +41,38 @@ const audio = createAudio({
 })
 
 const game = createGame($('stage'), state => {
+  const challengeFinished = Boolean(activeChallenge && state.finished)
+  const stamped = challengeFinished && challengeWon(activeChallenge, state)
   $('level-name').textContent = state.levelName.toUpperCase()
   $('seed-count').textContent = `◆ ${state.seeds}/${state.maxSeeds}`
   $('pause').textContent = state.paused ? '▶' : 'Ⅱ'
   $('pause').setAttribute('aria-label', state.paused ? 'resume game' : 'pause game')
   $('game-status').textContent = state.message
   overlay.hidden = !state.paused && !state.finished
-  $('overlay-kicker').textContent = state.finished ? state.regionName.toUpperCase() : 'TAKE A BREATH'
-  $('overlay-title').textContent = state.finished ? 'TRAIL CLEARED!' : 'PAUSED'
-  $('overlay-copy').textContent = state.finished
-    ? `${state.seeds} OF ${state.maxSeeds} LANTERN SEEDS FOUND`
-    : 'The trail waits for you.'
+  $('overlay-kicker').textContent = challengeFinished
+    ? activeChallenge.daily ? "TODAY'S CHALLENGE" : 'FRIEND CHALLENGE'
+    : state.finished ? state.regionName.toUpperCase() : 'TAKE A BREATH'
+  $('overlay-title').textContent = challengeFinished
+    ? stamped ? 'STAMP EARNED!' : 'MORE LIGHT NEEDED'
+    : state.finished ? 'TRAIL CLEARED!' : 'PAUSED'
+  $('overlay-copy').textContent = challengeFinished
+    ? stamped
+      ? `${activeChallenge.goalSeeds} SEEDS + BELL · STAMP EARNED`
+      : `FOUND ${state.seeds}/${activeChallenge.goalSeeds} SEEDS · TRY AGAIN`
+    : state.finished
+      ? `${state.seeds} OF ${state.maxSeeds} LANTERN SEEDS FOUND`
+      : 'The trail waits for you.'
   $('resume').hidden = !state.paused
-  $('restart').textContent = state.finished ? 'RUN IT AGAIN' : 'START OVER'
+  $('restart').textContent = state.finished ? challengeFinished && !stamped ? 'TRY AGAIN' : 'RUN IT AGAIN' : 'START OVER'
 
-  if (state.finished && lastCompleted !== state.levelId) {
+  if (challengeFinished) {
+    queuedNext = null
+    const stampId = `challenge-${activeChallenge.seed}`
+    if (stamped && lastCompleted !== stampId) {
+      lastCompleted = stampId
+      store.completeDaily(activeChallenge.seed)
+    }
+  } else if (state.finished && lastCompleted !== state.levelId) {
     lastCompleted = state.levelId
     queuedNext = release.next(state.levelId)
     store.completeLevel(state.levelId, state.seeds, queuedNext)
@@ -57,16 +88,19 @@ function show(screen) {
   for (const element of [menu, gameScreen]) element.hidden = element !== screen
 }
 
-function playLevel(levelId = store.get().selectedLevel) {
-  levelId = release.playable(levelId, store.get().unlocked)
+function playLevel(levelId = store.get().selectedLevel, challenge = null) {
+  levelId = challenge
+    ? release.find(challenge.levelId)?.id
+    : release.playable(levelId, store.get().unlocked)
   if (!levelId) return
   audio.startFromGesture()
   audio.cue('start')
-  store.selectLevel(levelId)
+  activeChallenge = challenge
+  if (!challenge) store.selectLevel(levelId)
   queuedNext = null
   lastCompleted = null
   show(gameScreen)
-  game.start(levelId, currentSeed())
+  game.start(levelId, challenge?.seed ?? activeSeed)
   $('pause').focus({ preventScroll: true })
 }
 
@@ -105,13 +139,33 @@ function trailButton(level, index, state) {
   return button
 }
 
+function lookUnlocked(state, id) {
+  return Boolean(looks.find(look => look.id === id)?.unlocked(state))
+}
+
 function renderMenu(nextState = store.get()) {
   save = nextState
-  document.documentElement.dataset.theme = save.theme
+  const selectedLook = lookUnlocked(save, save.theme) ? save.theme : 'garden'
+  document.documentElement.dataset.theme = selectedLook
   const selectedId = release.playable(save.selectedLevel, save.unlocked)
   const selected = release.find(selectedId) || releaseLevels[0]
   const selectedMax = selected.objects.filter(([, kind]) => kind === 'seed').length
   $('continue-label').textContent = `${selected.name.toUpperCase()} · ${save.bestSeeds[selected.id] || 0}/${selectedMax} SEEDS`
+  const trailSummary = $('trail-summary')
+  if (trailSummary) {
+    const placeCount = new Set(releaseLevels.map(level => level.region)).size
+    trailSummary.textContent = `${releaseLevels.length} TRAILS · ${placeCount} PLACES`
+  }
+  const dailyWon = save.dailyWins.includes(activeSeed)
+  for (const [id, text] of [
+    ['daily-kicker', featuredChallenge.daily ? "TODAY'S CHALLENGE" : 'FRIEND CHALLENGE'],
+    ['daily-title', featuredChallenge.title],
+    ['daily-copy', featuredChallenge.copy],
+    ['daily-status', dailyWon ? 'STAMP EARNED' : `◆ ${featuredChallenge.goalSeeds} SEEDS + BELL`],
+  ]) {
+    if ($(id)) $(id).textContent = text
+  }
+  if ($('daily-play')) $('daily-play').textContent = dailyWon ? 'PLAY AGAIN' : 'PLAY CHALLENGE'
   const trailNodes = []
   for (const [index, level] of releaseLevels.entries()) {
     if (index % 4 === 0) {
@@ -123,15 +177,27 @@ function renderMenu(nextState = store.get()) {
     trailNodes.push(trailButton(level, index, save))
   }
   $('trail-list').replaceChildren(...trailNodes)
-  for (const look of ['garden', 'dusk']) $('look-' + look).setAttribute('aria-pressed', String(save.theme === look))
+  for (const look of looks) {
+    const button = $('look-' + look.id)
+    if (!button) continue
+    const unlocked = look.unlocked(save)
+    button.disabled = !unlocked
+    button.setAttribute('aria-disabled', String(!unlocked))
+    button.setAttribute('aria-pressed', String(selectedLook === look.id))
+    button.setAttribute('aria-label', unlocked ? `Use ${look.label} look` : `${look.label} look locked, ${look.goal}`)
+    const status = button.querySelector('.look-status')
+    if (status) status.hidden = unlocked
+  }
   $('sound-toggle').textContent = save.muted ? 'SOUND OFF' : 'SOUND ON'
 }
 
 window.addEventListener('resize', () => game.resize())
 $('version').textContent = `v${VERSION}`
 $('play').addEventListener('click', () => playLevel())
+$('daily-play')?.addEventListener('click', () => playLevel(featuredChallenge.levelId, featuredChallenge))
 $('back').addEventListener('click', () => {
   game.stop()
+  activeChallenge = null
   show(menu)
   renderMenu()
   $('play').focus({ preventScroll: true })
@@ -163,7 +229,9 @@ for (const button of document.querySelectorAll('.nav-item')) button.addEventList
   audio.cue('tap')
   openTab(button.dataset.tab)
 })
-for (const look of ['garden', 'dusk']) $('look-' + look).addEventListener('click', () => store.setTheme(look))
+for (const look of looks) $('look-' + look.id)?.addEventListener('click', () => {
+  if (look.unlocked(store.get())) store.setTheme(look.id)
+})
 
 $('sound-toggle').addEventListener('click', () => {
   audio.startFromGesture()
@@ -193,7 +261,7 @@ $('about-close').addEventListener('click', () => $('about').close())
 $('friends').addEventListener('click', async event => {
   const button = event.currentTarget
   const original = button.textContent
-  const result = await shareSeed(currentSeed(), 'Jumpit')
+  const result = await shareSeed(activeSeed, 'Jumpit')
   if (result === 'copied') button.textContent = 'LINK COPIED'
   if (result === 'failed') button.textContent = 'COULD NOT SHARE'
   if (result === 'copied' || result === 'failed') {

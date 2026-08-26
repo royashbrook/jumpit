@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.0: 2026-08-26
+
+- Added four authored seed challenges selected deterministically each day.
+- Made shared seed links open the same playable friend challenge.
+- Added Rain and Lantern looks earned by clearing their campaign regions.
+- Migrated existing saves without losing trail progress, best seeds, sound, or look.
+
 ## 1.2.0: 2026-08-26
 
 - Opened four Lantern Market trails with Mothlights, lightable lamps, and shadow gates.

@@ -1,5 +1,8 @@
-export const SAVE_VERSION = 1
+export const SAVE_VERSION = 2
 export const SAVE_KEY = 'jumpit-save-v1'
+export const DAILY_WIN_LIMIT = 14
+
+const THEMES = new Set(['garden', 'dusk', 'rain', 'lantern'])
 
 export function freshSave() {
   return {
@@ -10,6 +13,7 @@ export function freshSave() {
     selectedLevel: 'garden-1',
     theme: 'garden',
     muted: false,
+    dailyWins: [],
   }
 }
 
@@ -24,8 +28,11 @@ export function migrateSave(value) {
     }
   }
   if (typeof value.selectedLevel === 'string' && clean.unlocked.includes(value.selectedLevel)) clean.selectedLevel = value.selectedLevel
-  if (value.theme === 'garden' || value.theme === 'dusk') clean.theme = value.theme
+  if (THEMES.has(value.theme)) clean.theme = value.theme
   clean.muted = Boolean(value.muted)
+  if (Array.isArray(value.dailyWins)) {
+    clean.dailyWins = [...new Set(value.dailyWins.filter(seed => Number.isInteger(seed) && seed > 0))].slice(-DAILY_WIN_LIMIT)
+  }
   return clean
 }
 
@@ -63,8 +70,15 @@ export function createSaveStore({ storage = globalThis.localStorage, onChange = 
       return true
     },
     setTheme(theme) {
-      if (theme !== 'garden' && theme !== 'dusk') return false
+      if (!THEMES.has(theme)) return false
       state.theme = theme
+      write()
+      return true
+    },
+    completeDaily(seed) {
+      if (!Number.isInteger(seed) || seed <= 0 || state.dailyWins.includes(seed)) return false
+      state.dailyWins.push(seed)
+      state.dailyWins = state.dailyWins.slice(-DAILY_WIN_LIMIT)
       write()
       return true
     },

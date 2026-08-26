@@ -31,13 +31,24 @@
           <p id="continue-label">DEWDROP DASH · 0/4 SEEDS</p>
           <button id="play" class="big">PLAY THE TRAIL</button>
         </div>
-        <button id="friends" class="big secondary">PLAY WITH A FRIEND</button>
+        <section id="daily-card" class="daily-card" aria-labelledby="daily-title">
+          <div class="daily-copy">
+            <p id="daily-kicker" class="daily-kicker">TODAY'S TRAIL</p>
+            <h3 id="daily-title">SEEDLING SPRINT</h3>
+            <p id="daily-copy">Find 3 seeds, then ring the bell.</p>
+            <p id="daily-status" class="daily-status">READY TO RUN</p>
+          </div>
+          <div class="daily-actions">
+            <button id="daily-play" class="big">PLAY CHALLENGE</button>
+            <button id="friends" class="big secondary">SHARE WITH A FRIEND</button>
+          </div>
+        </section>
         <p class="play-promise">Run. Jump. Find light. Ring the bell.</p>
       </section>
 
       <section id="trails-panel" class="tab-panel" hidden>
         <div class="panel-heading">
-          <p>12 TRAILS · 3 PLACES</p>
+          <p id="trail-summary">12 TRAILS · 3 PLACES</p>
           <h2>Choose a trail</h2>
         </div>
         <div id="trail-list" class="trail-list"></div>
@@ -57,6 +68,16 @@
           <button id="look-dusk" class="look-card" data-look="dusk">
             <span class="look-swatch dusk-swatch" aria-hidden="true"></span>
             <b>DUSK</b><small>gold + moonlit</small>
+          </button>
+          <button id="look-rain" class="look-card" data-look="rain" aria-pressed="false" aria-disabled="true" disabled>
+            <span class="look-swatch rain-swatch" aria-hidden="true"></span>
+            <b>RAIN</b><small>cool + cloudlit</small>
+            <small class="look-status">LOCKED: CLEAR ROOFTOP RAIN</small>
+          </button>
+          <button id="look-lantern" class="look-card" data-look="lantern" aria-pressed="false" aria-disabled="true" disabled>
+            <span class="look-swatch lantern-swatch" aria-hidden="true"></span>
+            <b>LANTERN</b><small>warm + glowing</small>
+            <small class="look-status">LOCKED: CLEAR LANTERN MARKET</small>
           </button>
         </div>
       </section>

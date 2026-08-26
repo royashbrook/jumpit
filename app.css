@@ -20,6 +20,10 @@
   --look-garden-glow: #0F6F6A;
   --look-dusk-sky: #172D2F;
   --look-dusk-glow: #F4C54B;
+  --look-rain-sky: #BCD5D8;
+  --look-rain-glow: #176879;
+  --look-lantern-sky: #261C33;
+  --look-lantern-glow: #F0B84B;
   color: var(--ink);
   background: var(--surface);
   font-family: var(--font-ui);
@@ -48,6 +52,66 @@
   --look-garden-glow: #0F6F6A;
   --look-dusk-sky: #172D2F;
   --look-dusk-glow: #F4C54B;
+  --look-rain-sky: #BCD5D8;
+  --look-rain-glow: #176879;
+  --look-lantern-sky: #261C33;
+  --look-lantern-glow: #F0B84B;
+}
+
+[data-theme="rain"] {
+  --surface: #D7E9EA;
+  --surface-raised: #F7FCF7;
+  --surface-sunk: #BCD5D8;
+  --ink: #173E49;
+  --ink-dim: #466872;
+  --ink-on-accent: #F7FCF7;
+  --accent: #176879;
+  --accent-dim: #0E5361;
+  --line: #173E49;
+  --warn: #983C45;
+  --font-ui: ui-rounded, "Arial Rounded MT Bold", system-ui, sans-serif;
+  --font-display: var(--font-ui);
+  --font-mono: ui-monospace, monospace;
+  --radius: 1rem;
+  --shadow: 0 .3rem 0 var(--line);
+  --shadow-pressed: 0 .1rem 0 var(--line);
+  --mark-heart: #E0746A;
+  --look-garden-sky: #CFE2BC;
+  --look-garden-glow: #0F6F6A;
+  --look-dusk-sky: #172D2F;
+  --look-dusk-glow: #F4C54B;
+  --look-rain-sky: #BCD5D8;
+  --look-rain-glow: #176879;
+  --look-lantern-sky: #261C33;
+  --look-lantern-glow: #F0B84B;
+}
+
+[data-theme="lantern"] {
+  --surface: #261C33;
+  --surface-raised: #392846;
+  --surface-sunk: #181320;
+  --ink: #FFF0CB;
+  --ink-dim: #D4C4AD;
+  --ink-on-accent: #261C33;
+  --accent: #F0B84B;
+  --accent-dim: #D59628;
+  --line: #FFF0CB;
+  --warn: #F2A0A4;
+  --font-ui: ui-rounded, "Arial Rounded MT Bold", system-ui, sans-serif;
+  --font-display: var(--font-ui);
+  --font-mono: ui-monospace, monospace;
+  --radius: 1rem;
+  --shadow: 0 .3rem 0 var(--line);
+  --shadow-pressed: 0 .1rem 0 var(--line);
+  --mark-heart: #E0746A;
+  --look-garden-sky: #CFE2BC;
+  --look-garden-glow: #0F6F6A;
+  --look-dusk-sky: #172D2F;
+  --look-dusk-glow: #F4C54B;
+  --look-rain-sky: #BCD5D8;
+  --look-rain-glow: #176879;
+  --look-lantern-sky: #261C33;
+  --look-lantern-glow: #F0B84B;
 }
 
 * {
@@ -195,6 +259,58 @@ h1 {
   box-shadow: var(--shadow);
 }
 
+.daily-card {
+  display: grid;
+  gap: .65rem;
+  padding: .8rem;
+  border: .16rem solid var(--line);
+  border-radius: calc(var(--radius) * 1.1);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-pressed);
+}
+
+.daily-copy {
+  min-width: 0;
+}
+
+.daily-kicker,
+.daily-status {
+  margin: 0;
+  color: var(--accent-dim);
+  font-size: .65rem;
+  font-weight: 900;
+  letter-spacing: .07em;
+}
+
+.daily-card h3 {
+  margin: .08rem 0 .18rem;
+  font-size: 1.1rem;
+}
+
+#daily-copy {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: .78rem;
+  font-weight: 800;
+}
+
+.daily-status {
+  margin-top: .35rem;
+}
+
+.daily-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .5rem;
+}
+
+.daily-actions .big {
+  min-height: 2.8rem;
+  padding: .55rem .4rem;
+  font-size: .7rem;
+  white-space: nowrap;
+}
+
 .play-promise,
 .panel-copy {
   margin: .15rem 0;
@@ -286,7 +402,8 @@ h1 {
 }
 
 .look-card {
-  min-height: 12rem;
+  position: relative;
+  min-height: 11rem;
   padding: .7rem;
   border: .16rem solid var(--line);
   border-radius: calc(var(--radius) * 1.1);
@@ -315,7 +432,7 @@ h1 {
 
 .look-swatch {
   display: block;
-  height: 7rem;
+  height: 6rem;
   border: .12rem solid var(--line);
   border-radius: calc(var(--radius) * .8);
 }
@@ -326,6 +443,39 @@ h1 {
 
 .dusk-swatch {
   background: radial-gradient(circle at 70% 28%, var(--look-dusk-glow), transparent 25%), var(--look-dusk-sky);
+}
+
+.rain-swatch {
+  background: radial-gradient(circle at 68% 26%, var(--look-rain-glow), transparent 25%), var(--look-rain-sky);
+}
+
+.lantern-swatch {
+  background: radial-gradient(circle at 68% 26%, var(--look-lantern-glow), transparent 25%), var(--look-lantern-sky);
+}
+
+.look-card:disabled,
+.look-card[aria-disabled="true"] {
+  border-color: rgb(from var(--line) r g b / .56);
+  background: var(--surface-sunk);
+  box-shadow: none;
+  color: var(--ink);
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.look-card:disabled .look-swatch,
+.look-card[aria-disabled="true"] .look-swatch {
+  filter: saturate(.45);
+  opacity: .72;
+}
+
+.look-card .look-status {
+  min-height: 2em;
+  margin-top: .35rem;
+  color: var(--accent-dim);
+  font-size: .62rem;
+  font-weight: 900;
+  line-height: 1.25;
 }
 
 .reset-progress[data-armed] {
@@ -738,6 +888,8 @@ dialog ol {
   button,
   .stage-shell,
   .trail-hero,
+  .daily-card,
+  .look-card,
   .game-card,
   dialog {
     border-color: CanvasText;
@@ -746,6 +898,12 @@ dialog ol {
   .nav-item[aria-pressed="true"],
   .look-card[aria-pressed="true"] {
     outline-color: Highlight;
+  }
+
+  .look-card:disabled,
+  .look-card[aria-disabled="true"] {
+    border-color: GrayText;
+    color: GrayText;
   }
 }
 
