@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "assets": [
+    {
+      "id": "jumpit-icon-master",
+      "file": "assets/source/icon-master.png",
+      "dimensions": "1254x1254",
+      "kind": "brand-icon",
+      "source": "OpenAI built-in image generation",
+      "prompt": "Original moss-cloaked woodland courier jumping toward a golden lantern seed in a grounded garden, polished hand-painted pixel art, no text or trademarks.",
+      "license": "project-original",
+      "sha256": "7d8275ea2a5903ca161bfeedfe857511a6b45651117e71971b8a4e3664df819d"
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en" data-theme="garden">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Jumpit</title>
+  <meta name="description" content="A warm storybook platform game for kids. no ads, no lives, no timers, nothing to buy, no accounts, no cookies, nothing sold or shared.">
+  <meta name="theme-color" content="#0F6F6A">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <main id="menu" class="screen menu-screen">
+    <div class="brand">
+      <img src="icon-192.png" width="96" height="96" alt="">
+      <div>
+        <h1>Jumpit</h1>
+        <p class="tagline">run the lantern trail</p>
+      </div>
+    </div>
+
+    <button id="play" class="big">PLAY THE TRAIL</button>
+    <button id="friends" class="big secondary">PLAY WITH A FRIEND</button>
+    <button id="howto-open" class="big secondary">HOW TO PLAY</button>
+    <button id="install" class="big secondary" hidden>ADD TO HOME SCREEN</button>
+    <button id="about-open" class="big secondary">ABOUT</button>
+
+    <p class="ethos">no ads · no timers · nothing to buy · no cookies</p>
+    <p id="version" class="version"></p>
+  </main>
+
+  <main id="game" class="screen game-screen" hidden>
+    <header class="bar">
+      <button id="back" class="chip">MENU</button>
+      <span class="chip flat">GARDEN WALK</span>
+      <span class="chip flat">0 SEEDS</span>
+    </header>
+    <div class="stage-shell">
+      <canvas id="stage" aria-label="Jumpit game world"></canvas>
+    </div>
+    <div class="controls" aria-label="touch controls">
+      <button class="control" disabled aria-label="move left">LEFT</button>
+      <button class="control" disabled aria-label="move right">RIGHT</button>
+      <button class="control jump" disabled aria-label="jump">JUMP</button>
+    </div>
+  </main>
+
+  <dialog id="howto">
+    <h2>How to play</h2>
+    <ol>
+      <li>Move along the garden trail.</li>
+      <li>Jump over gaps and onto safe paths.</li>
+      <li>Gather lantern seeds and reach the bell.</li>
+    </ol>
+    <p class="small">The playable trail arrives in the next build. This first release proves the app shell and offline path.</p>
+    <button id="howto-close" class="big">GOT IT</button>
+  </dialog>
+
+  <dialog id="about">
+    <h2>About Jumpit</h2>
+    <p class="about-body">Jumpit is an original storybook platform game about a small courier carrying light through a living garden.</p>
+    <p class="about-ethos">no ads, no lives, no timers, nothing to buy, no accounts, no cookies, nothing sold or shared.</p>
+    <p class="maker-mark">made with <svg aria-hidden="true" class="mark-heart" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><span class="sr">love</span> by
+      <a href="https://royashbrook.com" target="_blank" rel="noreferrer">roy</a> +
+      <a href="https://royashbrook.com/agents" target="_blank" rel="noreferrer">ai</a>
+      <span aria-hidden="true" class="mark-dot">·</span>
+      <a href="https://github.com/sponsors/royashbrook" target="_blank" rel="noreferrer" class="mark-sponsor">sponsor me</a>
+    </p>
+    <button id="about-close" class="big">BACK</button>
+  </dialog>
+
+  <button id="update" class="update" hidden>NEW VERSION, TAP TO LOAD</button>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
