@@ -1,8 +1,14 @@
+import { LEVELS } from './levels.js'
+
 export const SAVE_VERSION = 2
 export const SAVE_KEY = 'jumpit-save-v1'
 export const DAILY_WIN_LIMIT = 14
 
 const THEMES = new Set(['garden', 'dusk', 'rain', 'lantern'])
+const SEED_MAX = new Map(LEVELS.map(level => [
+  level.id,
+  level.objects.filter(([, kind]) => kind === 'seed').length,
+]))
 
 export function freshSave() {
   return {
@@ -24,7 +30,8 @@ export function migrateSave(value) {
   if (Array.isArray(value.unlocked)) clean.unlocked = [...new Set(['garden-1', ...value.unlocked.filter(item => typeof item === 'string')])]
   if (value.bestSeeds && typeof value.bestSeeds === 'object' && !Array.isArray(value.bestSeeds)) {
     for (const [id, amount] of Object.entries(value.bestSeeds)) {
-      if (Number.isInteger(amount) && amount >= 0) clean.bestSeeds[id] = amount
+      const max = SEED_MAX.get(id)
+      if (max !== undefined && Number.isInteger(amount) && amount >= 0) clean.bestSeeds[id] = Math.min(amount, max)
     }
   }
   if (typeof value.selectedLevel === 'string' && clean.unlocked.includes(value.selectedLevel)) clean.selectedLevel = value.selectedLevel
@@ -58,7 +65,9 @@ export function createSaveStore({ storage = globalThis.localStorage, onChange = 
     get: clone,
     completeLevel(id, seeds, nextId) {
       if (!state.completed.includes(id)) state.completed.push(id)
-      state.bestSeeds[id] = Math.max(state.bestSeeds[id] || 0, Number.isFinite(seeds) ? seeds : 0)
+      const max = SEED_MAX.get(id) || 0
+      const safeSeeds = Number.isFinite(seeds) ? Math.max(0, Math.min(max, Math.floor(seeds))) : 0
+      state.bestSeeds[id] = Math.max(state.bestSeeds[id] || 0, safeSeeds)
       if (nextId && !state.unlocked.includes(nextId)) state.unlocked.push(nextId)
       if (nextId) state.selectedLevel = nextId
       write()

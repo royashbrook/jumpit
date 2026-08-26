@@ -23,19 +23,17 @@ const level = (id, order, region, name, width, spawn, finish, introduces, terrai
 // Terrain: [id, kind, x, y, width, height]. Object: [id, kind, x, y].
 // Coordinates are tile units; point y is the occupied tile above its support.
 export const LEVELS = [
-  level('garden-1', 1, 'garden', 'Dewdrop Dash', 58, [2, 14], ['g01-bell', 55, 14], ['trail-running'], [
-    ['g01-a', 'ground', 0, 15, 11, 3], ['g01-b', 'ground', 13, 15, 12, 3],
-    ['g01-c', 'ground', 28, 15, 11, 3], ['g01-d', 'ground', 42, 15, 16, 3],
-    ['g01-e', 'leaf', 8, 12, 5, 1], ['g01-f', 'leaf', 23, 12, 4, 1],
-    ['g01-g', 'leaf', 38, 12, 5, 1],
+  level('garden-1', 1, 'garden', 'Dewdrop Dash', 38, [2, 14], ['g01-bell', 35, 14], ['run-jump-stomp'], [
+    ['g01-a', 'ground', 0, 15, 18, 3], ['g01-b', 'ground', 19, 15, 12, 3],
+    ['g01-c', 'ground', 32, 15, 6, 3], ['g01-d', 'leaf', 7, 12, 5, 1],
+    ['g01-e', 'leaf', 25, 12, 5, 1],
   ], [
-    ['g01-seed-a', 'seed', 5, 14], ['g01-seed-b', 'seed', 10, 11],
-    ['g01-seed-c', 'seed', 24, 11], ['g01-seed-d', 'seed', 40, 11],
-    ['g01-check', 'checkpoint', 33, 14], ['g01-moss-a', 'mossling', 8, 14],
-    ['g01-cloak', 'cloak', 15, 14],
+    ['g01-seed-a', 'seed', 4, 14], ['g01-seed-b', 'seed', 10, 11],
+    ['g01-seed-c', 'seed', 27, 11], ['g01-check', 'checkpoint', 21, 14],
+    ['g01-moss-a', 'mossling', 9, 14],
   ]),
 
-  level('garden-2', 2, 'garden', 'Clover Crossing', 62, [2, 14], ['g02-bell', 59, 14], ['mosslings'], [
+  level('garden-2', 2, 'garden', 'Clover Crossing', 62, [2, 14], ['g02-bell', 59, 14], ['glow-cloak'], [
     ['g02-a', 'ground', 0, 15, 10, 3], ['g02-b', 'ground', 12, 15, 11, 3],
     ['g02-c', 'ground', 26, 15, 12, 3], ['g02-d', 'ground', 41, 15, 21, 3],
     ['g02-e', 'leaf', 7, 12, 4, 1], ['g02-f', 'leaf', 21, 12, 6, 1],
@@ -44,7 +42,7 @@ export const LEVELS = [
     ['g02-seed-a', 'seed', 8, 11], ['g02-seed-b', 'seed', 23, 11],
     ['g02-seed-c', 'seed', 38, 11], ['g02-seed-d', 'seed', 51, 11],
     ['g02-check', 'checkpoint', 31, 14], ['g02-moss-a', 'mossling', 18, 14],
-    ['g02-moss-b', 'mossling', 46, 14],
+    ['g02-moss-b', 'mossling', 46, 14], ['g02-cloak', 'cloak', 8, 11],
   ]),
 
   level('garden-3', 3, 'garden', 'Sunleaf Rise', 66, [2, 14], ['g03-bell', 63, 14], ['leaf-springs'], [
@@ -290,8 +288,8 @@ export const LEVELS = [
     ['k03-seed-a', 'seed', 9, 12], ['k03-seed-b', 'seed', 15, 10],
     ['k03-seed-c', 'seed', 21, 8], ['k03-seed-d', 'seed', 43, 12],
     ['k03-seed-e', 'seed', 56, 8], ['k03-seed-f', 'seed', 66, 12],
-    ['k03-seed-g', 'seed', 80, 6], ['k03-check', 'checkpoint', 62, 12],
-    ['k03-sentry-a', 'sentry', 17, 14], ['k03-sentry-b', 'sentry', 52, 8],
+    ['k03-seed-g', 'seed', 80, 6], ['k03-check', 'checkpoint', 43, 12],
+    ['k03-sentry-a', 'sentry', 17, 14], ['k03-sentry-b', 'sentry', 64, 12],
     ['k03-sentry-c', 'sentry', 76, 8], ['k03-fan-a', 'fan', 42, 14],
     ['k03-fan-b', 'fan', 72, 14],
   ]),

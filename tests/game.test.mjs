@@ -11,9 +11,11 @@ import {
   enemyAttackLands,
   finishOutcome,
   guardianState,
+  impactFeedback,
   interactiveKeyTarget,
   keyInputMode,
   makeWorld,
+  playHint,
   setInputState,
   strikeEnemy,
 } from '../game.js'
@@ -39,8 +41,10 @@ test('the first playable trail includes its toy-layer objects', () => {
   const world = makeWorld(LEVELS[0])
   assert.equal(world.enemies.length, 1)
   assert.equal(world.enemies[0].kind, 'mossling')
-  assert.equal(world.cloak.length, 1)
-  assert.equal(world.cloak[0].found, false)
+  assert.equal(world.cloak.length, 0)
+  const next = makeWorld(LEVELS[1])
+  assert.equal(next.cloak.length, 1)
+  assert.equal(next.cloak[0].found, false)
 })
 
 test('later Garden Walk trails carry their authored mechanics into runtime worlds', () => {
@@ -146,10 +150,29 @@ test('the finish bell stays locked until the Beacon Warden is defeated', () => {
 })
 
 test('coaching is one short action at a time and then gets out of the way', () => {
-  assert.equal(coachMessage({ moved: false, jumped: false, glowing: false, x: 60 }), 'RUN RIGHT · TAP JUMP')
-  assert.equal(coachMessage({ moved: true, jumped: false, glowing: false, x: 190 }), 'TAP JUMP · LAND ON TOP')
-  assert.equal(coachMessage({ moved: true, jumped: true, glowing: true, x: 400 }), 'GLOWING? BUMP CREATURES!')
+  assert.equal(coachMessage({ moved: false, jumped: false, glowing: false, x: 60 }), 'HOLD ▶ TO RUN')
+  assert.equal(coachMessage({ moved: true, jumped: false, glowing: false, x: 190 }), 'TAP JUMP')
+  assert.equal(coachMessage({ moved: true, jumped: true, glowing: true, x: 400 }), 'GLOW BUMPS CREATURES')
   assert.equal(coachMessage({ moved: true, jumped: true, glowing: false, x: 700 }), '')
+  assert.deepEqual(playHint({ finished: false, moved: true, jumped: true, glowing: false, x: 700, finishX: 1_000 }), {
+    kind: 'guide',
+    text: 'BELL →',
+  })
+  assert.deepEqual(playHint({ finished: false, moved: true, jumped: true, glowing: false, x: 1_100, finishX: 1_000 }), {
+    kind: 'guide',
+    text: '← BELL',
+  })
+  assert.deepEqual(playHint({ finished: true, moved: true, jumped: true, glowing: false, x: 700, finishX: 1_000 }), {
+    kind: 'none',
+    text: '',
+  })
+})
+
+test('reward feedback adds a short impact without moving reduced-motion play', () => {
+  assert.deepEqual(impactFeedback('seed'), { frames: 9, kick: 3, expands: true })
+  assert.deepEqual(impactFeedback('checkpoint'), { frames: 9, kick: 5, expands: true })
+  assert.deepEqual(impactFeedback('finish', true), { frames: 12, kick: 0, expands: false })
+  assert.equal(impactFeedback('fan'), null)
 })
 
 test('overlay keyboard actions cannot preload a jump while paused or finished', () => {

@@ -5,11 +5,11 @@ import vm from 'node:vm'
 
 const text = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('v1.7.0 is the package and visible shell version', async () => {
+test('v1.8.0 is the package and visible shell version', async () => {
   const pkg = JSON.parse(await text('package.json'))
   const version = await text('version.js')
-  assert.equal(pkg.version, '1.7.0')
-  assert.match(version, /VERSION = '1\.7\.0'/)
+  assert.equal(pkg.version, '1.8.0')
+  assert.match(version, /VERSION = '1\.8\.0'/)
 })
 
 test('the house promise is present in readable metadata', async () => {
@@ -33,7 +33,7 @@ test('the manifest has a stable app identity and a separate maskable icon', asyn
 
 test('the worker keeps navigation network-first and the update probe uncached', async () => {
   const worker = await text('sw.js')
-  assert.match(worker, /const CACHE = 'jumpit-v1\.7\.0'/)
+  assert.match(worker, /const CACHE = 'jumpit-v1\.8\.0'/)
   assert.match(worker, /cache\.addAll\(SHELL\)/)
   assert.doesNotMatch(worker, /cache\.add\(url\)\.catch/)
   assert.match(worker, /request\.mode === 'navigate'/)
@@ -54,7 +54,7 @@ test('the worker removes only old Jumpit caches', async () => {
       location: { origin: 'https://example.test' },
     },
     caches: {
-      keys: async () => ['jumpit-v0.9.0', 'jumpit-v1.5.0', 'jumpit-v1.7.0', 'sibling-game-v4'],
+      keys: async () => ['jumpit-v0.9.0', 'jumpit-v1.5.0', 'jumpit-v1.7.0', 'jumpit-v1.8.0', 'sibling-game-v4'],
       delete: async key => { deleted.push(key) },
     },
     URL,
@@ -63,5 +63,5 @@ test('the worker removes only old Jumpit caches', async () => {
   let done
   listeners.activate({ waitUntil: promise => { done = promise } })
   await done
-  assert.deepEqual(deleted, ['jumpit-v0.9.0', 'jumpit-v1.5.0'])
+  assert.deepEqual(deleted, ['jumpit-v0.9.0', 'jumpit-v1.5.0', 'jumpit-v1.7.0'])
 })

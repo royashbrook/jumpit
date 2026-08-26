@@ -4,6 +4,8 @@ test('portrait shell stays inside the phone and keeps navigation visible', async
   await page.goto('/')
   await expect(page.getByRole('button', { name: 'PLAY THE TRAIL' })).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'game menu' })).toBeVisible()
+  await expect(page.locator('#play-panel button')).toHaveCount(1)
+  await expect(page.locator('#play-panel #daily-card')).toHaveCount(0)
 
   const shell = await page.evaluate(() => ({
     innerWidth,
@@ -18,10 +20,34 @@ test('portrait shell stays inside the phone and keeps navigation visible', async
 
   await page.getByRole('button', { name: 'TRAILS' }).click()
   await expect(page.locator('#trail-summary')).toHaveText('20 TRAILS · 5 PLACES')
-  await expect(page.locator('.trail-button')).toHaveCount(20)
-  await expect(page.locator('.region-divider')).toHaveCount(5)
-  await expect(page.locator('.region-divider').last()).toHaveText('BEACON KEEP')
+  await expect(page.locator('.trail-button')).toHaveCount(4)
+  await expect(page.locator('.region-divider')).toHaveCount(1)
+  await expect(page.locator('.region-divider')).toHaveText('GARDEN WALK')
+  await expect(page.locator('.sleeping-place')).toHaveCount(4)
+  await expect(page.locator('.sleeping-place').first()).toContainText('ROOFTOP RAIN')
+  await expect(page.locator('.sleeping-place').first()).toContainText('CLEAR GARDEN WALK TO WAKE')
   await expect(page.getByRole('navigation', { name: 'game menu' })).toBeVisible()
+})
+
+test('Trails expands reached places while future places stay compact and readable', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('jumpit-save-v1', JSON.stringify({
+    version: 2,
+    completed: ['garden-1', 'garden-2', 'garden-3', 'garden-4'],
+    unlocked: ['garden-1', 'garden-2', 'garden-3', 'garden-4', 'rooftop-1'],
+    bestSeeds: {},
+    selectedLevel: 'rooftop-1',
+    theme: 'garden',
+    muted: true,
+    dailyWins: [],
+  })))
+  await page.goto('/')
+  await page.getByRole('button', { name: 'TRAILS' }).click()
+  await expect(page.locator('.trail-button')).toHaveCount(8)
+  await expect(page.locator('.region-divider')).toHaveText(['GARDEN WALK', 'ROOFTOP RAIN'])
+  await expect(page.locator('.sleeping-place')).toHaveCount(3)
+  await expect(page.locator('.sleeping-place').first()).toContainText('WORKSHOP LOFT')
+  await expect(page.locator('.sleeping-place').first()).toContainText('CLEAR ROOFTOP RAIN TO WAKE')
+  await expect(page.getByRole('button', { name: 'Thunder Terrace locked' })).toBeDisabled()
 })
 
 test('game controls and pause remain readable without hiding the world', async ({ page }) => {

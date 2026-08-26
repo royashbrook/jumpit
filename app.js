@@ -26,6 +26,7 @@ const HOW_TO_PLAY = Object.freeze({
 const release = createRelease(LEVELS, 20)
 const releaseLevels = release.levels
 const activeSeed = currentSeed()
+const directChallenge = new URLSearchParams(location.search).has('seed')
 const featuredChallenge = {
   ...dailyChallenge(activeSeed),
   seed: activeSeed,
@@ -53,6 +54,32 @@ function fillHowto({ title, steps, copy }) {
   howto.querySelector('.small').textContent = copy
 }
 
+function showGameStatus(message) {
+  const status = $('game-status')
+  status.classList.remove('status-pop')
+  status.textContent = message
+  if (!message) return
+  void status.offsetWidth
+  status.classList.add('status-pop')
+}
+
+function completionCopy(state) {
+  const current = release.find(state.levelId)
+  if (!current) return ''
+  const region = REGIONS.find(item => item.id === current.region)
+  const regionLevels = releaseLevels.filter(level => level.region === current.region)
+  const completed = new Set(save.completed)
+  completed.add(current.id)
+  const lit = regionLevels.filter(level => completed.has(level.id)).length
+  let copy = `${region?.name || current.region}: ${lit} OF ${regionLevels.length} TRAILS LIT.`
+  const next = release.find(release.next(current.id))
+  if (next && !save.unlocked.includes(next.id)) {
+    const nextRegion = REGIONS.find(item => item.id === next.region)
+    copy += ` ${next.region === current.region ? next.name : nextRegion?.name || next.region} IS NOW OPEN.`
+  }
+  return copy.toUpperCase()
+}
+
 const store = createSaveStore({ onChange: renderMenu })
 save = store.get()
 const audio = createAudio({
@@ -68,7 +95,7 @@ const game = createGame($('stage'), state => {
   $('seed-count').textContent = `◆ ${state.seeds}/${state.maxSeeds}`
   $('pause').textContent = state.paused ? '▶' : 'Ⅱ'
   $('pause').setAttribute('aria-label', state.paused ? 'resume game' : 'pause game')
-  $('game-status').textContent = state.message
+  showGameStatus(state.message)
   const guardianActive = Number.isFinite(state.guardianMax) && state.guardianMax > 0
   $('guardian-status').hidden = !guardianActive
   $('guardian-status').textContent = guardianActive
@@ -95,9 +122,9 @@ const game = createGame($('stage'), state => {
       ? `${activeChallenge.goalSeeds} SEEDS + BELL · STAMP EARNED`
       : `FOUND ${state.seeds}/${activeChallenge.goalSeeds} SEEDS · TRY AGAIN`
     : campaignFinished
-      ? 'YOU LIT THE BEACON. ALL FIVE PLACES GLOW AGAIN.'
+      ? `${completionCopy(state)} YOU LIT THE BEACON. ALL FIVE PLACES GLOW AGAIN.`
       : state.finished
-      ? `${state.seeds} OF ${state.maxSeeds} LANTERN SEEDS FOUND`
+      ? completionCopy(state)
       : 'The trail waits for you.'
   $('resume').hidden = !state.paused
   $('restart').textContent = campaignFinished
@@ -107,7 +134,11 @@ const game = createGame($('stage'), state => {
 
   if (overlayVisible && !overlayOpen) {
     overlayOpen = true
-    queueMicrotask(() => (campaignFinished ? $('ending-home') : state.paused ? $('resume') : $('restart')).focus({ preventScroll: true }))
+    queueMicrotask(() => {
+      const next = !challengeFinished && state.finished && release.next(state.levelId) ? $('next-trail') : null
+      const target = campaignFinished ? $('ending-home') : state.paused ? $('resume') : next || $('restart')
+      target.focus({ preventScroll: true })
+    })
   } else if (!overlayVisible) {
     overlayOpen = false
   }
@@ -226,6 +257,23 @@ function trailButton(level, index, state) {
   return button
 }
 
+function sleepingPlace(region, previous) {
+  const row = document.createElement('div')
+  row.className = 'sleeping-place'
+  const moon = document.createElement('span')
+  moon.className = 'sleeping-place-mark'
+  moon.setAttribute('aria-hidden', 'true')
+  moon.textContent = '☾'
+  const copy = document.createElement('span')
+  const name = document.createElement('b')
+  name.textContent = region.name.toUpperCase()
+  const status = document.createElement('small')
+  status.textContent = `SLEEPING · CLEAR ${previous?.name.toUpperCase() || 'THE PREVIOUS PLACE'} TO WAKE`
+  copy.append(name, status)
+  row.append(moon, copy)
+  return row
+}
+
 function lookUnlocked(state, id) {
   return Boolean(looks.find(look => look.id === id)?.unlocked(state))
 }
@@ -258,14 +306,19 @@ function renderMenu(nextState = store.get()) {
   }
   if ($('daily-play')) $('daily-play').textContent = dailyWon ? 'PLAY AGAIN' : 'PLAY CHALLENGE'
   const trailNodes = []
-  for (const [index, level] of releaseLevels.entries()) {
-    if (index % 4 === 0) {
-      const heading = document.createElement('h3')
-      heading.className = 'region-divider'
-      heading.textContent = REGIONS.find(region => region.id === level.region)?.name.toUpperCase() || level.region.toUpperCase()
-      trailNodes.push(heading)
+  for (const [regionIndex, region] of REGIONS.entries()) {
+    const placeLevels = releaseLevels.filter(level => level.region === region.id)
+    if (!placeLevels.length) continue
+    const reached = placeLevels.some(level => save.unlocked.includes(level.id) || save.completed.includes(level.id))
+    if (!reached) {
+      trailNodes.push(sleepingPlace(region, REGIONS[regionIndex - 1]))
+      continue
     }
-    trailNodes.push(trailButton(level, index, save))
+    const heading = document.createElement('h3')
+    heading.className = 'region-divider'
+    heading.textContent = region.name.toUpperCase()
+    trailNodes.push(heading)
+    for (const level of placeLevels) trailNodes.push(trailButton(level, releaseLevels.indexOf(level), save))
   }
   $('trail-list').replaceChildren(...trailNodes)
   for (const look of looks) {
@@ -406,6 +459,7 @@ wireInstall($('install'), {
 })
 
 renderMenu(save)
+if (directChallenge) openTab('more')
 document.addEventListener('pointerdown', () => { void audio.startFromGesture() }, { once: true })
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) pauseForInterruption()

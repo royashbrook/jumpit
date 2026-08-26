@@ -51,6 +51,24 @@ test('corrupt and blocked storage never block play', async ({ browser, baseURL }
   await context.close()
 })
 
+test('a v1.7 four-seed opening score never renders as an impossible 4/3', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('jumpit-save-v1', JSON.stringify({
+    version: 2,
+    completed: ['garden-1'],
+    unlocked: ['garden-1', 'garden-2'],
+    bestSeeds: { 'garden-1': 4 },
+    selectedLevel: 'garden-1',
+    theme: 'garden',
+    muted: true,
+    dailyWins: [],
+  })))
+  await page.goto('/')
+  await expect(page.locator('#continue-label')).toHaveText('DEWDROP DASH · 3/3 SEEDS')
+  await page.getByRole('button', { name: 'TRAILS' }).click()
+  await expect(page.getByRole('button', { name: 'Play Dewdrop Dash' })).toContainText('◆ 3/3')
+  await expect(page.locator('body')).not.toContainText('4/3')
+})
+
 test('a shared seed previews its deterministic challenge without touching campaign progress', async ({ page }) => {
   const seed = 48151623
   const challenge = dailyChallenge(seed)
@@ -68,6 +86,8 @@ test('a shared seed previews its deterministic challenge without touching campai
   await page.addInitScript(value => localStorage.setItem('jumpit-save-v1', JSON.stringify(value)), baseline)
   await page.goto(`/?seed=${seed}`)
 
+  await expect(page.locator('[data-tab="more"]')).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('#daily-card')).toBeVisible()
   await expect(page.locator('#daily-kicker')).toHaveText('FRIEND CHALLENGE')
   await expect(page.locator('#daily-title')).toHaveText(challenge.title)
   await expect(page.locator('#daily-copy')).toHaveText(challenge.copy)

@@ -58,11 +58,17 @@ test('one failed shell entry rejects installation and never calls skipWaiting', 
   assert.equal(install.skipped(), 0)
 })
 
-test('the migration fixture is byte-for-byte the shipped v1.5 worker and updater', async () => {
-  const worker = await readFile(new URL('./fixtures/v1.5/sw.js', import.meta.url))
-  const updater = await readFile(new URL('./fixtures/v1.5/update.js', import.meta.url))
-  assert.equal(gitBlobId(worker), '6aeef5886fd93e86fce0df9e5f736284d6136e66')
-  assert.equal(gitBlobId(updater), '640c09cff6ced479dce12f70daa4147f1d97cd2d')
+test('migration fixtures are byte-for-byte the shipped v1.5 and v1.7 clients', async () => {
+  const fixtures = [
+    ['v1.5', '6aeef5886fd93e86fce0df9e5f736284d6136e66', '640c09cff6ced479dce12f70daa4147f1d97cd2d'],
+    ['v1.7', 'cd89bbe2545e463e82269012fc0c6d5aefcabacc', '6b325b24741f7e9becef5cb138a0f50f55d256da'],
+  ]
+  for (const [version, workerHash, updaterHash] of fixtures) {
+    const worker = await readFile(new URL(`./fixtures/${version}/sw.js`, import.meta.url))
+    const updater = await readFile(new URL(`./fixtures/${version}/update.js`, import.meta.url))
+    assert.equal(gitBlobId(worker), workerHash)
+    assert.equal(gitBlobId(updater), updaterHash)
+  }
 })
 
 function activateWith(keys, clients = []) {
@@ -109,7 +115,7 @@ function activateWith(keys, clients = []) {
 
 test('activation migrates v1.5 clients in scope after the complete B cache wins', async () => {
   const activation = activateWith(
-    ['jumpit-v1.5.0', 'jumpit-v1.7.0', 'sibling-game-v4'],
+    ['jumpit-v1.5.0', 'jumpit-v1.8.0', 'sibling-game-v4'],
     [
       'https://example.test/jumpit/?seed=7',
       'https://example.test/other-game/',
@@ -124,11 +130,11 @@ test('activation migrates v1.5 clients in scope after the complete B cache wins'
 })
 
 test('activation without the v1.5 cache claims but never forces a navigation', async () => {
-  const activation = activateWith(['jumpit-v1.6.0', 'jumpit-v1.7.0'], [
+  const activation = activateWith(['jumpit-v1.7.0', 'jumpit-v1.8.0'], [
     'https://example.test/jumpit/',
   ])
   await activation.done
-  assert.deepEqual(activation.deleted, ['jumpit-v1.6.0'])
+  assert.deepEqual(activation.deleted, ['jumpit-v1.7.0'])
   assert.equal(activation.claims(), 1)
   assert.equal(activation.matches(), 0)
   assert.deepEqual(activation.navigated, [])

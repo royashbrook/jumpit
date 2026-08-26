@@ -23,10 +23,26 @@ const PLAYER_FRAMES = { idle: 0, run: 1, jump: 4, fall: 5 }
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value))
 
 export function coachMessage({ moved, jumped, glowing, x }) {
-  if (!moved) return 'RUN RIGHT · TAP JUMP'
-  if (!jumped && x > 135 && x < 350) return 'TAP JUMP · LAND ON TOP'
-  if (glowing && x < 620) return 'GLOWING? BUMP CREATURES!'
+  if (!moved) return 'HOLD ▶ TO RUN'
+  if (!jumped) return 'TAP JUMP'
+  if (glowing && x < 620) return 'GLOW BUMPS CREATURES'
   return ''
+}
+
+export function playHint({ finished, moved, jumped, glowing, x, finishX }) {
+  if (finished) return { kind: 'none', text: '' }
+  const coach = coachMessage({ moved, jumped, glowing, x })
+  if (coach) return { kind: 'coach', text: coach }
+  return { kind: 'guide', text: finishX < x ? '← BELL' : 'BELL →' }
+}
+
+export function impactFeedback(type, reducedMotion = false) {
+  if (!['seed', 'stomp', 'checkpoint', 'finish'].includes(type)) return null
+  return {
+    frames: type === 'finish' ? 12 : 9,
+    kick: reducedMotion ? 0 : type === 'finish' || type === 'checkpoint' ? 5 : 3,
+    expands: !reducedMotion,
+  }
 }
 
 export function keyInputMode({ type, running, paused, finished }) {
@@ -70,6 +86,8 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
   const reducedMotion = Boolean(globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
   const input = { left: false, right: false, jumpHeld: false, jumpPressed: false }
   const particles = []
+  let impact = null
+  let cameraKick = 0
   let simulation = createSimulation(LEVELS[0])
   let world = simulation.world
   let player = simulation.player
@@ -125,8 +143,30 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     }
   }
 
+  function advanceFeedback() {
+    for (const particle of particles) {
+      particle.x += particle.vx
+      particle.y += particle.vy
+      particle.vy += 0.12
+      particle.life -= 1
+    }
+    while (particles[0]?.life <= 0) particles.shift()
+    if (impact) {
+      impact.life -= 1
+      if (impact.life <= 0) impact = null
+    }
+    cameraKick = Math.max(0, cameraKick - .7)
+  }
+
+  function resetFeedback() {
+    particles.length = 0
+    impact = null
+    cameraKick = 0
+  }
+
   function update() {
-    if (paused || finished) return
+    if (paused) return
+    if (finished) return advanceFeedback()
     const events = stepSimulation(simulation, input)
     input.jumpPressed = false
     syncSimulation()
@@ -135,6 +175,18 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       if (event.type === 'fan' && event.burst) {
         particles.push({ x: event.burst[0], y: event.burst[1], vx: 0, vy: -2.1, life: 28, color: event.burst[2] })
       } else if (event.burst) burst(...event.burst)
+      const feedback = impactFeedback(event.type, reducedMotion)
+      if (feedback && event.burst) {
+        impact = {
+          x: event.burst[0],
+          y: event.burst[1],
+          color: event.burst[2],
+          life: feedback.frames,
+          maxLife: feedback.frames,
+          expands: feedback.expands,
+        }
+        cameraKick = Math.max(cameraKick, feedback.kick)
+      }
       if (event.type === 'hurt' || event.type === 'fall') {
         camera = clamp(player.x - 72, 0, Math.max(0, world.width - 320))
       }
@@ -142,13 +194,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       if (event.message) report(event.message)
     }
 
-    for (const particle of particles) {
-      particle.x += particle.vx
-      particle.y += particle.vy
-      particle.vy += 0.12
-      particle.life -= 1
-    }
-    while (particles[0]?.life <= 0) particles.shift()
+    advanceFeedback()
   }
 
   function drawBackground(width, height) {
@@ -456,10 +502,32 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     context.globalAlpha = 1
   }
 
+  function drawImpact() {
+    if (!impact) return
+    const progress = 1 - impact.life / impact.maxLife
+    const radius = impact.expands ? 12 + progress * 30 : 24
+    context.save()
+    context.globalAlpha = impact.expands ? 1 - progress : .9
+    context.strokeStyle = impact.color
+    context.lineWidth = 4
+    context.beginPath()
+    context.arc(impact.x, impact.y, radius, 0, Math.PI * 2)
+    context.stroke()
+    context.restore()
+  }
+
   function drawHint(width, height) {
-    const message = finished ? '' : coachMessage({ moved, jumped, glowing: player.glowing, x: player.x })
-    if (!message) return
-    const bubbleWidth = Math.min(250, width - 32)
+    const hint = playHint({
+      finished,
+      moved,
+      jumped,
+      glowing: player.glowing,
+      x: player.x,
+      finishX: world.finish.x,
+    })
+    if (!hint.text) return
+    const bubbleWidth = hint.kind === 'guide' ? 94 : Math.min(250, width - 32)
+    const bubbleX = hint.kind === 'guide' ? width - bubbleWidth - 16 : (width - bubbleWidth) / 2
     context.setTransform(1, 0, 0, 1, 0, 0)
     const ratio = Math.min(devicePixelRatio || 1, 2)
     context.scale(ratio, ratio)
@@ -467,13 +535,13 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     context.strokeStyle = '#173D3A'
     context.lineWidth = 3
     context.beginPath()
-    context.roundRect((width - bubbleWidth) / 2, height - 96, bubbleWidth, 48, 16)
+    context.roundRect(bubbleX, height - 96, bubbleWidth, 48, 16)
     context.fill()
     context.stroke()
     context.fillStyle = '#173D3A'
     context.font = '900 16px ui-rounded, system-ui, sans-serif'
     context.textAlign = 'center'
-    context.fillText(message, width / 2, height - 65)
+    context.fillText(hint.text, bubbleX + bubbleWidth / 2, height - 65)
   }
 
   function paint() {
@@ -498,7 +566,8 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
 
     context.save()
     context.scale(scale, scale)
-    context.translate(-camera, 0)
+    const cameraJolt = reducedMotion || !cameraKick ? 0 : (frame % 2 ? cameraKick : -cameraKick)
+    context.translate(-clamp(camera + cameraJolt, 0, maxCamera), 0)
     for (const rect of world.terrain) drawTerrain(rect)
     for (const seed of world.seeds) drawSeed(seed)
     drawCloaks()
@@ -509,6 +578,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     drawBell()
     drawEnemies()
     drawParticles()
+    drawImpact()
     drawPlayer()
     context.restore()
     drawHint(width, height)
@@ -572,6 +642,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       simulation = createSimulation(level)
       syncSimulation()
       clearInput()
+      resetFeedback()
       camera = 0
       paused = false
       lastTime = 0
@@ -588,6 +659,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       running = false
       cancelAnimationFrame(raf)
       clearInput()
+      resetFeedback()
     },
     resize: paint,
     setInput,

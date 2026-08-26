@@ -81,7 +81,7 @@ export function createGame(_canvas, onState = () => {}) {
   window.addEventListener('keyup', onKey)
   const report = (paused = false) => onState({
     levelId: 'garden-1', levelName: 'Dewdrop Dash', regionName: 'Garden Walk',
-    seeds: 0, maxSeeds: 4, paused, finished: false, message: '',
+    seeds: 0, maxSeeds: 3, paused, finished: false, message: '',
   })
   return {
     start() { report(false) }, restart() { report(false) }, stop() {}, resize() {}, setInput,
@@ -91,17 +91,96 @@ export function createGame(_canvas, onState = () => {}) {
 }
 `
 
-test('the first visible action pays off inside five seconds with a seed and a visible creature', async ({ page }) => {
+const shellFeedbackGameStub = `
+export function createGame(_canvas, onState = () => {}) {
+  let levelId = 'garden-1'
+  let finished = false
+  let paused = false
+  const report = message => onState({
+    levelId,
+    levelName: levelId === 'garden-4' ? 'Bramble Bank' : 'Dewdrop Dash',
+    regionName: 'Garden Walk',
+    seeds: 1,
+    maxSeeds: levelId === 'garden-4' ? 4 : 3,
+    paused,
+    finished,
+    message,
+  })
+  const start = id => {
+    levelId = id
+    finished = false
+    paused = false
+    report('')
+  }
+  return {
+    start,
+    restart() { start(levelId) },
+    stop() {}, resize() {}, clearInput() {},
+    setInput(action, value) {
+      if (!value || action !== 'right' || finished) return
+      if (levelId === 'garden-4') finished = true
+      report(finished ? 'TRAIL CLEARED!' : 'LANTERN SEED!')
+    },
+    togglePause() { paused = !paused; report(paused ? 'PAUSED' : 'GO!'); return paused },
+    pause() { paused = true; report('PAUSED'); return paused },
+  }
+}
+`
+
+test('the first visible action pays off inside five seconds with a real seed', async ({ page }) => {
   await page.goto('/')
   const started = Date.now()
   await launchTrail(page)
   await expect(page.locator('#stage')).toBeVisible()
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
   await pointer(page, '#move-right', 'pointerdown')
-  await expect(page.locator('#seed-count')).toContainText('1/4', { timeout: 5_000 })
+  await expect(page.locator('#seed-count')).toContainText('1/3', { timeout: 5_000 })
   await pointer(page, '#move-right', 'pointerup')
   expect(Date.now() - started).toBeLessThan(5_000)
   await expect(page.locator('#stage')).toBeVisible()
+})
+
+test('identical reward messages visibly retrigger their status animation', async ({ page }) => {
+  await page.route('**/game.js', route => route.fulfill({ contentType: 'text/javascript', body: shellFeedbackGameStub }))
+  await page.goto('/')
+  await launchTrail(page)
+  await page.locator('#game-status').evaluate(element => {
+    document.documentElement.dataset.statusStarts = '0'
+    element.addEventListener('animationstart', () => {
+      const count = Number(document.documentElement.dataset.statusStarts || 0)
+      document.documentElement.dataset.statusStarts = String(count + 1)
+    })
+  })
+
+  await page.locator('#move-right').click()
+  await expect.poll(() => page.locator('html').getAttribute('data-status-starts')).toBe('1')
+  await expect(page.locator('#game-status')).toHaveText('LANTERN SEED!')
+  await page.waitForTimeout(160)
+  await page.locator('#move-right').click()
+  await expect.poll(() => page.locator('html').getAttribute('data-status-starts')).toBe('2')
+  await expect(page.locator('#game-status')).toHaveText('LANTERN SEED!')
+})
+
+test('a clear names place progress and the trail or place it just opened', async ({ page }) => {
+  await page.route('**/game.js', route => route.fulfill({ contentType: 'text/javascript', body: shellFeedbackGameStub }))
+  await page.addInitScript(() => localStorage.setItem('jumpit-save-v1', JSON.stringify({
+    version: 2,
+    completed: ['garden-1', 'garden-2', 'garden-3'],
+    unlocked: ['garden-1', 'garden-2', 'garden-3', 'garden-4'],
+    bestSeeds: {},
+    selectedLevel: 'garden-4',
+    theme: 'garden',
+    muted: true,
+    dailyWins: [],
+  })))
+  await page.goto('/')
+  await launchTrail(page)
+  await page.locator('#move-right').click()
+
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await expect(page.locator('#overlay-copy')).toHaveText('GARDEN WALK: 4 OF 4 TRAILS LIT. ROOFTOP RAIN IS NOW OPEN.')
+  await expect(page.getByRole('button', { name: 'NEXT TRAIL' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'NEXT TRAIL' })).toBeFocused()
 })
 
 test('ArrowRight moves from the focused PAUSE button without a blur workaround', async ({ page }) => {
@@ -111,7 +190,7 @@ test('ArrowRight moves from the focused PAUSE button without a blur workaround',
   await page.keyboard.down('ArrowRight')
   await page.waitForTimeout(1_200)
   await page.keyboard.up('ArrowRight')
-  await expect(page.locator('#seed-count')).toContainText('1/4')
+  await expect(page.locator('#seed-count')).toContainText('1/3')
 })
 
 test('run and jump can overlap on touch without sticking either control', async ({ page }) => {

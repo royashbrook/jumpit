@@ -101,11 +101,16 @@ function hashFrame(hash, simulation, events) {
 function runReplay(level, inputs) {
   const simulation = createSimulation(level)
   const eventCounts = {}
+  const eventFrames = {}
   let hash = 2166136261
   let maxX = simulation.player.x
   for (const encoded of inputs) {
     const events = stepSimulation(simulation, decodeInput(encoded))
-    for (const event of events) eventCounts[event.type] = (eventCounts[event.type] || 0) + 1
+    for (const event of events) {
+      eventCounts[event.type] = (eventCounts[event.type] || 0) + 1
+      const frames = eventFrames[event.type] ||= []
+      frames.push(simulation.frame)
+    }
     hash = hashFrame(hash, simulation, events)
     maxX = Math.max(maxX, simulation.player.x)
     if (simulation.finished) break
@@ -116,6 +121,7 @@ function runReplay(level, inputs) {
     respawns: simulation.respawns,
     maxX,
     events: eventCounts,
+    eventFrames,
     hash: hash.toString(16).padStart(8, '0'),
     simulation,
   }

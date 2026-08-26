@@ -54,6 +54,21 @@ test('the twenty replays exercise every progressive runtime mechanic', () => {
   ]) assert.ok(totals[type] > 0, `${type} never occurred in the twenty real replays`)
 })
 
+test('First Light pays off fast and Windward Tower stays forgiving', () => {
+  const first = recordReplay(level('garden-1'))
+  assert.ok(first.eventFrames.seed?.[0] <= 30, `first seed arrived on frame ${first.eventFrames.seed?.[0]}`)
+  assert.ok(first.eventFrames.stomp?.[0] <= 60, `first stomp arrived on frame ${first.eventFrames.stomp?.[0]}`)
+  assert.equal(first.eventFrames.finish?.[0], first.frames)
+  assert.ok(first.frames <= 240, `first bell arrived on frame ${first.frames}`)
+  assert.equal(first.respawns, 0)
+
+  const tower = recordReplay(level('keep-3'))
+  assert.equal(tower.eventFrames.finish?.[0], tower.frames)
+  assert.ok(tower.frames <= 600, `tower bell arrived on frame ${tower.frames}`)
+  assert.ok(tower.respawns <= 1, `tower needed ${tower.respawns} respawns`)
+  assert.equal(level('keep-3').objects.filter(([, kind]) => kind === 'sentry').length, 3)
+})
+
 test('one fixed step owns crumble, switch, lamp, fan, lift, checkpoint, and enemy rules', () => {
   const crumble = createSimulation(level('garden-4'))
   const bank = crumble.world.terrain.find(rect => rect.kind === 'crumble')

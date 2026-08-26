@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.8.0: 2026-08-26
+
+- Rebuilt the opening trail as a short, zero-fall run-jump-stomp lesson with its
+  first seed and creature bounce inside the opening second of deterministic play.
+- Moved the glow cloak to the second trail and made the sharpest tower checkpoint
+  forgiving without removing its three-Sentry encounter.
+- Reduced the fresh PLAY panel to one campaign action and collapsed unreached places
+  into compact sleeping rows instead of sixteen locked chores.
+- Added one-verb coaching, an always-visible bell direction, retriggered reward feedback,
+  and clear screens that name the trail or place just opened.
+
 ## 1.7.0: 2026-08-26
 
 - Made live play and deterministic verification use one fixed-step game transition.

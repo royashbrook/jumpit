@@ -345,6 +345,35 @@ h1 {
   letter-spacing: .08em;
 }
 
+.sleeping-place {
+  display: grid;
+  grid-template-columns: 2.6rem 1fr;
+  align-items: center;
+  gap: .7rem;
+  min-height: 3.35rem;
+  padding: .55rem .8rem;
+  border: .12rem dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-sunk);
+  color: var(--ink-dim);
+}
+
+.sleeping-place-mark {
+  font-size: 1.55rem;
+  text-align: center;
+}
+
+.sleeping-place b,
+.sleeping-place small {
+  display: block;
+}
+
+.sleeping-place small {
+  margin-top: .08rem;
+  font-size: .68rem;
+  font-weight: 800;
+}
+
 .trail-button {
   display: grid;
   grid-template-columns: 2.6rem 1fr auto;
@@ -648,7 +677,7 @@ h1 {
   white-space: nowrap;
 }
 
-.game-status:not(:empty) {
+.game-status.status-pop {
   animation: status-pop 1.35s ease both;
 }
 
@@ -927,7 +956,7 @@ dialog ol {
     animation-iteration-count: 1 !important;
   }
 
-  .game-status:not(:empty) {
+  .game-status.status-pop {
     opacity: 1;
     animation: none;
   }
@@ -938,6 +967,7 @@ dialog ol {
   .stage-shell,
   .trail-hero,
   .daily-card,
+  .sleeping-place,
   .look-card,
   .game-card,
   dialog {

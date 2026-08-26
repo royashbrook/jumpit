@@ -46,6 +46,29 @@ test('every stop has its kid-readable goals and the hazards progress by place', 
   assert.ok(LEVELS.at(-1).objects.some(object => object[1] === 'warden'))
 })
 
+test('First Light is a short run-jump-stomp lesson before the glow cloak', () => {
+  const first = LEVELS[0]
+  const second = LEVELS[1]
+  assert.deepEqual(first.size, [38, 18])
+  assert.deepEqual(first.finish, ['g01-bell', 35, 14])
+  assert.deepEqual(first.introduces, ['run-jump-stomp'])
+  assert.deepEqual(first.terrain, [
+    ['g01-a', 'ground', 0, 15, 18, 3], ['g01-b', 'ground', 19, 15, 12, 3],
+    ['g01-c', 'ground', 32, 15, 6, 3], ['g01-d', 'leaf', 7, 12, 5, 1],
+    ['g01-e', 'leaf', 25, 12, 5, 1],
+  ])
+  assert.deepEqual(first.objects, [
+    ['g01-seed-a', 'seed', 4, 14], ['g01-seed-b', 'seed', 10, 11],
+    ['g01-seed-c', 'seed', 27, 11], ['g01-check', 'checkpoint', 21, 14],
+    ['g01-moss-a', 'mossling', 9, 14],
+  ])
+  assert.deepEqual(second.introduces, ['glow-cloak'])
+  assert.deepEqual(
+    LEVELS.flatMap(entry => entry.objects).filter(([, kind]) => kind === 'cloak'),
+    [['g02-cloak', 'cloak', 8, 11]],
+  )
+})
+
 test('Beacon Keep climbs in readable tiers while sentries build one encounter at a time', () => {
   const keep = LEVELS.filter(level => level.region === 'keep')
   assert.deepEqual(keep.map(level => level.size[0]), [72, 78, 84, 96])
@@ -108,10 +131,9 @@ test('validator catches embedded seeds and checkpoints', () => {
 test('validator catches a finish beyond the conservative three-tile jump gap', () => {
   const campaign = copy()
   const level = campaign[0]
-  level.terrain = level.terrain.filter(tile => tile[0] !== 'g01-g')
-  const finalGround = level.terrain.find(tile => tile[0] === 'g01-d')
-  finalGround[2] = 43
-  finalGround[4] = 15
+  const finalGround = level.terrain.find(tile => tile[0] === 'g01-c')
+  finalGround[2] = 35
+  finalGround[4] = 3
   assert.match(validateCampaign(campaign).join('\n'), /finish bell is outside the conservative jump envelope/)
   assert.throws(() => assertCampaign(campaign), /Invalid Jumpit campaign/)
 })
@@ -119,8 +141,11 @@ test('validator catches a finish beyond the conservative three-tile jump gap', (
 test('validator catches a finish four tiles above the tuned jump rise', () => {
   const campaign = copy()
   const level = campaign[0]
-  level.terrain.push(['g01-too-high', 'leaf', 50, 11, 3, 1])
-  level.finish[1] = 51
+  const highLeaf = level.terrain.find(tile => tile[0] === 'g01-e')
+  highLeaf[2] = 32
+  highLeaf[3] = 11
+  highLeaf[4] = 3
+  level.finish[1] = 33
   level.finish[2] = 10
   assert.match(validateCampaign(campaign).join('\n'), /finish bell is outside the conservative jump envelope/)
 })

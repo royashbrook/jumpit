@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { LEVELS } from '../levels.js'
 import {
   createSaveStore,
   DAILY_WIN_LIMIT,
@@ -57,12 +58,12 @@ test('sound preference is part of the guarded save', () => {
   assert.equal(loadSave(storage).muted, true)
 })
 
-test('v1 saves migrate to v2 without losing progress or preferences', () => {
+test('old saves migrate without losing progress or showing impossible seed totals', () => {
   const storage = memoryStorage(JSON.stringify({
     version: 1,
     completed: ['garden-1'],
     unlocked: ['garden-1', 'garden-2'],
-    bestSeeds: { 'garden-1': 4 },
+    bestSeeds: { 'garden-1': 9, 'missing-trail': 7 },
     selectedLevel: 'garden-2',
     theme: 'dusk',
     muted: true,
@@ -73,11 +74,27 @@ test('v1 saves migrate to v2 without losing progress or preferences', () => {
     version: SAVE_VERSION,
     completed: ['garden-1'],
     unlocked: ['garden-1', 'garden-2'],
-    bestSeeds: { 'garden-1': 4 },
+    bestSeeds: { 'garden-1': 3 },
     selectedLevel: 'garden-2',
     theme: 'dusk',
     muted: true,
   })
+})
+
+test('the exact v1.7 four-seed opening score migrates to the shorter First Light maximum', () => {
+  const storage = memoryStorage(JSON.stringify({
+    version: 2,
+    completed: ['garden-1'],
+    unlocked: ['garden-1', 'garden-2'],
+    bestSeeds: { 'garden-1': 4 },
+    selectedLevel: 'garden-1',
+    theme: 'garden',
+    muted: false,
+    dailyWins: [],
+  }))
+  const migrated = loadSave(storage)
+  assert.equal(migrated.bestSeeds['garden-1'], 3)
+  assert.ok(migrated.bestSeeds['garden-1'] <= LEVELS[0].objects.filter(([, kind]) => kind === 'seed').length)
 })
 
 test('all four released looks persist and unknown looks are rejected', () => {
