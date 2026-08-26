@@ -40,6 +40,26 @@
       "prompt": "Original 4x2 transparent pixel-art sheet: four Mossling poses, glow-cloak pickup, lantern seed, rustic finish bell and checkpoint lantern; mobile-readable, no borrowed game imagery.",
       "license": "project-original",
       "sha256": "77f73cee0a2ed39b8411c336e55afedb9e78ce15cd7d679e254cfda70a0a1203"
+    },
+    {
+      "id": "rooftop-workshop-background-atlas",
+      "file": "assets/backgrounds/region-atlas.png",
+      "dimensions": "1536x1024",
+      "kind": "two-region-background-atlas",
+      "source": "OpenAI built-in image generation",
+      "prompt": "Original two-row panorama atlas: rainy lived-in rooftops and a warm timber-and-brass workshop loft, layered storybook pixel art for portrait camera crops, no characters or borrowed imagery.",
+      "license": "project-original",
+      "sha256": "195cc5d64da51d24d2bdfb7d1cea1eb565237e8950b0dad65a3b9ec9b8d9c182"
+    },
+    {
+      "id": "rooftop-workshop-sprite-sheet",
+      "file": "assets/sprites/region-sheet.png",
+      "dimensions": "1536x1024",
+      "kind": "region-sprite-sheet",
+      "source": "OpenAI built-in image generation",
+      "prompt": "Original transparent 4x2 sheet with Drizzlet and Gearling animation poses plus fan, conveyor, freight lift, and switch mechanics; mobile-readable and trademark-free.",
+      "license": "project-original",
+      "sha256": "5f3a45df350528ee1d858a20c6bf5efbd4a76f6f3157a06b091fd3f7d650d2eb"
     }
   ]
 }

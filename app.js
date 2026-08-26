@@ -2,7 +2,7 @@ import { currentSeed, shareSeed } from './seed.js'
 import { createAudio } from './audio.js'
 import { createGame } from './game.js'
 import { wireInstall } from './install.js'
-import { LEVELS } from './levels.js'
+import { LEVELS, REGIONS } from './levels.js'
 import { createSaveStore } from './save.js'
 import { wireUpdate, registerWorker } from './update.js'
 import { VERSION } from './version.js'
@@ -12,7 +12,7 @@ const menu = $('menu')
 const gameScreen = $('game')
 const howto = $('howto')
 const overlay = $('game-overlay')
-const gardenLevels = LEVELS.slice(0, 4)
+const releaseLevels = LEVELS.slice(0, 12)
 let save
 let queuedNext = null
 let lastCompleted = null
@@ -31,7 +31,7 @@ const game = createGame($('stage'), state => {
   $('pause').setAttribute('aria-label', state.paused ? 'resume game' : 'pause game')
   $('game-status').textContent = state.message
   overlay.hidden = !state.paused && !state.finished
-  $('overlay-kicker').textContent = state.finished ? 'GARDEN WALK' : 'TAKE A BREATH'
+  $('overlay-kicker').textContent = state.finished ? state.regionName.toUpperCase() : 'TAKE A BREATH'
   $('overlay-title').textContent = state.finished ? 'TRAIL CLEARED!' : 'PAUSED'
   $('overlay-copy').textContent = state.finished
     ? `${state.seeds} OF ${state.maxSeeds} LANTERN SEEDS FOUND`
@@ -90,7 +90,8 @@ function trailButton(level, index, state) {
   meta.append(name, status)
   const seeds = document.createElement('span')
   seeds.className = 'trail-seeds'
-  seeds.textContent = unlocked ? `◆ ${state.bestSeeds[level.id] || 0}/4` : 'LOCKED'
+  const maxSeeds = level.objects.filter(([, kind]) => kind === 'seed').length
+  seeds.textContent = unlocked ? `◆ ${state.bestSeeds[level.id] || 0}/${maxSeeds}` : 'LOCKED'
   button.append(number, meta, seeds)
   if (unlocked) button.addEventListener('click', () => playLevel(level.id))
   return button
@@ -100,8 +101,19 @@ function renderMenu(nextState = store.get()) {
   save = nextState
   document.documentElement.dataset.theme = save.theme
   const selected = LEVELS.find(level => level.id === save.selectedLevel) || LEVELS[0]
-  $('continue-label').textContent = `${selected.name.toUpperCase()} · ${save.bestSeeds[selected.id] || 0}/4 SEEDS`
-  $('trail-list').replaceChildren(...gardenLevels.map((level, index) => trailButton(level, index, save)))
+  const selectedMax = selected.objects.filter(([, kind]) => kind === 'seed').length
+  $('continue-label').textContent = `${selected.name.toUpperCase()} · ${save.bestSeeds[selected.id] || 0}/${selectedMax} SEEDS`
+  const trailNodes = []
+  for (const [index, level] of releaseLevels.entries()) {
+    if (index % 4 === 0) {
+      const heading = document.createElement('h3')
+      heading.className = 'region-divider'
+      heading.textContent = REGIONS.find(region => region.id === level.region)?.name.toUpperCase() || level.region.toUpperCase()
+      trailNodes.push(heading)
+    }
+    trailNodes.push(trailButton(level, index, save))
+  }
+  $('trail-list').replaceChildren(...trailNodes)
   for (const look of ['garden', 'dusk']) $('look-' + look).setAttribute('aria-pressed', String(save.theme === look))
   $('sound-toggle').textContent = save.muted ? 'SOUND OFF' : 'SOUND ON'
 }

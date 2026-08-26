@@ -67,7 +67,9 @@ body {
 
 body {
   display: flex;
+  height: 100dvh;
   min-height: 100dvh;
+  max-height: 100dvh;
   padding:
     max(.8rem, env(safe-area-inset-top))
     max(.8rem, env(safe-area-inset-right))
@@ -213,6 +215,13 @@ h1 {
 .trail-list {
   display: grid;
   gap: .65rem;
+}
+
+.region-divider {
+  margin: .45rem 0 -.2rem;
+  color: var(--accent-dim);
+  font-size: .72rem;
+  letter-spacing: .08em;
 }
 
 .trail-button {

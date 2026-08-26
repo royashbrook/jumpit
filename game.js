@@ -22,21 +22,24 @@ export function makeWorld(level) {
   return {
     level,
     width: level.size[0] * TILE,
-    terrain: level.terrain.map(([, kind, x, y, width, height]) => ({
+    terrain: level.terrain.map(([id, kind, x, y, width, height], index) => ({
+      id,
       kind,
       type: height === 1 ? 'oneway' : 'solid',
       x: x * TILE,
       y: y * TILE,
+      baseY: y * TILE,
       w: width * TILE,
       h: height * TILE,
       active: true,
       timer: 0,
+      phase: index * 1.37,
     })),
     seeds: level.objects
       .filter(([, kind]) => kind === 'seed')
       .map(([id,, x, y]) => ({ id, x: (x + 0.5) * TILE, y: (y + 0.45) * TILE, found: false })),
     enemies: level.objects
-      .filter(([, kind]) => kind === 'mossling')
+      .filter(([, kind]) => ['mossling', 'drizzlet', 'gearling'].includes(kind))
       .map(([id, kind, x, y]) => ({
         id,
         kind,
@@ -54,6 +57,12 @@ export function makeWorld(level) {
       .map(([id,, x, y]) => ({ id, x: (x + 0.5) * TILE, y: (y + 0.4) * TILE, found: false })),
     springs: level.objects
       .filter(([, kind]) => kind === 'spring')
+      .map(([id,, x, y]) => ({ id, x: (x + 0.5) * TILE, y: (y + 1) * TILE })),
+    fans: level.objects
+      .filter(([, kind]) => kind === 'fan')
+      .map(([id,, x, y]) => ({ id, x: (x + 0.5) * TILE, y: (y + 1) * TILE })),
+    switches: level.objects
+      .filter(([, kind]) => kind === 'switch')
       .map(([id,, x, y]) => ({ id, x: (x + 0.5) * TILE, y: (y + 1) * TILE })),
     checkpoint: checkpoint ? {
       id: checkpoint[0],
@@ -77,8 +86,10 @@ export function activateCheckpoint(world, player) {
 export function createGame(canvas, onState = () => {}, onCue = () => {}) {
   const context = canvas.getContext('2d')
   const background = loadImage('assets/backgrounds/garden-walk.png')
+  const regionAtlas = loadImage('assets/backgrounds/region-atlas.png')
   const courier = loadImage('assets/sprites/courier-sheet.png')
   const worldSheet = loadImage('assets/sprites/world-sheet.png')
+  const regionSheet = loadImage('assets/sprites/region-sheet.png')
   const input = { left: false, right: false, jumpHeld: false, jumpPressed: false }
   const particles = []
   let world = makeWorld(LEVELS[0])
@@ -134,10 +145,24 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
 
   function update() {
     if (paused || finished) return
+
+    for (const rect of world.terrain.filter(item => item.kind === 'lift' && item.active)) {
+      const previousY = rect.y
+      rect.y = rect.baseY + Math.sin(frame * .025 + rect.phase) * 24
+      const riding = player.onGround && Math.abs(player.y + player.h - previousY) < 3 &&
+        player.x + player.w > rect.x && player.x < rect.x + rect.w
+      if (riding) player.y += rect.y - previousY
+    }
+
+    const support = world.terrain.find(rect => rect.active && Math.abs(player.y + player.h - rect.y) < 3 &&
+      player.x + player.w > rect.x && player.x < rect.x + rect.w)
+    player.config.friction = support?.kind === 'slick' ? .94 : .74
+    player.config.brake = support?.kind === 'slick' ? .42 : 1.08
     stepPhysics(player, input, world.terrain.filter(rect => rect.active))
     if (player.justJumped) onCue('jump')
     input.jumpPressed = false
     if (Math.abs(player.vx) > 0.25 || !player.onGround) moved = true
+    if (support?.kind === 'belt') player.x += .85
 
     for (const seed of world.seeds) {
       if (!seed.found && overlaps(player, seed.x - 12, seed.y - 15, 24, 30)) {
@@ -191,6 +216,14 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       }
     }
 
+    for (const fan of world.fans) {
+      const center = player.x + player.w / 2
+      if (Math.abs(center - fan.x) < 52 && player.y + player.h < fan.y && player.y + player.h > fan.y - 175) {
+        player.vy = Math.max(-8.4, player.vy - .48)
+        if (frame % 12 === 0) particles.push({ x: fan.x + (frame % 3 - 1) * 18, y: fan.y - 20, vx: 0, vy: -2.1, life: 28, color: '#B8E9F2' })
+      }
+    }
+
     for (const rect of world.terrain.filter(item => item.kind === 'crumble')) {
       if (!rect.active) {
         rect.timer -= 1
@@ -241,12 +274,15 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
   }
 
   function drawBackground(width, height) {
-    if (background.complete && background.naturalWidth) {
-      const sourceHeight = background.naturalHeight
-      const sourceWidth = Math.min(background.naturalWidth, sourceHeight * width / height)
+    const atlasRow = world.level.region === 'rooftop' ? 0 : world.level.region === 'workshop' ? 1 : -1
+    const image = atlasRow >= 0 ? regionAtlas : background
+    if (image.complete && image.naturalWidth) {
+      const sourceHeight = atlasRow >= 0 ? image.naturalHeight / 2 : image.naturalHeight
+      const sourceY = atlasRow >= 0 ? atlasRow * sourceHeight : 0
+      const sourceWidth = Math.min(image.naturalWidth, sourceHeight * width / height)
       const progress = camera / Math.max(1, world.width - width)
-      const sourceX = (background.naturalWidth - sourceWidth) * clamp(progress, 0, 1)
-      context.drawImage(background, sourceX, 0, sourceWidth, sourceHeight, 0, 0, width, height)
+      const sourceX = (image.naturalWidth - sourceWidth) * clamp(progress, 0, 1)
+      context.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, width, height)
       context.fillStyle = 'rgb(255 250 224 / .08)'
       context.fillRect(0, 0, width, height)
       return
@@ -261,6 +297,8 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
   function terrainPalette(kind) {
     if (kind === 'leaf') return ['#386B45', '#8ECF68', '#234A37']
     if (kind === 'crumble') return ['#8B5C3D', '#D1A257', '#5B3F31']
+    if (['roof', 'slick', 'awning'].includes(kind)) return ['#344957', kind === 'slick' ? '#72B3C3' : '#8E6A55', '#1F3038']
+    if (['wood', 'belt', 'lift', 'bridge'].includes(kind)) return ['#765136', kind === 'belt' ? '#3F9993' : '#D09B50', '#402E25']
     return ['#72513A', '#8BC65A', '#3F372C']
   }
 
@@ -278,6 +316,26 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     context.fillRect(rect.x, rect.y + Math.min(9, rect.h), rect.w, 3)
     context.fillStyle = 'rgb(255 255 255 / .16)'
     for (let x = rect.x + 12; x < rect.x + rect.w; x += 28) context.fillRect(x, rect.y + 2, 9, 2)
+    if (rect.kind === 'belt') {
+      context.fillStyle = '#E9F4D6'
+      for (let x = rect.x + 18; x < rect.x + rect.w - 8; x += 34) {
+        context.beginPath()
+        context.moveTo(x, rect.y + 3)
+        context.lineTo(x + 8, rect.y + 6)
+        context.lineTo(x, rect.y + 9)
+        context.fill()
+      }
+    }
+    if (rect.kind === 'lift') {
+      context.strokeStyle = '#745331'
+      context.lineWidth = 3
+      context.beginPath()
+      context.moveTo(rect.x + 8, rect.y)
+      context.lineTo(rect.x + 8, rect.y - 42)
+      context.moveTo(rect.x + rect.w - 8, rect.y)
+      context.lineTo(rect.x + rect.w - 8, rect.y - 42)
+      context.stroke()
+    }
     if (rect.h > 16) {
       for (let y = rect.y + 22; y < rect.y + rect.h; y += 22) {
         const offset = (Math.floor(y / 22) % 2) * 13
@@ -311,15 +369,15 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     context.restore()
   }
 
-  function drawWorldCell(cell, x, y, width, height, flip = 1) {
-    if (!worldSheet.complete || !worldSheet.naturalWidth) return false
-    const sourceWidth = worldSheet.naturalWidth / 4
-    const sourceHeight = worldSheet.naturalHeight / 2
+  function drawCell(sheet, cell, x, y, width, height, flip = 1) {
+    if (!sheet.complete || !sheet.naturalWidth) return false
+    const sourceWidth = sheet.naturalWidth / 4
+    const sourceHeight = sheet.naturalHeight / 2
     context.save()
     context.translate(x + width / 2, y + height)
     context.scale(flip, 1)
     context.drawImage(
-      worldSheet,
+      sheet,
       (cell % 4) * sourceWidth,
       Math.floor(cell / 4) * sourceHeight,
       sourceWidth,
@@ -333,11 +391,18 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     return true
   }
 
+  const drawWorldCell = (cell, x, y, width, height, flip = 1) =>
+    drawCell(worldSheet, cell, x, y, width, height, flip)
+
   function drawEnemies() {
     for (const enemy of world.enemies) {
       if (!enemy.alive && enemy.squash <= 0) continue
-      const frameIndex = enemy.squash > 0 ? 3 : Math.floor(frame / 12) % 3
-      if (!drawWorldCell(frameIndex, enemy.x - 6, enemy.y - 12, 48, 44, enemy.vx < 0 ? -1 : 1)) {
+      const walkFrame = Math.floor(frame / 12) % 2
+      const sheet = enemy.kind === 'mossling' ? worldSheet : regionSheet
+      const frameIndex = enemy.kind === 'mossling'
+        ? enemy.squash > 0 ? 3 : walkFrame
+        : enemy.kind === 'drizzlet' ? walkFrame : 2 + walkFrame
+      if (!drawCell(sheet, frameIndex, enemy.x - 6, enemy.y - 12, 48, 44, enemy.vx < 0 ? -1 : 1)) {
         context.fillStyle = '#7FA84E'
         context.beginPath()
         context.roundRect(enemy.x, enemy.y, enemy.w, enemy.h, 10)
@@ -369,6 +434,11 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       context.stroke()
       context.restore()
     }
+  }
+
+  function drawFansAndSwitches() {
+    for (const fan of world.fans) drawCell(regionSheet, 4, fan.x - 24, fan.y - 48, 48, 50)
+    for (const item of world.switches) drawCell(regionSheet, 7, item.x - 20, item.y - 43, 40, 45)
   }
 
   function drawCheckpoint() {
@@ -505,6 +575,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     for (const seed of world.seeds) drawSeed(seed)
     drawCloaks()
     drawSprings()
+    drawFansAndSwitches()
     drawCheckpoint()
     drawBell()
     drawEnemies()
@@ -551,8 +622,10 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
   window.addEventListener('keydown', onKey)
   window.addEventListener('keyup', onKey)
   background.addEventListener('load', paint)
+  regionAtlas.addEventListener('load', paint)
   courier.addEventListener('load', paint)
   worldSheet.addEventListener('load', paint)
+  regionSheet.addEventListener('load', paint)
 
   return {
     start(levelId = 'garden-1') {

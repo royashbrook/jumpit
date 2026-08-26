@@ -13,7 +13,7 @@
 //      means the next offline load serves the PREVIOUS deployment's shell.
 //
 // bump CACHE when the shell list changes.
-const CACHE = 'jumpit-v0.6.0'
+const CACHE = 'jumpit-v0.7.0'
 const SHELL = [
   './',
   './index.html',
@@ -34,8 +34,10 @@ const SHELL = [
   './icon-512.png',
   './icon-maskable-512.png',
   './assets/backgrounds/garden-walk.png',
+  './assets/backgrounds/region-atlas.png',
   './assets/sprites/courier-sheet.png',
   './assets/sprites/world-sheet.png',
+  './assets/sprites/region-sheet.png',
 ]
 
 self.addEventListener('install', event => {

@@ -4,11 +4,11 @@ import test from 'node:test'
 
 const text = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('v0.6.0 is the package and visible shell version', async () => {
+test('v0.7.0 is the package and visible shell version', async () => {
   const pkg = JSON.parse(await text('package.json'))
   const version = await text('version.js')
-  assert.equal(pkg.version, '0.6.0')
-  assert.match(version, /VERSION = '0\.6\.0'/)
+  assert.equal(pkg.version, '0.7.0')
+  assert.match(version, /VERSION = '0\.7\.0'/)
 })
 
 test('the house promise is present in readable metadata', async () => {

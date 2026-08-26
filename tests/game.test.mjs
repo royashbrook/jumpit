@@ -34,3 +34,15 @@ test('later Garden Walk trails carry their authored mechanics into runtime world
   assert.ok(bramble.terrain.some(rect => rect.kind === 'crumble' && rect.active))
   assert.ok(bramble.enemies.length >= 2)
 })
+
+test('the v1 regions expose rain and workshop mechanics at runtime', () => {
+  const rain = makeWorld(LEVELS[7])
+  const workshop = makeWorld(LEVELS[11])
+  assert.ok(rain.enemies.some(enemy => enemy.kind === 'drizzlet'))
+  assert.ok(rain.fans.length >= 1)
+  assert.ok(rain.terrain.some(rect => rect.kind === 'slick'))
+  assert.ok(workshop.enemies.some(enemy => enemy.kind === 'gearling'))
+  assert.ok(workshop.terrain.some(rect => rect.kind === 'belt'))
+  assert.ok(workshop.terrain.some(rect => rect.kind === 'lift'))
+  assert.ok(workshop.switches.length >= 1)
+})
