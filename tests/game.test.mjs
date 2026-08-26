@@ -18,3 +18,11 @@ test('the checkpoint becomes the courier restart point exactly once', () => {
   assert.equal(player.spawnY, world.checkpoint.y - player.h)
   assert.equal(activateCheckpoint(world, player), false)
 })
+
+test('the first playable trail includes its toy-layer objects', () => {
+  const world = makeWorld(LEVELS[0])
+  assert.equal(world.enemies.length, 1)
+  assert.equal(world.enemies[0].kind, 'mossling')
+  assert.equal(world.cloak.length, 1)
+  assert.equal(world.cloak[0].found, false)
+})

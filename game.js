@@ -1,4 +1,4 @@
-import { createBody, stepPhysics } from './engine/physics.js'
+import { createBody, isStomp, stepPhysics } from './engine/physics.js'
 import { LEVELS, REGIONS, TILE } from './levels.js'
 
 const WORLD_HEIGHT = 18 * TILE
@@ -33,6 +33,23 @@ export function makeWorld(level) {
     seeds: level.objects
       .filter(([, kind]) => kind === 'seed')
       .map(([id,, x, y]) => ({ id, x: (x + 0.5) * TILE, y: (y + 0.45) * TILE, found: false })),
+    enemies: level.objects
+      .filter(([, kind]) => kind === 'mossling')
+      .map(([id, kind, x, y]) => ({
+        id,
+        kind,
+        x: (x + 0.5) * TILE - 18,
+        y: (y + 1) * TILE - 28,
+        w: 36,
+        h: 28,
+        home: (x + 0.5) * TILE - 18,
+        vx: -0.55,
+        alive: true,
+        squash: 0,
+      })),
+    cloak: level.objects
+      .filter(([, kind]) => kind === 'cloak')
+      .map(([id,, x, y]) => ({ id, x: (x + 0.5) * TILE, y: (y + 0.4) * TILE, found: false })),
     checkpoint: checkpoint ? {
       id: checkpoint[0],
       x: (checkpoint[2] + 0.5) * TILE,
@@ -56,6 +73,7 @@ export function createGame(canvas, onState = () => {}) {
   const context = canvas.getContext('2d')
   const background = loadImage('assets/backgrounds/garden-walk.png')
   const courier = loadImage('assets/sprites/courier-sheet.png')
+  const worldSheet = loadImage('assets/sprites/world-sheet.png')
   const input = { left: false, right: false, jumpHeld: false, jumpPressed: false }
   const particles = []
   let world = makeWorld(LEVELS[0])
@@ -75,6 +93,7 @@ export function createGame(canvas, onState = () => {}) {
     const body = createBody({ x: spawnX * TILE + 2, y: (spawnY + 1) * TILE - 42 })
     body.spawnX = body.x
     body.spawnY = body.y
+    body.glowing = false
     return body
   }
 
@@ -118,6 +137,36 @@ export function createGame(canvas, onState = () => {}) {
         seed.found = true
         burst(seed.x, seed.y)
         report('LANTERN SEED!')
+      }
+    }
+
+    for (const cloak of world.cloak) {
+      if (!cloak.found && overlaps(player, cloak.x - 18, cloak.y - 25, 36, 50)) {
+        cloak.found = true
+        player.glowing = true
+        burst(cloak.x, cloak.y, '#B8F4BD')
+        report('GLOW CLOAK · BUMP CREATURES!')
+      }
+    }
+
+    for (const enemy of world.enemies) {
+      if (enemy.squash > 0) {
+        enemy.squash -= 1
+        continue
+      }
+      if (!enemy.alive) continue
+      enemy.x += enemy.vx
+      if (enemy.x < enemy.home - 52 || enemy.x > enemy.home + 52) enemy.vx *= -1
+      if (!overlaps(player, enemy.x, enemy.y, enemy.w, enemy.h)) continue
+      if (player.glowing || isStomp(player, enemy)) {
+        enemy.alive = false
+        enemy.squash = 28
+        player.vy = -7.8
+        burst(enemy.x + enemy.w / 2, enemy.y + 8, '#A8D969')
+        report(player.glowing ? 'GLOW BUMP!' : 'BOUNCE!')
+      } else {
+        resetPlayer()
+        report('OOPS · TRY AGAIN!')
       }
     }
 
@@ -212,6 +261,49 @@ export function createGame(canvas, onState = () => {}) {
     context.restore()
   }
 
+  function drawWorldCell(cell, x, y, width, height, flip = 1) {
+    if (!worldSheet.complete || !worldSheet.naturalWidth) return false
+    const sourceWidth = worldSheet.naturalWidth / 4
+    const sourceHeight = worldSheet.naturalHeight / 2
+    context.save()
+    context.translate(x + width / 2, y + height)
+    context.scale(flip, 1)
+    context.drawImage(
+      worldSheet,
+      (cell % 4) * sourceWidth,
+      Math.floor(cell / 4) * sourceHeight,
+      sourceWidth,
+      sourceHeight,
+      -width / 2,
+      -height,
+      width,
+      height,
+    )
+    context.restore()
+    return true
+  }
+
+  function drawEnemies() {
+    for (const enemy of world.enemies) {
+      if (!enemy.alive && enemy.squash <= 0) continue
+      const frameIndex = enemy.squash > 0 ? 3 : Math.floor(frame / 12) % 3
+      if (!drawWorldCell(frameIndex, enemy.x - 6, enemy.y - 12, 48, 44, enemy.vx < 0 ? -1 : 1)) {
+        context.fillStyle = '#7FA84E'
+        context.beginPath()
+        context.roundRect(enemy.x, enemy.y, enemy.w, enemy.h, 10)
+        context.fill()
+      }
+    }
+  }
+
+  function drawCloaks() {
+    for (const cloak of world.cloak) {
+      if (cloak.found) continue
+      const bob = Math.sin(frame * .06) * 3
+      drawWorldCell(4, cloak.x - 26, cloak.y - 42 + bob, 52, 64)
+    }
+  }
+
   function drawCheckpoint() {
     const checkpoint = world.checkpoint
     if (!checkpoint) return
@@ -270,6 +362,14 @@ export function createGame(canvas, onState = () => {}) {
     context.save()
     context.translate(x, y)
     context.scale(player.facing, 1)
+    if (player.glowing) {
+      context.shadowColor = '#D4FF9D'
+      context.shadowBlur = 18
+      context.fillStyle = 'rgb(213 255 165 / .28)'
+      context.beginPath()
+      context.ellipse(0, -height * .45, width * .38, height * .48, 0, 0, Math.PI * 2)
+      context.fill()
+    }
     if (courier.complete && courier.naturalWidth) {
       context.drawImage(courier, sourceX, sourceY, sourceWidth, sourceHeight, -width / 2, -height, width, height)
     } else {
@@ -336,8 +436,10 @@ export function createGame(canvas, onState = () => {}) {
     context.translate(-camera, 0)
     for (const rect of world.terrain) drawTerrain(rect)
     for (const seed of world.seeds) drawSeed(seed)
+    drawCloaks()
     drawCheckpoint()
     drawBell()
+    drawEnemies()
     drawParticles()
     drawPlayer()
     context.restore()
@@ -382,6 +484,7 @@ export function createGame(canvas, onState = () => {}) {
   window.addEventListener('keyup', onKey)
   background.addEventListener('load', paint)
   courier.addEventListener('load', paint)
+  worldSheet.addEventListener('load', paint)
 
   return {
     start(levelId = 'garden-1') {

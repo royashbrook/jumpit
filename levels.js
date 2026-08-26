@@ -31,7 +31,8 @@ export const LEVELS = [
   ], [
     ['g01-seed-a', 'seed', 5, 14], ['g01-seed-b', 'seed', 10, 11],
     ['g01-seed-c', 'seed', 24, 11], ['g01-seed-d', 'seed', 40, 11],
-    ['g01-check', 'checkpoint', 33, 14],
+    ['g01-check', 'checkpoint', 33, 14], ['g01-moss-a', 'mossling', 8, 14],
+    ['g01-cloak', 'cloak', 15, 14],
   ]),
 
   level('garden-2', 2, 'garden', 'Clover Crossing', 62, [2, 14], ['g02-bell', 59, 14], ['mosslings'], [
@@ -309,7 +310,7 @@ const TERRAIN_KINDS = new Set([
 ])
 const OBJECT_KINDS = new Set([
   'seed', 'checkpoint', 'mossling', 'spring', 'drizzlet', 'fan', 'gearling',
-  'switch', 'mothlight', 'lamp', 'gate', 'sentry', 'warden',
+  'switch', 'mothlight', 'lamp', 'gate', 'sentry', 'warden', 'cloak',
 ])
 const ENEMY_KINDS = new Set(['mossling', 'drizzlet', 'gearling', 'mothlight', 'sentry', 'warden'])
 const integer = value => Number.isInteger(value)

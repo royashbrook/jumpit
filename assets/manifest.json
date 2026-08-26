@@ -30,6 +30,16 @@
       "prompt": "Wide side-view storybook pixel-art Garden Walk village with cottages, hedges, paths, watermill and layered scenery, grounded physical place, no character, no text or trademarks.",
       "license": "project-original",
       "sha256": "d74b816bc38f24fd6519ee6c9ec317b9967aa5233e498a7a6680a42fad4eb0c5"
+    },
+    {
+      "id": "garden-world-sprite-sheet",
+      "file": "assets/sprites/world-sheet.png",
+      "dimensions": "1536x1024",
+      "kind": "world-sprite-sheet",
+      "source": "OpenAI built-in image generation",
+      "prompt": "Original 4x2 transparent pixel-art sheet: four Mossling poses, glow-cloak pickup, lantern seed, rustic finish bell and checkpoint lantern; mobile-readable, no borrowed game imagery.",
+      "license": "project-original",
+      "sha256": "77f73cee0a2ed39b8411c336e55afedb9e78ce15cd7d679e254cfda70a0a1203"
     }
   ]
 }
