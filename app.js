@@ -146,7 +146,7 @@ for (const [id, action] of [['move-left', 'left'], ['move-right', 'right'], ['ju
   }
   button.addEventListener('pointerdown', event => {
     event.preventDefault()
-    button.setPointerCapture?.(event.pointerId)
+    try { button.setPointerCapture?.(event.pointerId) } catch {}
     button.setAttribute('data-held', '')
     game.setInput(action, true)
   })

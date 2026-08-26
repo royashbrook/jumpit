@@ -1,13 +1,15 @@
 {
   "name": "jumpit",
   "private": true,
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "An original mobile-first storybook platform game for kids.",
   "type": "module",
   "scripts": {
     "serve": "node tools/serve.mjs .",
     "test": "node --test",
-    "check": "npm test"
+    "test:e2e": "playwright test",
+    "solvability": "node tools/solvability.mjs",
+    "check": "npm test && npm run test:e2e"
   },
   "devDependencies": {
     "playwright": "^1.56.0"
