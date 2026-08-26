@@ -61,3 +61,13 @@ test('the rain and workshop levels render their own generated atlas rows', () =>
   assert.ok(workshopAtlas)
   assert.equal(workshopAtlas[2], 512)
 })
+
+test('backgrounding can pause the running loop without toggling it back on', () => {
+  const harness = canvasHarness()
+  const states = []
+  const game = createGame(harness.canvas, state => states.push(state))
+  game.start('garden-1')
+  assert.equal(game.pause(), true)
+  assert.equal(game.pause(), true)
+  assert.equal(states.at(-1).paused, true)
+})

@@ -85,6 +85,11 @@ button {
   touch-action: manipulation;
 }
 
+:focus-visible {
+  outline: .22rem solid var(--accent-dim);
+  outline-offset: .14rem;
+}
+
 .screen {
   display: flex;
   flex: 1;
@@ -721,6 +726,26 @@ dialog ol {
     transition-duration: .01ms !important;
     animation-duration: .01ms !important;
     animation-iteration-count: 1 !important;
+  }
+
+  .game-status:not(:empty) {
+    opacity: 1;
+    animation: none;
+  }
+}
+
+@media (forced-colors: active) {
+  button,
+  .stage-shell,
+  .trail-hero,
+  .game-card,
+  dialog {
+    border-color: CanvasText;
+  }
+
+  .nav-item[aria-pressed="true"],
+  .look-card[aria-pressed="true"] {
+    outline-color: Highlight;
   }
 }
 

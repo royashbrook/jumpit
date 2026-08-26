@@ -46,7 +46,11 @@ const game = createGame($('stage'), state => {
     store.completeLevel(state.levelId, state.seeds, queuedNext)
   }
   $('next-trail').hidden = !state.finished || !queuedNext
-}, cue => audio.cue(cue))
+}, cue => {
+  audio.cue(cue)
+  const pulse = cue === 'finish' ? [35, 35, 60] : ['seed', 'stomp', 'checkpoint'].includes(cue) ? 24 : 0
+  if (pulse) navigator.vibrate?.(pulse)
+})
 
 function show(screen) {
   for (const element of [menu, gameScreen]) element.hidden = element !== screen
@@ -60,6 +64,7 @@ function playLevel(levelId = store.get().selectedLevel) {
   lastCompleted = null
   show(gameScreen)
   game.start(levelId, currentSeed())
+  $('pause').focus({ preventScroll: true })
 }
 
 function openTab(name) {
@@ -125,6 +130,7 @@ $('back').addEventListener('click', () => {
   game.stop()
   show(menu)
   renderMenu()
+  $('play').focus({ preventScroll: true })
 })
 $('pause').addEventListener('click', () => game.togglePause())
 $('resume').addEventListener('click', () => game.togglePause())
@@ -205,5 +211,8 @@ wireInstall($('install'), {
 
 renderMenu(save)
 document.addEventListener('pointerdown', () => audio.startFromGesture(), { once: true })
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) game.pause()
+})
 wireUpdate($('update'))
 registerWorker()

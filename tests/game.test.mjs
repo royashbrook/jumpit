@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { activateCheckpoint, makeWorld } from '../game.js'
+import { activateCheckpoint, coachMessage, makeWorld } from '../game.js'
 import { createBody } from '../engine/physics.js'
 import { LEVELS, TILE } from '../levels.js'
 
@@ -45,4 +45,11 @@ test('the v1 regions expose rain and workshop mechanics at runtime', () => {
   assert.ok(workshop.terrain.some(rect => rect.kind === 'belt'))
   assert.ok(workshop.terrain.some(rect => rect.kind === 'lift'))
   assert.ok(workshop.switches.length >= 1)
+})
+
+test('coaching is one short action at a time and then gets out of the way', () => {
+  assert.equal(coachMessage({ moved: false, jumped: false, glowing: false, x: 60 }), 'RUN RIGHT · TAP JUMP')
+  assert.equal(coachMessage({ moved: true, jumped: false, glowing: false, x: 190 }), 'TAP JUMP · LAND ON TOP')
+  assert.equal(coachMessage({ moved: true, jumped: true, glowing: true, x: 400 }), 'GLOWING? BUMP CREATURES!')
+  assert.equal(coachMessage({ moved: true, jumped: true, glowing: false, x: 700 }), '')
 })

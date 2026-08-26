@@ -6,6 +6,13 @@ const FIXED_STEP = 1000 / 60
 const PLAYER_FRAMES = { idle: 0, run: 1, jump: 4, fall: 5 }
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value))
 
+export function coachMessage({ moved, jumped, glowing, x }) {
+  if (!moved) return 'RUN RIGHT · TAP JUMP'
+  if (!jumped && x > 135 && x < 350) return 'TAP JUMP · LAND ON TOP'
+  if (glowing && x < 620) return 'GLOWING? BUMP CREATURES!'
+  return ''
+}
+
 function loadImage(source) {
   const image = new Image()
   image.src = source
@@ -90,6 +97,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
   const courier = loadImage('assets/sprites/courier-sheet.png')
   const worldSheet = loadImage('assets/sprites/world-sheet.png')
   const regionSheet = loadImage('assets/sprites/region-sheet.png')
+  const reducedMotion = Boolean(globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
   const input = { left: false, right: false, jumpHeld: false, jumpPressed: false }
   const particles = []
   let world = makeWorld(LEVELS[0])
@@ -99,6 +107,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
   let paused = false
   let finished = false
   let moved = false
+  let jumped = false
   let frame = 0
   let lastTime = 0
   let accumulator = 0
@@ -129,8 +138,9 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
   }
 
   function burst(x, y, color = '#FFD563') {
-    for (let index = 0; index < 10; index += 1) {
-      const angle = (Math.PI * 2 * index) / 10
+    const amount = reducedMotion ? 4 : 10
+    for (let index = 0; index < amount; index += 1) {
+      const angle = (Math.PI * 2 * index) / amount
       particles.push({ x, y, vx: Math.cos(angle) * (1.5 + index % 3), vy: Math.sin(angle) * 2.2 - 1, life: 34, color })
     }
   }
@@ -159,7 +169,10 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     player.config.friction = support?.kind === 'slick' ? .94 : .74
     player.config.brake = support?.kind === 'slick' ? .42 : 1.08
     stepPhysics(player, input, world.terrain.filter(rect => rect.active))
-    if (player.justJumped) onCue('jump')
+    if (player.justJumped) {
+      jumped = true
+      onCue('jump')
+    }
     input.jumpPressed = false
     if (Math.abs(player.vx) > 0.25 || !player.onGround) moved = true
     if (support?.kind === 'belt') player.x += .85
@@ -530,7 +543,8 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
   }
 
   function drawHint(width, height) {
-    if (moved || finished) return
+    const message = finished ? '' : coachMessage({ moved, jumped, glowing: player.glowing, x: player.x })
+    if (!message) return
     const bubbleWidth = Math.min(250, width - 32)
     context.setTransform(1, 0, 0, 1, 0, 0)
     const ratio = Math.min(devicePixelRatio || 1, 2)
@@ -545,7 +559,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     context.fillStyle = '#173D3A'
     context.font = '900 16px ui-rounded, system-ui, sans-serif'
     context.textAlign = 'center'
-    context.fillText('RUN RIGHT · TAP JUMP', width / 2, height - 65)
+    context.fillText(message, width / 2, height - 65)
   }
 
   function paint() {
@@ -566,7 +580,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     const viewWidth = width / scale
     const maxCamera = Math.max(0, world.width - viewWidth)
     const target = clamp(player.x - viewWidth * 0.34, 0, maxCamera)
-    camera += (target - camera) * 0.12
+    camera = reducedMotion ? target : camera + (target - camera) * 0.12
 
     context.save()
     context.scale(scale, scale)
@@ -636,10 +650,11 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       paused = false
       finished = false
       moved = false
+      jumped = false
       lastTime = 0
       accumulator = 0
       running = true
-      report('RUN RIGHT · TAP JUMP')
+      report('')
       cancelAnimationFrame(raf)
       raf = requestAnimationFrame(loop)
     },
@@ -658,6 +673,13 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       paused = !paused
       onCue('pause')
       report(paused ? 'PAUSED' : 'GO!')
+      return paused
+    },
+    pause() {
+      if (!running || finished || paused) return paused
+      paused = true
+      onCue('pause')
+      report('PAUSED')
       return paused
     },
   }
