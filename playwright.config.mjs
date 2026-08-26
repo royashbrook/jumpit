@@ -1,5 +1,7 @@
 import { defineConfig } from 'playwright/test'
 
+const releaseRoot = process.env.JUMPIT_ROOT || '.'
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: false,
@@ -18,7 +20,7 @@ export default defineConfig({
     { name: 'webkit-phone', use: { browserName: 'webkit', viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true } },
   ],
   webServer: {
-    command: 'node tools/serve.mjs . 4320',
+    command: `node tools/serve.mjs ${releaseRoot} 4320`,
     url: 'http://127.0.0.1:4320',
     reuseExistingServer: false,
   },
