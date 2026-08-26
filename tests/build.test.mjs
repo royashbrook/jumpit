@@ -25,8 +25,9 @@ test('the production build is an exact allowlist without test controls', async (
 
   execFileSync(process.execPath, ['tools/build.mjs'], { cwd: root })
   assert.deepEqual(await walk(join(root, 'build')), [
-    'app.css', 'app.js', 'assets/backgrounds/garden-walk.png',
-    'assets/backgrounds/region-atlas.png', 'assets/sprites/courier-sheet.png',
+    'app.css', 'app.js', 'assets/backgrounds/final-atlas.png',
+    'assets/backgrounds/garden-walk.png', 'assets/backgrounds/region-atlas.png',
+    'assets/sprites/courier-sheet.png', 'assets/sprites/final-sheet.png',
     'assets/sprites/region-sheet.png', 'assets/sprites/world-sheet.png',
     'audio.js', 'engine/physics.js', 'game.js', 'icon-180.png', 'icon-192.png',
     'icon-512.png', 'icon-maskable-512.png', 'index.html', 'install.js',

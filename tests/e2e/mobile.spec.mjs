@@ -17,7 +17,7 @@ test('portrait shell stays inside the phone and keeps navigation visible', async
   expect(shell.nav.bottom).toBeLessThanOrEqual(shell.innerHeight)
 
   await page.getByRole('button', { name: 'TRAILS' }).click()
-  await expect(page.locator('.trail-button')).toHaveCount(12)
+  await expect(page.locator('.trail-button')).toHaveCount(16)
   await expect(page.getByRole('navigation', { name: 'game menu' })).toBeVisible()
 })
 

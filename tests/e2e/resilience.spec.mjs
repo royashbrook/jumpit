@@ -35,17 +35,17 @@ test('corrupt and blocked storage never block play', async ({ browser, baseURL }
 test('a saved unreleased trail falls back to the last released unlock', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('jumpit-save-v1', JSON.stringify({
     version: 1,
-    completed: ['workshop-4'],
-    unlocked: ['garden-1', 'workshop-4', 'market-1'],
-    bestSeeds: { 'workshop-4': 3 },
-    selectedLevel: 'market-1',
+    completed: ['market-4'],
+    unlocked: ['garden-1', 'market-4', 'keep-1'],
+    bestSeeds: { 'market-4': 3 },
+    selectedLevel: 'keep-1',
     theme: 'garden',
     muted: true,
   })))
   await page.goto('/')
-  await expect(page.locator('#continue-label')).toContainText('SWITCHBACK RAFTERS')
+  await expect(page.locator('#continue-label')).toContainText('LAST-LIGHT ARCADE')
   await page.getByRole('button', { name: 'PLAY THE TRAIL' }).click()
-  await expect(page.locator('#level-name')).toHaveText('SWITCHBACK RAFTERS')
+  await expect(page.locator('#level-name')).toHaveText('LAST-LIGHT ARCADE')
 })
 
 test('production exposes no deterministic test-control hook', async ({ page }) => {

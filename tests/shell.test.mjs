@@ -5,11 +5,11 @@ import vm from 'node:vm'
 
 const text = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('v1.0.1 is the package and visible shell version', async () => {
+test('v1.2.0 is the package and visible shell version', async () => {
   const pkg = JSON.parse(await text('package.json'))
   const version = await text('version.js')
-  assert.equal(pkg.version, '1.0.1')
-  assert.match(version, /VERSION = '1\.0\.1'/)
+  assert.equal(pkg.version, '1.2.0')
+  assert.match(version, /VERSION = '1\.2\.0'/)
 })
 
 test('the house promise is present in readable metadata', async () => {
@@ -39,7 +39,7 @@ test('the worker removes only old Jumpit caches', async () => {
       location: { origin: 'https://example.test' },
     },
     caches: {
-      keys: async () => ['jumpit-v0.9.0', 'jumpit-v1.0.1', 'sibling-game-v4'],
+      keys: async () => ['jumpit-v0.9.0', 'jumpit-v1.2.0', 'sibling-game-v4'],
       delete: async key => { deleted.push(key) },
     },
     URL,

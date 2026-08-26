@@ -40,6 +40,19 @@ export function makeWorld(level) {
     phase: index * 1.37,
   }))
   const bridges = terrain.filter(item => item.kind === 'bridge')
+  const gates = level.objects
+    .filter(([, kind]) => kind === 'gate')
+    .map(([id,, x, y]) => ({
+      id,
+      kind: 'gate',
+      type: 'solid',
+      x: x * TILE,
+      y: (y - 3) * TILE,
+      w: TILE,
+      h: 4 * TILE,
+      active: true,
+      open: false,
+    }))
   return {
     level,
     width: level.size[0] * TILE,
@@ -48,7 +61,7 @@ export function makeWorld(level) {
       .filter(([, kind]) => kind === 'seed')
       .map(([id,, x, y]) => ({ id, x: (x + 0.5) * TILE, y: (y + 0.45) * TILE, found: false })),
     enemies: level.objects
-      .filter(([, kind]) => ['mossling', 'drizzlet', 'gearling'].includes(kind))
+      .filter(([, kind]) => ['mossling', 'drizzlet', 'gearling', 'mothlight', 'sentry', 'warden'].includes(kind))
       .map(([id, kind, x, y]) => ({
         id,
         kind,
@@ -57,9 +70,11 @@ export function makeWorld(level) {
         w: 36,
         h: 28,
         home: (x + 0.5) * TILE - 18,
-        vx: -0.55,
+        baseY: (y + 1) * TILE - 28,
+        vx: kind === 'mothlight' ? -0.72 : -0.55,
         alive: true,
         squash: 0,
+        hits: 0,
       })),
     cloak: level.objects
       .filter(([, kind]) => kind === 'cloak')
@@ -78,6 +93,16 @@ export function makeWorld(level) {
         y: (y + 1) * TILE,
         targetId: bridges[index]?.id || null,
         active: false,
+      })),
+    gates,
+    lamps: level.objects
+      .filter(([, kind]) => kind === 'lamp')
+      .map(([id,, x, y], index) => ({
+        id,
+        x: (x + 0.5) * TILE,
+        y: (y + 1) * TILE,
+        targetId: gates[index]?.id || null,
+        lit: false,
       })),
     checkpoint: checkpoint ? {
       id: checkpoint[0],
@@ -101,6 +126,21 @@ export function activateSwitches(world, player) {
   return changed
 }
 
+export function activateLamps(world, player) {
+  let changed = false
+  for (const lamp of world.lamps) {
+    if (lamp.lit || !overlaps(player, lamp.x - 20, lamp.y - 52, 40, 52)) continue
+    lamp.lit = true
+    const gate = world.gates.find(item => item.id === lamp.targetId)
+    if (gate) {
+      gate.active = false
+      gate.open = true
+    }
+    changed = true
+  }
+  return changed
+}
+
 export function activateCheckpoint(world, player) {
   const checkpoint = world.checkpoint
   if (!checkpoint || checkpoint.active || !overlaps(player, checkpoint.x - 14, checkpoint.y - 52, 28, 52)) return false
@@ -114,9 +154,11 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
   const context = canvas.getContext('2d')
   const background = loadImage('assets/backgrounds/garden-walk.png')
   const regionAtlas = loadImage('assets/backgrounds/region-atlas.png')
+  const finalAtlas = loadImage('assets/backgrounds/final-atlas.png')
   const courier = loadImage('assets/sprites/courier-sheet.png')
   const worldSheet = loadImage('assets/sprites/world-sheet.png')
   const regionSheet = loadImage('assets/sprites/region-sheet.png')
+  const finalSheet = loadImage('assets/sprites/final-sheet.png')
   const reducedMotion = Boolean(globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
   const input = { left: false, right: false, jumpHeld: false, jumpPressed: false }
   const particles = []
@@ -188,7 +230,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       player.x + player.w > rect.x && player.x < rect.x + rect.w)
     player.config.friction = support?.kind === 'slick' ? .94 : .74
     player.config.brake = support?.kind === 'slick' ? .42 : 1.08
-    stepPhysics(player, input, world.terrain.filter(rect => rect.active))
+    stepPhysics(player, input, [...world.terrain, ...world.gates].filter(rect => rect.active))
     if (player.justJumped) {
       jumped = true
       onCue('jump')
@@ -224,6 +266,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       if (!enemy.alive) continue
       enemy.x += enemy.vx
       if (enemy.x < enemy.home - 52 || enemy.x > enemy.home + 52) enemy.vx *= -1
+      if (enemy.kind === 'mothlight') enemy.y = enemy.baseY - 24 + Math.sin(frame * .08 + enemy.home) * 15
       if (!overlaps(player, enemy.x, enemy.y, enemy.w, enemy.h)) continue
       if (player.glowing || isStomp(player, enemy)) {
         enemy.alive = false
@@ -261,6 +304,12 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       burst(player.x + player.w / 2, player.y + player.h, '#FFD563')
       onCue('checkpoint')
       report('BRIDGE ON!')
+    }
+
+    if (activateLamps(world, player)) {
+      burst(player.x + player.w / 2, player.y + player.h - 30, '#FFE377')
+      onCue('power')
+      report(world.gates.some(gate => gate.open) ? 'LAMP LIT · GATE OPEN!' : 'LAMP LIT!')
     }
 
     for (const rect of world.terrain.filter(item => item.kind === 'crumble')) {
@@ -313,8 +362,9 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
   }
 
   function drawBackground(width, height) {
-    const atlasRow = world.level.region === 'rooftop' ? 0 : world.level.region === 'workshop' ? 1 : -1
-    const image = atlasRow >= 0 ? regionAtlas : background
+    const region = world.level.region
+    const atlasRow = ['rooftop', 'market'].includes(region) ? 0 : ['workshop', 'keep'].includes(region) ? 1 : -1
+    const image = ['market', 'keep'].includes(region) ? finalAtlas : atlasRow >= 0 ? regionAtlas : background
     if (image.complete && image.naturalWidth) {
       const sourceHeight = atlasRow >= 0 ? image.naturalHeight / 2 : image.naturalHeight
       const sourceY = atlasRow >= 0 ? atlasRow * sourceHeight : 0
@@ -338,6 +388,8 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     if (kind === 'crumble') return ['#8B5C3D', '#D1A257', '#5B3F31']
     if (['roof', 'slick', 'awning'].includes(kind)) return ['#344957', kind === 'slick' ? '#72B3C3' : '#8E6A55', '#1F3038']
     if (['wood', 'belt', 'lift', 'bridge'].includes(kind)) return ['#765136', kind === 'belt' ? '#3F9993' : '#D09B50', '#402E25']
+    if (['stall', 'lantern', 'shade'].includes(kind)) return ['#573A4E', kind === 'lantern' ? '#E4A84A' : '#9A5A72', '#31273A']
+    if (['stone', 'beacon'].includes(kind)) return ['#46504C', kind === 'beacon' ? '#D5A649' : '#78907A', '#293632']
     return ['#72513A', '#8BC65A', '#3F372C']
   }
 
@@ -437,10 +489,14 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     for (const enemy of world.enemies) {
       if (!enemy.alive && enemy.squash <= 0) continue
       const walkFrame = Math.floor(frame / 12) % 2
-      const sheet = enemy.kind === 'mossling' ? worldSheet : regionSheet
+      const sheet = enemy.kind === 'mossling'
+        ? worldSheet
+        : ['drizzlet', 'gearling'].includes(enemy.kind) ? regionSheet : finalSheet
       const frameIndex = enemy.kind === 'mossling'
         ? enemy.squash > 0 ? 3 : walkFrame
-        : enemy.kind === 'drizzlet' ? walkFrame : 2 + walkFrame
+        : enemy.kind === 'drizzlet' || enemy.kind === 'mothlight'
+          ? walkFrame
+          : enemy.kind === 'gearling' || enemy.kind === 'sentry' ? 2 + walkFrame : 7
       if (!drawCell(sheet, frameIndex, enemy.x - 6, enemy.y - 12, 48, 44, enemy.vx < 0 ? -1 : 1)) {
         context.fillStyle = '#7FA84E'
         context.beginPath()
@@ -485,6 +541,16 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       }
       drawCell(regionSheet, 7, item.x - 20, item.y - 43, 40, 45)
       context.restore()
+    }
+  }
+
+  function drawLampsAndGates() {
+    for (const lamp of world.lamps) {
+      drawCell(finalSheet, lamp.lit ? 5 : 4, lamp.x - 24, lamp.y - 62, 48, 64)
+    }
+    for (const gate of world.gates) {
+      if (!gate.active) continue
+      drawCell(finalSheet, 6, gate.x - 12, gate.y + gate.h - 112, 72, 112)
     }
   }
 
@@ -624,6 +690,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     drawCloaks()
     drawSprings()
     drawFansAndSwitches()
+    drawLampsAndGates()
     drawCheckpoint()
     drawBell()
     drawEnemies()
@@ -671,9 +738,11 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
   window.addEventListener('keyup', onKey)
   background.addEventListener('load', paint)
   regionAtlas.addEventListener('load', paint)
+  finalAtlas.addEventListener('load', paint)
   courier.addEventListener('load', paint)
   worldSheet.addEventListener('load', paint)
   regionSheet.addEventListener('load', paint)
+  finalSheet.addEventListener('load', paint)
 
   return {
     start(levelId = 'garden-1') {

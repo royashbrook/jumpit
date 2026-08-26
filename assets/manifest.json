@@ -60,6 +60,26 @@
       "prompt": "Original transparent 4x2 sheet with Drizzlet and Gearling animation poses plus fan, conveyor, freight lift, and switch mechanics; mobile-readable and trademark-free.",
       "license": "project-original",
       "sha256": "5f3a45df350528ee1d858a20c6bf5efbd4a76f6f3157a06b091fd3f7d650d2eb"
+    },
+    {
+      "id": "market-keep-background-atlas",
+      "file": "assets/backgrounds/final-atlas.png",
+      "dimensions": "1536x1024",
+      "kind": "two-region-background-atlas",
+      "source": "OpenAI built-in image generation with style reference",
+      "prompt": "Original two-row panorama atlas: a grounded paper-lantern market at blue hour and a welcoming mossy beacon keep at predawn, polished storybook pixel art, no characters, text, logos, or borrowed imagery.",
+      "license": "project-original",
+      "sha256": "48589a2121c829fe034fe409ea71965015180cdd7de7046cea33cc1596bead12"
+    },
+    {
+      "id": "market-keep-sprite-sheet",
+      "file": "assets/sprites/final-sheet.png",
+      "dimensions": "1536x1024",
+      "kind": "region-sprite-sheet",
+      "source": "OpenAI built-in image generation",
+      "prompt": "Original true-alpha exact 4x2 pixel-art sheet with paired Mothlight and Beacon Sentry poses, unlit and lit lamp pedestals, a shadow gate, and a mossy three-light Warden; mobile-readable and trademark-free.",
+      "license": "project-original",
+      "sha256": "227a1d8b88495a5c203a5c682773c9a233469830ffa565ecceda171d40bc4d53"
     }
   ]
 }

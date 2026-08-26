@@ -8,9 +8,11 @@ const files = [
   'icon-maskable-512.png', 'engine/physics.js',
   'assets/backgrounds/garden-walk.png',
   'assets/backgrounds/region-atlas.png',
+  'assets/backgrounds/final-atlas.png',
   'assets/sprites/courier-sheet.png',
   'assets/sprites/world-sheet.png',
   'assets/sprites/region-sheet.png',
+  'assets/sprites/final-sheet.png',
 ]
 
 await rm('build', { recursive: true, force: true })

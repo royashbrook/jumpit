@@ -44,7 +44,7 @@ function canvasHarness() {
   }
 }
 
-test('the rain and workshop levels render their own generated atlas rows', () => {
+test('all four later places render their own generated atlas rows', () => {
   const rain = canvasHarness()
   const rainGame = createGame(rain.canvas)
   rainGame.start('rooftop-1')
@@ -60,6 +60,22 @@ test('the rain and workshop levels render their own generated atlas rows', () =>
   const workshopAtlas = workshop.draws.find(args => args[0].src?.endsWith('region-atlas.png'))
   assert.ok(workshopAtlas)
   assert.equal(workshopAtlas[2], 512)
+
+  const market = canvasHarness()
+  const marketGame = createGame(market.canvas)
+  marketGame.start('market-1')
+  marketGame.resize()
+  const marketAtlas = market.draws.find(args => args[0].src?.endsWith('final-atlas.png'))
+  assert.ok(marketAtlas)
+  assert.equal(marketAtlas[2], 0)
+
+  const keep = canvasHarness()
+  const keepGame = createGame(keep.canvas)
+  keepGame.start('keep-1')
+  keepGame.resize()
+  const keepAtlas = keep.draws.find(args => args[0].src?.endsWith('final-atlas.png'))
+  assert.ok(keepAtlas)
+  assert.equal(keepAtlas[2], 512)
 })
 
 test('backgrounding can pause the running loop without toggling it back on', () => {

@@ -13,7 +13,7 @@ const menu = $('menu')
 const gameScreen = $('game')
 const howto = $('howto')
 const overlay = $('game-overlay')
-const release = createRelease(LEVELS, 12)
+const release = createRelease(LEVELS, 16)
 const releaseLevels = release.levels
 let save
 let queuedNext = null

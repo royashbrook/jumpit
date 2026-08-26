@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { activateCheckpoint, activateSwitches, coachMessage, makeWorld } from '../game.js'
+import { activateCheckpoint, activateLamps, activateSwitches, coachMessage, makeWorld } from '../game.js'
 import { createBody } from '../engine/physics.js'
 import { LEVELS, TILE } from '../levels.js'
 
@@ -57,6 +57,21 @@ test('workshop switches raise their authored bridges once', () => {
   assert.equal(button.active, true)
   assert.equal(bridge.active, true)
   assert.equal(activateSwitches(world, player), false)
+})
+
+test('Lantern Market carries Mothlights and lamps that open paired gates', () => {
+  const world = makeWorld(LEVELS[15])
+  assert.ok(world.enemies.some(enemy => enemy.kind === 'mothlight'))
+  assert.equal(world.lamps.length, 2)
+  assert.equal(world.gates.length, 2)
+  const [lamp] = world.lamps
+  const gate = world.gates.find(item => item.id === lamp.targetId)
+  const player = { x: lamp.x - 10, y: lamp.y - 40, w: 20, h: 40 }
+  assert.equal(activateLamps(world, player), true)
+  assert.equal(lamp.lit, true)
+  assert.equal(gate.open, true)
+  assert.equal(gate.active, false)
+  assert.equal(activateLamps(world, player), false)
 })
 
 test('coaching is one short action at a time and then gets out of the way', () => {

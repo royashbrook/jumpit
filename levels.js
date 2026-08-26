@@ -238,7 +238,8 @@ export const LEVELS = [
     ['m04-seed-e', 'seed', 61, 11], ['m04-seed-f', 'seed', 71, 11],
     ['m04-check', 'checkpoint', 45, 14], ['m04-moth-a', 'mothlight', 19, 14],
     ['m04-moth-b', 'mothlight', 55, 14], ['m04-gate-a', 'gate', 31, 14],
-    ['m04-gate-b', 'gate', 68, 14], ['m04-lamp', 'lamp', 75, 14],
+    ['m04-gate-b', 'gate', 68, 14], ['m04-lamp-a', 'lamp', 28, 14],
+    ['m04-lamp-b', 'lamp', 65, 14],
   ]),
 
   level('keep-1', 17, 'keep', 'Gatehouse Glow', 70, [2, 14], ['k01-bell', 67, 14], ['stone-sentries'], [

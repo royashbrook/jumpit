@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0: 2026-08-26
+
+- Opened four Lantern Market trails with Mothlights, lightable lamps, and shadow gates.
+- Added original Market and Keep background art plus their full enemy/mechanic sheet.
+- Kept Beacon Keep sealed until its guardian and ending are complete.
+
 ## 1.0.1: 2026-08-26
 
 - Kept the twelve-trail release sealed after Workshop Loft is cleared.
