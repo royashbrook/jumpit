@@ -42,3 +42,10 @@ test('blocked or corrupt storage falls back without breaking play', () => {
   assert.doesNotThrow(() => store.completeLevel('garden-1', 4, 'garden-2'))
   assert.equal(store.get().selectedLevel, 'garden-2')
 })
+
+test('sound preference is part of the guarded save', () => {
+  const storage = memoryStorage()
+  const store = createSaveStore({ storage })
+  assert.equal(store.setMuted(true), true)
+  assert.equal(loadSave(storage).muted, true)
+})

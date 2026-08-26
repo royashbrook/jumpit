@@ -69,7 +69,7 @@ export function activateCheckpoint(world, player) {
   return true
 }
 
-export function createGame(canvas, onState = () => {}) {
+export function createGame(canvas, onState = () => {}, onCue = () => {}) {
   const context = canvas.getContext('2d')
   const background = loadImage('assets/backgrounds/garden-walk.png')
   const courier = loadImage('assets/sprites/courier-sheet.png')
@@ -130,6 +130,7 @@ export function createGame(canvas, onState = () => {}) {
   function update() {
     if (paused || finished) return
     stepPhysics(player, input, world.terrain)
+    if (player.justJumped) onCue('jump')
     input.jumpPressed = false
     if (Math.abs(player.vx) > 0.25 || !player.onGround) moved = true
 
@@ -137,6 +138,7 @@ export function createGame(canvas, onState = () => {}) {
       if (!seed.found && overlaps(player, seed.x - 12, seed.y - 15, 24, 30)) {
         seed.found = true
         burst(seed.x, seed.y)
+        onCue('seed')
         report('LANTERN SEED!')
       }
     }
@@ -146,6 +148,7 @@ export function createGame(canvas, onState = () => {}) {
         cloak.found = true
         player.glowing = true
         burst(cloak.x, cloak.y, '#B8F4BD')
+        onCue('power')
         report('GLOW CLOAK · BUMP CREATURES!')
       }
     }
@@ -164,15 +167,18 @@ export function createGame(canvas, onState = () => {}) {
         enemy.squash = 28
         player.vy = -7.8
         burst(enemy.x + enemy.w / 2, enemy.y + 8, '#A8D969')
+        onCue('stomp')
         report(player.glowing ? 'GLOW BUMP!' : 'BOUNCE!')
       } else {
         resetPlayer()
+        onCue('hurt')
         report('OOPS · TRY AGAIN!')
       }
     }
 
     if (activateCheckpoint(world, player)) {
       burst(world.checkpoint.x, world.checkpoint.y - 30, '#A9F0B2')
+      onCue('checkpoint')
       report('LANTERN LIT · CHECKPOINT!')
     }
 
@@ -180,11 +186,13 @@ export function createGame(canvas, onState = () => {}) {
     if (overlaps(player, bell.x - 6, bell.y - 48, 44, 72)) {
       finished = true
       burst(bell.x + 16, bell.y - 28, '#FFF4B0')
+      onCue('finish')
       report('TRAIL CLEARED!')
     }
 
     if (player.y > WORLD_HEIGHT + 96) {
       resetPlayer()
+      onCue('hurt')
       report(world.checkpoint?.active ? 'BACK TO THE LANTERN' : 'TRY THAT JUMP AGAIN')
     }
 
@@ -516,6 +524,7 @@ export function createGame(canvas, onState = () => {}) {
     togglePause() {
       if (!running || finished) return paused
       paused = !paused
+      onCue('pause')
       report(paused ? 'PAUSED' : 'GO!')
       return paused
     },

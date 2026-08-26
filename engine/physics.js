@@ -75,6 +75,7 @@ function moveVertical(body, amount, terrain) {
 
 export function stepPhysics(body, input = {}, terrain = []) {
   const config = body.config
+  body.justJumped = false
   const direction = Number(Boolean(input.right)) - Number(Boolean(input.left))
   const acceleration = body.onGround ? config.runAcceleration : config.airAcceleration
 
@@ -99,6 +100,7 @@ export function stepPhysics(body, input = {}, terrain = []) {
     body.onGround = false
     body.coyote = 0
     body.jumpBuffer = 0
+    body.justJumped = true
   }
 
   if (!input.jumpHeld && body.jumpWasHeld && body.vy < -3) body.vy *= 0.52

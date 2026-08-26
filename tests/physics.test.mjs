@@ -18,6 +18,14 @@ test('the courier settles on solid ground and accelerates right', () => {
   assert.equal(body.facing, 1)
 })
 
+test('a real buffered launch emits one jump edge for sound and feedback', () => {
+  const body = settle(createBody({ x: 10, y: 0 }))
+  stepPhysics(body, { jumpPressed: true, jumpHeld: true }, floor)
+  assert.equal(body.justJumped, true)
+  stepPhysics(body, { jumpHeld: true }, floor)
+  assert.equal(body.justJumped, false)
+})
+
 test('jump buffering fires on the first landing frame', () => {
   const body = createBody({ x: 10, y: 45 })
   body.vy = 4

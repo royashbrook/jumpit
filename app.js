@@ -1,4 +1,5 @@
 import { currentSeed, shareSeed } from './seed.js'
+import { createAudio } from './audio.js'
 import { createGame } from './game.js'
 import { wireInstall } from './install.js'
 import { LEVELS } from './levels.js'
@@ -18,6 +19,10 @@ let lastCompleted = null
 
 const store = createSaveStore({ onChange: renderMenu })
 save = store.get()
+const audio = createAudio({
+  readMuted: () => store.get().muted,
+  writeMuted: value => store.setMuted(value),
+})
 
 const game = createGame($('stage'), state => {
   $('level-name').textContent = state.levelName.toUpperCase()
@@ -41,13 +46,15 @@ const game = createGame($('stage'), state => {
     store.completeLevel(state.levelId, state.seeds, queuedNext)
   }
   $('next-trail').hidden = !state.finished || !queuedNext
-})
+}, cue => audio.cue(cue))
 
 function show(screen) {
   for (const element of [menu, gameScreen]) element.hidden = element !== screen
 }
 
 function playLevel(levelId = store.get().selectedLevel) {
+  audio.startFromGesture()
+  audio.cue('start')
   store.selectLevel(levelId)
   queuedNext = null
   lastCompleted = null
@@ -96,6 +103,7 @@ function renderMenu(nextState = store.get()) {
   $('continue-label').textContent = `${selected.name.toUpperCase()} · ${save.bestSeeds[selected.id] || 0}/4 SEEDS`
   $('trail-list').replaceChildren(...gardenLevels.map((level, index) => trailButton(level, index, save)))
   for (const look of ['garden', 'dusk']) $('look-' + look).setAttribute('aria-pressed', String(save.theme === look))
+  $('sound-toggle').textContent = save.muted ? 'SOUND OFF' : 'SOUND ON'
 }
 
 window.addEventListener('resize', () => game.resize())
@@ -129,8 +137,17 @@ for (const [id, action] of [['move-left', 'left'], ['move-right', 'right'], ['ju
   button.addEventListener('lostpointercapture', release)
 }
 
-for (const button of document.querySelectorAll('.nav-item')) button.addEventListener('click', () => openTab(button.dataset.tab))
+for (const button of document.querySelectorAll('.nav-item')) button.addEventListener('click', () => {
+  audio.cue('tap')
+  openTab(button.dataset.tab)
+})
 for (const look of ['garden', 'dusk']) $('look-' + look).addEventListener('click', () => store.setTheme(look))
+
+$('sound-toggle').addEventListener('click', () => {
+  audio.startFromGesture()
+  const muted = audio.setMuted(!audio.isMuted())
+  if (!muted) audio.cue('start')
+})
 
 $('reset-progress').addEventListener('click', event => {
   const button = event.currentTarget
@@ -175,5 +192,6 @@ wireInstall($('install'), {
 })
 
 renderMenu(save)
+document.addEventListener('pointerdown', () => audio.startFromGesture(), { once: true })
 wireUpdate($('update'))
 registerWorker()

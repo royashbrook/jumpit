@@ -9,6 +9,7 @@ export function freshSave() {
     bestSeeds: {},
     selectedLevel: 'garden-1',
     theme: 'garden',
+    muted: false,
   }
 }
 
@@ -24,6 +25,7 @@ export function migrateSave(value) {
   }
   if (typeof value.selectedLevel === 'string' && clean.unlocked.includes(value.selectedLevel)) clean.selectedLevel = value.selectedLevel
   if (value.theme === 'garden' || value.theme === 'dusk') clean.theme = value.theme
+  clean.muted = Boolean(value.muted)
   return clean
 }
 
@@ -65,6 +67,11 @@ export function createSaveStore({ storage = globalThis.localStorage, onChange = 
       state.theme = theme
       write()
       return true
+    },
+    setMuted(value) {
+      state.muted = Boolean(value)
+      write()
+      return state.muted
     },
     requestReset() {
       armed = true
