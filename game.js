@@ -101,6 +101,7 @@ export function createGame(canvas, onState = () => {}) {
     const region = REGIONS.find(item => item.id === world.level.region)
     const seeds = world.seeds.filter(seed => seed.found).length
     onState({
+      levelId: world.level.id,
       levelName: world.level.name,
       regionName: region?.name || world.level.region,
       seeds,

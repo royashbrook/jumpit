@@ -1,6 +1,8 @@
 import { currentSeed, shareSeed } from './seed.js'
 import { createGame } from './game.js'
 import { wireInstall } from './install.js'
+import { LEVELS } from './levels.js'
+import { createSaveStore } from './save.js'
 import { wireUpdate, registerWorker } from './update.js'
 import { VERSION } from './version.js'
 
@@ -9,6 +11,14 @@ const menu = $('menu')
 const gameScreen = $('game')
 const howto = $('howto')
 const overlay = $('game-overlay')
+const gardenLevels = LEVELS.slice(0, 4)
+let save
+let queuedNext = null
+let lastCompleted = null
+
+const store = createSaveStore({ onChange: renderMenu })
+save = store.get()
+
 const game = createGame($('stage'), state => {
   $('level-name').textContent = state.levelName.toUpperCase()
   $('seed-count').textContent = `◆ ${state.seeds}/${state.maxSeeds}`
@@ -23,27 +33,83 @@ const game = createGame($('stage'), state => {
     : 'The trail waits for you.'
   $('resume').hidden = !state.paused
   $('restart').textContent = state.finished ? 'RUN IT AGAIN' : 'START OVER'
+
+  if (state.finished && lastCompleted !== state.levelId) {
+    lastCompleted = state.levelId
+    const levelIndex = LEVELS.findIndex(level => level.id === state.levelId)
+    queuedNext = LEVELS[levelIndex + 1]?.id || null
+    store.completeLevel(state.levelId, state.seeds, queuedNext)
+  }
+  $('next-trail').hidden = !state.finished || !queuedNext
 })
-window.addEventListener('resize', () => game.resize())
 
 function show(screen) {
-  for (const el of [menu, gameScreen]) el.hidden = el !== screen
+  for (const element of [menu, gameScreen]) element.hidden = element !== screen
 }
 
-function play() {
+function playLevel(levelId = store.get().selectedLevel) {
+  store.selectLevel(levelId)
+  queuedNext = null
+  lastCompleted = null
   show(gameScreen)
-  game.start('garden-1', currentSeed())
+  game.start(levelId, currentSeed())
 }
 
+function openTab(name) {
+  for (const panel of document.querySelectorAll('.tab-panel')) panel.hidden = panel.id !== `${name}-panel`
+  for (const button of document.querySelectorAll('.nav-item')) button.setAttribute('aria-pressed', String(button.dataset.tab === name))
+  store.disarmReset()
+  $('reset-progress').removeAttribute('data-armed')
+  $('reset-progress').textContent = 'RESET PROGRESS'
+}
+
+function trailButton(level, index, state) {
+  const unlocked = state.unlocked.includes(level.id)
+  const button = document.createElement('button')
+  button.className = 'trail-button'
+  button.disabled = !unlocked
+  button.setAttribute('aria-current', String(state.selectedLevel === level.id))
+  button.setAttribute('aria-label', unlocked ? `Play ${level.name}` : `${level.name} locked`)
+
+  const number = document.createElement('span')
+  number.className = 'trail-number'
+  number.textContent = unlocked ? String(index + 1) : '×'
+  const meta = document.createElement('span')
+  meta.className = 'trail-meta'
+  const name = document.createElement('b')
+  name.textContent = level.name.toUpperCase()
+  const status = document.createElement('small')
+  status.textContent = state.completed.includes(level.id) ? 'TRAIL CLEARED' : unlocked ? 'READY TO RUN' : 'CLEAR THE TRAIL BEFORE IT'
+  meta.append(name, status)
+  const seeds = document.createElement('span')
+  seeds.className = 'trail-seeds'
+  seeds.textContent = unlocked ? `◆ ${state.bestSeeds[level.id] || 0}/4` : 'LOCKED'
+  button.append(number, meta, seeds)
+  if (unlocked) button.addEventListener('click', () => playLevel(level.id))
+  return button
+}
+
+function renderMenu(nextState = store.get()) {
+  save = nextState
+  document.documentElement.dataset.theme = save.theme
+  const selected = LEVELS.find(level => level.id === save.selectedLevel) || LEVELS[0]
+  $('continue-label').textContent = `${selected.name.toUpperCase()} · ${save.bestSeeds[selected.id] || 0}/4 SEEDS`
+  $('trail-list').replaceChildren(...gardenLevels.map((level, index) => trailButton(level, index, save)))
+  for (const look of ['garden', 'dusk']) $('look-' + look).setAttribute('aria-pressed', String(save.theme === look))
+}
+
+window.addEventListener('resize', () => game.resize())
 $('version').textContent = `v${VERSION}`
-$('play').addEventListener('click', play)
+$('play').addEventListener('click', () => playLevel())
 $('back').addEventListener('click', () => {
   game.stop()
   show(menu)
+  renderMenu()
 })
 $('pause').addEventListener('click', () => game.togglePause())
 $('resume').addEventListener('click', () => game.togglePause())
 $('restart').addEventListener('click', () => game.restart())
+$('next-trail').addEventListener('click', () => playLevel(queuedNext))
 
 for (const [id, action] of [['move-left', 'left'], ['move-right', 'right'], ['jump', 'jump']]) {
   const button = $(id)
@@ -62,6 +128,24 @@ for (const [id, action] of [['move-left', 'left'], ['move-right', 'right'], ['ju
   button.addEventListener('pointercancel', release)
   button.addEventListener('lostpointercapture', release)
 }
+
+for (const button of document.querySelectorAll('.nav-item')) button.addEventListener('click', () => openTab(button.dataset.tab))
+for (const look of ['garden', 'dusk']) $('look-' + look).addEventListener('click', () => store.setTheme(look))
+
+$('reset-progress').addEventListener('click', event => {
+  const button = event.currentTarget
+  if (!store.resetArmed()) {
+    store.requestReset()
+    button.setAttribute('data-armed', '')
+    button.textContent = 'TAP AGAIN TO RESET'
+    return
+  }
+  store.reset()
+  button.removeAttribute('data-armed')
+  button.textContent = 'RESET PROGRESS'
+  openTab('play')
+})
+
 $('howto-open').addEventListener('click', () => howto.showModal())
 $('howto-close').addEventListener('click', () => howto.close())
 $('about-open').addEventListener('click', () => $('about').showModal())
@@ -90,5 +174,6 @@ wireInstall($('install'), {
   },
 })
 
+renderMenu(save)
 wireUpdate($('update'))
 registerWorker()

@@ -16,21 +16,71 @@
 <body>
   <main id="menu" class="screen menu-screen">
     <div class="brand">
-      <img src="icon-192.png" width="96" height="96" alt="">
+      <img src="icon-192.png" width="72" height="72" alt="">
       <div>
         <h1>Jumpit</h1>
         <p class="tagline">run the lantern trail</p>
       </div>
     </div>
 
-    <button id="play" class="big">PLAY THE TRAIL</button>
-    <button id="friends" class="big secondary">PLAY WITH A FRIEND</button>
-    <button id="howto-open" class="big secondary">HOW TO PLAY</button>
-    <button id="install" class="big secondary" hidden>ADD TO HOME SCREEN</button>
-    <button id="about-open" class="big secondary">ABOUT</button>
+    <div class="menu-content">
+      <section id="play-panel" class="tab-panel">
+        <div class="trail-hero">
+          <p class="hero-kicker">THE GARDEN NEEDS A LIGHT</p>
+          <h2>Run it home.</h2>
+          <p id="continue-label">DEWDROP DASH · 0/4 SEEDS</p>
+          <button id="play" class="big">PLAY THE TRAIL</button>
+        </div>
+        <button id="friends" class="big secondary">PLAY WITH A FRIEND</button>
+        <p class="play-promise">Run. Jump. Find light. Ring the bell.</p>
+      </section>
 
-    <p class="ethos">no ads · no timers · nothing to buy · no cookies</p>
-    <p id="version" class="version"></p>
+      <section id="trails-panel" class="tab-panel" hidden>
+        <div class="panel-heading">
+          <p>GARDEN WALK</p>
+          <h2>Choose a trail</h2>
+        </div>
+        <div id="trail-list" class="trail-list"></div>
+      </section>
+
+      <section id="looks-panel" class="tab-panel" hidden>
+        <div class="panel-heading">
+          <p>LOOKS</p>
+          <h2>Make it yours</h2>
+        </div>
+        <p class="panel-copy">No shop. No coins. Pick the world that feels best.</p>
+        <div class="looks-grid">
+          <button id="look-garden" class="look-card" data-look="garden">
+            <span class="look-swatch garden-swatch" aria-hidden="true"></span>
+            <b>GARDEN</b><small>bright + leafy</small>
+          </button>
+          <button id="look-dusk" class="look-card" data-look="dusk">
+            <span class="look-swatch dusk-swatch" aria-hidden="true"></span>
+            <b>DUSK</b><small>gold + moonlit</small>
+          </button>
+        </div>
+      </section>
+
+      <section id="more-panel" class="tab-panel" hidden>
+        <div class="panel-heading">
+          <p>MORE</p>
+          <h2>Game stuff</h2>
+        </div>
+        <button id="howto-open" class="big secondary">HOW TO PLAY</button>
+        <button id="install" class="big secondary" hidden>ADD TO HOME SCREEN</button>
+        <button id="about-open" class="big secondary">ABOUT</button>
+        <button id="reset-progress" class="big secondary reset-progress">RESET PROGRESS</button>
+        <p class="ethos">no ads · no timers · nothing to buy · no cookies</p>
+        <p id="version" class="version"></p>
+      </section>
+    </div>
+
+    <nav class="bottom-nav" aria-label="game menu">
+      <button class="nav-item" data-tab="play" aria-pressed="true"><span aria-hidden="true">▶</span><b>PLAY</b></button>
+      <button class="nav-item" data-tab="trails" aria-pressed="false"><span aria-hidden="true">⌁</span><b>TRAILS</b></button>
+      <button class="nav-item" data-tab="looks" aria-pressed="false"><span aria-hidden="true">✦</span><b>LOOKS</b></button>
+      <button class="nav-item" data-tab="more" aria-pressed="false"><span aria-hidden="true">•••</span><b>MORE</b></button>
+    </nav>
   </main>
 
   <main id="game" class="screen game-screen" hidden>
@@ -49,6 +99,7 @@
           <h2 id="overlay-title">PAUSED</h2>
           <p id="overlay-copy">The trail waits for you.</p>
           <button id="resume" class="big">KEEP GOING</button>
+          <button id="next-trail" class="big" hidden>NEXT TRAIL</button>
           <button id="restart" class="big secondary">START OVER</button>
         </div>
       </section>
