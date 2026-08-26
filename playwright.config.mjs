@@ -8,7 +8,9 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   reporter: 'line',
-  timeout: 20_000,
+  // A cold Linux WebKit process can spend more than 20 seconds creating its first
+  // page. Assertions keep their five-second gate; this only gives fixture setup room.
+  timeout: process.env.CI ? 45_000 : 20_000,
   expect: { timeout: 5_000 },
   use: {
     baseURL: 'http://127.0.0.1:4320',
