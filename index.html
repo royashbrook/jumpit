@@ -26,8 +26,8 @@
     <div class="menu-content">
       <section id="play-panel" class="tab-panel">
         <div class="trail-hero">
-          <p class="hero-kicker">THE GARDEN NEEDS A LIGHT</p>
-          <h2>Run it home.</h2>
+          <p id="hero-kicker" class="hero-kicker">THE GARDEN NEEDS A LIGHT</p>
+          <h2 id="hero-title">Run it home.</h2>
           <p id="continue-label">DEWDROP DASH · 0/4 SEEDS</p>
           <button id="play" class="big">PLAY THE TRAIL</button>
         </div>
@@ -48,7 +48,7 @@
 
       <section id="trails-panel" class="tab-panel" hidden>
         <div class="panel-heading">
-          <p id="trail-summary">12 TRAILS · 3 PLACES</p>
+          <p id="trail-summary">20 TRAILS · 5 PLACES</p>
           <h2>Choose a trail</h2>
         </div>
         <div id="trail-list" class="trail-list"></div>
@@ -115,14 +115,17 @@
     <div class="stage-shell">
       <canvas id="stage" aria-label="Jumpit game world" aria-describedby="game-status"></canvas>
       <p id="game-status" class="game-status" role="status" aria-live="polite"></p>
-      <section id="game-overlay" class="game-overlay" hidden aria-live="polite">
+      <p id="guardian-status" class="guardian-status" role="status" aria-live="polite" aria-atomic="true" hidden></p>
+      <section id="game-overlay" class="game-overlay" role="dialog" aria-labelledby="overlay-title" aria-describedby="overlay-copy" hidden>
         <div class="game-card">
+          <div id="ending-art" class="ending-art" aria-hidden="true" hidden></div>
           <p id="overlay-kicker" class="overlay-kicker">TAKE A BREATH</p>
           <h2 id="overlay-title">PAUSED</h2>
           <p id="overlay-copy">The trail waits for you.</p>
           <button id="resume" class="big">KEEP GOING</button>
           <button id="next-trail" class="big" hidden>NEXT TRAIL</button>
           <button id="restart" class="big secondary">START OVER</button>
+          <button id="ending-home" class="big" hidden>HOME</button>
         </div>
       </section>
     </div>

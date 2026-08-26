@@ -14,7 +14,7 @@ const menu = $('menu')
 const gameScreen = $('game')
 const howto = $('howto')
 const overlay = $('game-overlay')
-const release = createRelease(LEVELS, 16)
+const release = createRelease(LEVELS, 20)
 const releaseLevels = release.levels
 const activeSeed = currentSeed()
 const featuredChallenge = {
@@ -32,6 +32,7 @@ let save
 let queuedNext = null
 let lastCompleted = null
 let activeChallenge = null
+let overlayOpen = false
 
 const store = createSaveStore({ onChange: renderMenu })
 save = store.get()
@@ -42,28 +43,53 @@ const audio = createAudio({
 
 const game = createGame($('stage'), state => {
   const challengeFinished = Boolean(activeChallenge && state.finished)
+  const campaignFinished = !activeChallenge && state.finished && state.levelId === 'keep-4'
   const stamped = challengeFinished && challengeWon(activeChallenge, state)
   $('level-name').textContent = state.levelName.toUpperCase()
   $('seed-count').textContent = `◆ ${state.seeds}/${state.maxSeeds}`
   $('pause').textContent = state.paused ? '▶' : 'Ⅱ'
   $('pause').setAttribute('aria-label', state.paused ? 'resume game' : 'pause game')
   $('game-status').textContent = state.message
-  overlay.hidden = !state.paused && !state.finished
+  const guardianActive = Number.isFinite(state.guardianMax) && state.guardianMax > 0
+  $('guardian-status').hidden = !guardianActive
+  $('guardian-status').textContent = guardianActive
+    ? state.guardianDefeated
+      ? 'WARDEN CLEARED · BELL READY'
+      : `WARDEN ${state.guardianHealth}/${state.guardianMax} · BELL LOCKED`
+    : ''
+  const overlayVisible = state.paused || state.finished
+  overlay.hidden = !overlayVisible
+  overlay.classList.toggle('campaign-ending', campaignFinished)
+  $('ending-art').hidden = !campaignFinished
   $('overlay-kicker').textContent = challengeFinished
     ? activeChallenge.daily ? "TODAY'S CHALLENGE" : 'FRIEND CHALLENGE'
-    : state.finished ? state.regionName.toUpperCase() : 'TAKE A BREATH'
+    : campaignFinished ? 'THE LIGHT IS HOME'
+      : state.finished ? state.regionName.toUpperCase() : 'TAKE A BREATH'
   $('overlay-title').textContent = challengeFinished
     ? stamped ? 'STAMP EARNED!' : 'MORE LIGHT NEEDED'
-    : state.finished ? 'TRAIL CLEARED!' : 'PAUSED'
+    : campaignFinished ? 'THE GARDEN GLOWS!'
+      : state.finished ? 'TRAIL CLEARED!' : 'PAUSED'
   $('overlay-copy').textContent = challengeFinished
     ? stamped
       ? `${activeChallenge.goalSeeds} SEEDS + BELL · STAMP EARNED`
       : `FOUND ${state.seeds}/${activeChallenge.goalSeeds} SEEDS · TRY AGAIN`
-    : state.finished
+    : campaignFinished
+      ? 'YOU LIT THE BEACON. ALL FIVE PLACES GLOW AGAIN.'
+      : state.finished
       ? `${state.seeds} OF ${state.maxSeeds} LANTERN SEEDS FOUND`
       : 'The trail waits for you.'
   $('resume').hidden = !state.paused
-  $('restart').textContent = state.finished ? challengeFinished && !stamped ? 'TRY AGAIN' : 'RUN IT AGAIN' : 'START OVER'
+  $('restart').textContent = campaignFinished
+    ? 'PLAY THE KEEP AGAIN'
+    : state.finished ? challengeFinished && !stamped ? 'TRY AGAIN' : 'RUN IT AGAIN' : 'START OVER'
+  $('ending-home').hidden = !campaignFinished
+
+  if (overlayVisible && !overlayOpen) {
+    overlayOpen = true
+    queueMicrotask(() => (campaignFinished ? $('ending-home') : state.paused ? $('resume') : $('restart')).focus({ preventScroll: true }))
+  } else if (!overlayVisible) {
+    overlayOpen = false
+  }
 
   if (challengeFinished) {
     queuedNext = null
@@ -80,7 +106,10 @@ const game = createGame($('stage'), state => {
   $('next-trail').hidden = !state.finished || !queuedNext
 }, cue => {
   audio.cue(cue)
-  const pulse = cue === 'finish' ? [35, 35, 60] : ['seed', 'stomp', 'checkpoint'].includes(cue) ? 24 : 0
+  const pulse = cue === 'guardian-defeated' ? [35, 25, 35, 25, 80]
+    : cue === 'finish' ? [35, 35, 60]
+      : cue === 'guardian-hit' ? [24, 24, 34]
+        : ['seed', 'stomp', 'checkpoint', 'guardian-locked'].includes(cue) ? 24 : 0
   if (pulse) navigator.vibrate?.(pulse)
 })
 
@@ -150,6 +179,10 @@ function renderMenu(nextState = store.get()) {
   const selectedId = release.playable(save.selectedLevel, save.unlocked)
   const selected = release.find(selectedId) || releaseLevels[0]
   const selectedMax = selected.objects.filter(([, kind]) => kind === 'seed').length
+  const campaignComplete = save.completed.includes('keep-4')
+  $('hero-kicker').textContent = campaignComplete ? 'THE BEACON IS AWAKE' : 'THE GARDEN NEEDS A LIGHT'
+  $('hero-title').textContent = campaignComplete ? 'You brought light home.' : 'Run it home.'
+  $('play').textContent = campaignComplete ? 'RUN THE KEEP AGAIN' : 'PLAY THE TRAIL'
   $('continue-label').textContent = `${selected.name.toUpperCase()} · ${save.bestSeeds[selected.id] || 0}/${selectedMax} SEEDS`
   const trailSummary = $('trail-summary')
   if (trailSummary) {
@@ -203,9 +236,23 @@ $('back').addEventListener('click', () => {
   $('play').focus({ preventScroll: true })
 })
 $('pause').addEventListener('click', () => game.togglePause())
-$('resume').addEventListener('click', () => game.togglePause())
-$('restart').addEventListener('click', () => game.restart())
+$('resume').addEventListener('click', () => {
+  game.togglePause()
+  $('pause').focus({ preventScroll: true })
+})
+$('restart').addEventListener('click', () => {
+  game.restart()
+  $('pause').focus({ preventScroll: true })
+})
 $('next-trail').addEventListener('click', () => playLevel(queuedNext))
+$('ending-home').addEventListener('click', () => {
+  game.stop()
+  activeChallenge = null
+  show(menu)
+  openTab('play')
+  renderMenu()
+  $('play').focus({ preventScroll: true })
+})
 
 for (const [id, action] of [['move-left', 'left'], ['move-right', 'right'], ['jump', 'jump']]) {
   const button = $(id)

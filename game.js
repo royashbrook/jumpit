@@ -4,6 +4,7 @@ import { LEVELS, REGIONS, TILE } from './levels.js'
 const WORLD_HEIGHT = 18 * TILE
 const FIXED_STEP = 1000 / 60
 const PLAYER_FRAMES = { idle: 0, run: 1, jump: 4, fall: 5 }
+const WARDEN_HEALTH = 3
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value))
 
 export function coachMessage({ moved, jumped, glowing, x }) {
@@ -62,20 +63,30 @@ export function makeWorld(level) {
       .map(([id,, x, y]) => ({ id, x: (x + 0.5) * TILE, y: (y + 0.45) * TILE, found: false })),
     enemies: level.objects
       .filter(([, kind]) => ['mossling', 'drizzlet', 'gearling', 'mothlight', 'sentry', 'warden'].includes(kind))
-      .map(([id, kind, x, y]) => ({
-        id,
-        kind,
-        x: (x + 0.5) * TILE - 18,
-        y: (y + 1) * TILE - 28,
-        w: 36,
-        h: 28,
-        home: (x + 0.5) * TILE - 18,
-        baseY: (y + 1) * TILE - 28,
-        vx: kind === 'mothlight' ? -0.72 : -0.55,
-        alive: true,
-        squash: 0,
-        hits: 0,
-      })),
+      .map(([id, kind, x, y]) => {
+        const w = kind === 'warden' ? 54 : kind === 'sentry' ? 40 : 36
+        const h = kind === 'warden' ? 44 : kind === 'sentry' ? 32 : 28
+        const home = (x + 0.5) * TILE - w / 2
+        const baseY = (y + 1) * TILE - h
+        const maxHealth = kind === 'warden' ? WARDEN_HEALTH : 1
+        return {
+          id,
+          kind,
+          x: home,
+          y: baseY,
+          w,
+          h,
+          home,
+          baseY,
+          vx: kind === 'sentry' ? -1 : kind === 'warden' ? -0.82 : kind === 'mothlight' ? -0.72 : -0.55,
+          patrol: kind === 'sentry' ? 82 : kind === 'warden' ? 110 : 52,
+          alive: true,
+          health: maxHealth,
+          maxHealth,
+          invulnerable: 0,
+          squash: 0,
+        }
+      }),
     cloak: level.objects
       .filter(([, kind]) => kind === 'cloak')
       .map(([id,, x, y]) => ({ id, x: (x + 0.5) * TILE, y: (y + 0.4) * TILE, found: false })),
@@ -110,8 +121,64 @@ export function makeWorld(level) {
       y: (checkpoint[3] + 1) * TILE,
       active: false,
     } : null,
-    finish: { id: level.finish[0], x: level.finish[1] * TILE, y: level.finish[2] * TILE },
+    finish: { id: level.finish[0], x: level.finish[1] * TILE, y: level.finish[2] * TILE, blocked: false },
   }
+}
+
+export function guardianState(world) {
+  const guardian = world.enemies.find(enemy => enemy.kind === 'warden')
+  return {
+    guardianHealth: guardian?.health || 0,
+    guardianMax: guardian?.maxHealth || 0,
+    guardianDefeated: Boolean(guardian && !guardian.alive),
+  }
+}
+
+export function advanceEnemy(enemy, frame = 0) {
+  if (enemy.squash > 0) enemy.squash -= 1
+  if (!enemy.alive) return enemy
+  if (enemy.invulnerable > 0) enemy.invulnerable -= 1
+
+  enemy.x += enemy.vx
+  const left = enemy.home - enemy.patrol
+  const right = enemy.home + enemy.patrol
+  if (enemy.x <= left && enemy.vx < 0) {
+    enemy.x = left
+    enemy.vx = Math.abs(enemy.vx)
+  } else if (enemy.x >= right && enemy.vx > 0) {
+    enemy.x = right
+    enemy.vx = -Math.abs(enemy.vx)
+  }
+  if (enemy.kind === 'mothlight') enemy.y = enemy.baseY - 24 + Math.sin(frame * .08 + enemy.home) * 15
+  return enemy
+}
+
+export function strikeEnemy(enemy) {
+  if (!enemy.alive || enemy.invulnerable > 0) return { hit: false, defeated: !enemy.alive }
+  enemy.health = Math.max(0, enemy.health - 1)
+  enemy.alive = enemy.health > 0
+  if (enemy.alive) enemy.invulnerable = 22
+  else enemy.squash = enemy.kind === 'warden' ? 40 : 28
+  return { hit: true, defeated: !enemy.alive }
+}
+
+export function enemyAttackLands(player, enemy) {
+  return isStomp(player, enemy) || (enemy.kind !== 'warden' && player.glowing)
+}
+
+export function finishOutcome(world, player) {
+  const bell = world.finish
+  if (!overlaps(player, bell.x - 6, bell.y - 48, 44, 72)) {
+    bell.blocked = false
+    return ''
+  }
+  if (world.enemies.some(enemy => enemy.kind === 'warden' && enemy.alive)) {
+    if (bell.blocked) return ''
+    bell.blocked = true
+    return 'locked'
+  }
+  bell.blocked = false
+  return 'finished'
 }
 
 export function activateSwitches(world, player) {
@@ -196,6 +263,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       paused,
       finished,
       message,
+      ...guardianState(world),
     })
   }
 
@@ -259,22 +327,21 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     }
 
     for (const enemy of world.enemies) {
-      if (enemy.squash > 0) {
-        enemy.squash -= 1
-        continue
-      }
-      if (!enemy.alive) continue
-      enemy.x += enemy.vx
-      if (enemy.x < enemy.home - 52 || enemy.x > enemy.home + 52) enemy.vx *= -1
-      if (enemy.kind === 'mothlight') enemy.y = enemy.baseY - 24 + Math.sin(frame * .08 + enemy.home) * 15
+      advanceEnemy(enemy, frame)
+      if (!enemy.alive || enemy.invulnerable > 0) continue
       if (!overlaps(player, enemy.x, enemy.y, enemy.w, enemy.h)) continue
-      if (player.glowing || isStomp(player, enemy)) {
-        enemy.alive = false
-        enemy.squash = 28
-        player.vy = -7.8
-        burst(enemy.x + enemy.w / 2, enemy.y + 8, '#A8D969')
-        onCue('stomp')
-        report(player.glowing ? 'GLOW BUMP!' : 'BOUNCE!')
+      if (enemyAttackLands(player, enemy)) {
+        const result = strikeEnemy(enemy)
+        if (!result.hit) continue
+        player.vy = enemy.kind === 'warden' ? -9.2 : -7.8
+        burst(enemy.x + enemy.w / 2, enemy.y + 8, enemy.kind === 'warden' ? '#FFE377' : '#A8D969')
+        if (enemy.kind === 'warden') {
+          onCue(result.defeated ? 'guardian-defeated' : 'guardian-hit')
+          report(result.defeated ? 'WARDEN DOWN · RING THE BELL!' : `WARDEN · ${enemy.health} LIGHTS LEFT`)
+        } else {
+          onCue('stomp')
+          report(player.glowing ? 'GLOW BUMP!' : 'BOUNCE!')
+        }
       } else {
         resetPlayer()
         onCue('hurt')
@@ -338,9 +405,13 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       report('LANTERN LIT · CHECKPOINT!')
     }
 
-    const bell = world.finish
-    if (overlaps(player, bell.x - 6, bell.y - 48, 44, 72)) {
+    const finishEvent = finishOutcome(world, player)
+    if (finishEvent === 'locked') {
+      onCue('guardian-locked')
+      report('THE WARDEN GUARDS THE BELL')
+    } else if (finishEvent === 'finished') {
       finished = true
+      const bell = world.finish
       burst(bell.x + 16, bell.y - 28, '#FFF4B0')
       onCue('finish')
       report('TRAIL CLEARED!')
@@ -497,11 +568,25 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
         : enemy.kind === 'drizzlet' || enemy.kind === 'mothlight'
           ? walkFrame
           : enemy.kind === 'gearling' || enemy.kind === 'sentry' ? 2 + walkFrame : 7
-      if (!drawCell(sheet, frameIndex, enemy.x - 6, enemy.y - 12, 48, 44, enemy.vx < 0 ? -1 : 1)) {
+      const spriteWidth = enemy.kind === 'warden' ? 78 : 48
+      const spriteHeight = enemy.kind === 'warden' ? 68 : 44
+      const spriteX = enemy.x + enemy.w / 2 - spriteWidth / 2
+      const spriteY = enemy.y + enemy.h - spriteHeight
+      if (enemy.invulnerable > 0 && frame % 4 < 2) context.globalAlpha = .48
+      if (!drawCell(sheet, frameIndex, spriteX, spriteY, spriteWidth, spriteHeight, enemy.vx < 0 ? -1 : 1)) {
         context.fillStyle = '#7FA84E'
         context.beginPath()
         context.roundRect(enemy.x, enemy.y, enemy.w, enemy.h, 10)
         context.fill()
+      }
+      context.globalAlpha = 1
+      if (enemy.kind === 'warden' && enemy.alive) {
+        for (let index = 0; index < enemy.maxHealth; index += 1) {
+          context.fillStyle = index < enemy.health ? '#FFE377' : '#394944'
+          context.beginPath()
+          context.arc(enemy.x + enemy.w / 2 + (index - 1) * 15, enemy.y - 11, 5, 0, Math.PI * 2)
+          context.fill()
+        }
       }
     }
   }
@@ -577,6 +662,8 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
   function drawBell() {
     const { x, y } = world.finish
     const floor = (y + 1) * TILE
+    const guardian = guardianState(world)
+    const locked = guardian.guardianMax > 0 && !guardian.guardianDefeated
     context.strokeStyle = '#49382D'
     context.lineWidth = 5
     context.beginPath()
@@ -584,7 +671,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     context.lineTo(x + 4, floor - 70)
     context.lineTo(x + 34, floor - 70)
     context.stroke()
-    context.fillStyle = '#F7C94C'
+    context.fillStyle = locked ? '#77847E' : '#F7C94C'
     context.beginPath()
     context.arc(x + 34, floor - 53, 15, Math.PI, 0)
     context.lineTo(x + 49, floor - 38)
@@ -595,6 +682,14 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     context.beginPath()
     context.arc(x + 34, floor - 35, 5, 0, Math.PI * 2)
     context.fill()
+    if (locked) {
+      context.strokeStyle = '#FFF1BB'
+      context.lineWidth = 4
+      context.strokeRect(x + 24, floor - 63, 20, 20)
+      context.beginPath()
+      context.arc(x + 34, floor - 63, 8, Math.PI, 0)
+      context.stroke()
+    }
   }
 
   function drawPlayer() {

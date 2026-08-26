@@ -652,6 +652,25 @@ h1 {
   animation: status-pop 1.35s ease both;
 }
 
+.guardian-status {
+  position: absolute;
+  top: 3rem;
+  left: 50%;
+  z-index: 1;
+  max-width: calc(100% - 1.2rem);
+  margin: 0;
+  padding: .38rem .7rem;
+  translate: -50% 0;
+  border: .12rem solid var(--line);
+  border-radius: calc(var(--radius) * 2);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-pressed);
+  color: var(--ink);
+  font-size: .68rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .game-overlay {
   position: absolute;
   inset: 0;
@@ -659,8 +678,13 @@ h1 {
   display: grid;
   place-items: center;
   padding: 1rem;
+  overflow: auto;
   background: rgb(from var(--surface-sunk) r g b / .46);
   backdrop-filter: blur(2px);
+}
+
+.game-overlay.campaign-ending {
+  background: rgb(from var(--surface-sunk) r g b / .7);
 }
 
 .game-card {
@@ -690,6 +714,14 @@ h1 {
   color: var(--accent-dim);
   font-size: .68rem;
   letter-spacing: .08em;
+}
+
+.ending-art {
+  height: clamp(5.5rem, 18vh, 8rem);
+  margin: -0.3rem -0.3rem .75rem;
+  border: .14rem solid var(--line);
+  border-radius: calc(var(--radius) * .85);
+  background: url('assets/backgrounds/final-atlas.png') center bottom / 100% 200% no-repeat;
 }
 
 .game-card .big + .big {
@@ -865,6 +897,23 @@ dialog ol {
 
   .ethos {
     margin-top: .25rem;
+  }
+
+  .campaign-ending .game-card {
+    padding: .75rem;
+  }
+
+  .campaign-ending .ending-art {
+    height: 4.5rem;
+    margin-bottom: .45rem;
+  }
+
+  .campaign-ending .game-card p {
+    margin-bottom: .45rem;
+  }
+
+  .campaign-ending .game-card .big + .big {
+    margin-top: .4rem;
   }
 }
 

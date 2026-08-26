@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.5.0: 2026-08-26
+
+- Opened four vertical Beacon Keep trails to complete the twenty-trail campaign.
+- Added patrolling Sentries and a forgiving three-stomp Warden encounter.
+- Locked the final bell until the Warden is defeated, with a checkpoint before the arena.
+- Added a focused campaign ending with replay and home actions.
+
 ## 1.4.0: 2026-08-26
 
 - Added four authored seed challenges selected deterministically each day.

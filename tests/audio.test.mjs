@@ -40,3 +40,13 @@ test('muting is persistent, immediate, and safe before audio exists', async () =
   assert.equal(audio.cue('seed'), true)
   assert.deepEqual(writes, [false])
 })
+
+test('the guardian fight has distinct hit, locked, and victory cues', async () => {
+  const context = fakeContext()
+  const audio = createAudio({ contextFactory: () => context })
+  await audio.startFromGesture()
+  assert.equal(audio.cue('guardian-hit'), true)
+  assert.equal(audio.cue('guardian-locked'), true)
+  assert.equal(audio.cue('guardian-defeated'), true)
+  assert.equal(context.starts.length, 8)
+})

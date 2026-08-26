@@ -34,22 +34,6 @@ test('corrupt and blocked storage never block play', async ({ browser, baseURL }
   await context.close()
 })
 
-test('a saved unreleased trail falls back to the last released unlock', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('jumpit-save-v1', JSON.stringify({
-    version: 1,
-    completed: ['market-4'],
-    unlocked: ['garden-1', 'market-4', 'keep-1'],
-    bestSeeds: { 'market-4': 3 },
-    selectedLevel: 'keep-1',
-    theme: 'garden',
-    muted: true,
-  })))
-  await page.goto('/')
-  await expect(page.locator('#continue-label')).toContainText('LAST-LIGHT ARCADE')
-  await page.getByRole('button', { name: 'PLAY THE TRAIL' }).click()
-  await expect(page.locator('#level-name')).toHaveText('LAST-LIGHT ARCADE')
-})
-
 test('a shared seed previews its deterministic challenge without touching campaign progress', async ({ page }) => {
   const seed = 48151623
   const challenge = dailyChallenge(seed)
@@ -71,7 +55,7 @@ test('a shared seed previews its deterministic challenge without touching campai
   await expect(page.locator('#daily-title')).toHaveText(challenge.title)
   await expect(page.locator('#daily-copy')).toHaveText(challenge.copy)
   await expect(page.locator('#daily-status')).toHaveText(`◆ ${challenge.goalSeeds} SEEDS + BELL`)
-  await expect(page.locator('#trail-summary')).toHaveText('16 TRAILS · 4 PLACES')
+  await expect(page.locator('#trail-summary')).toHaveText('20 TRAILS · 5 PLACES')
 
   await page.locator('#daily-play').click()
   await expect(page.locator('#level-name')).toHaveText(level.name.toUpperCase())

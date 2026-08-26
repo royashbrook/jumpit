@@ -46,6 +46,39 @@ test('every stop has its kid-readable goals and the hazards progress by place', 
   assert.ok(LEVELS.at(-1).objects.some(object => object[1] === 'warden'))
 })
 
+test('Beacon Keep climbs in readable tiers while sentries build one encounter at a time', () => {
+  const keep = LEVELS.filter(level => level.region === 'keep')
+  assert.deepEqual(keep.map(level => level.size[0]), [72, 78, 84, 96])
+  assert.deepEqual(
+    keep.slice(0, 3).map(level => level.objects.filter(([, kind]) => kind === 'sentry').length),
+    [1, 2, 3],
+  )
+  for (const level of keep) {
+    const platformTiers = new Set(level.terrain.filter(([, , , , , height]) => height === 1).map(([, , , y]) => y))
+    assert.ok(platformTiers.size >= 3, `${level.id} lost its fortress climb`)
+    assert.ok(Math.min(...platformTiers) <= 9, `${level.id} lost its high route`)
+  }
+})
+
+test('the final checkpoint leads into one guarded, locked bell arena', () => {
+  const final = LEVELS.find(level => level.id === 'keep-4')
+  const arena = final.terrain.find(([id]) => id === 'k04-arena')
+  const checkpoint = final.objects.find(([, kind]) => kind === 'checkpoint')
+  const wardens = final.objects.filter(([, kind]) => kind === 'warden')
+  const warden = wardens[0]
+  const [, finishX, finishY] = final.finish
+  const [, , arenaX, arenaY, arenaWidth] = arena
+
+  assert.equal(final.introduces[0], 'beacon-guardian')
+  assert.equal(LEVELS.flatMap(level => level.objects).filter(([, kind]) => kind === 'warden').length, 1)
+  assert.equal(wardens.length, 1)
+  assert.ok(checkpoint[2] < arenaX, 'checkpoint must stay before the arena')
+  assert.ok(warden[2] >= arenaX && warden[2] < finishX, 'warden must stand between entry and bell')
+  assert.ok(finishX >= arenaX && finishX < arenaX + arenaWidth, 'bell must stay inside the arena')
+  assert.equal(warden[3], finishY)
+  assert.equal(finishY, arenaY - 1)
+})
+
 test('validator rejects malformed, out-of-bounds, duplicate, and misordered data', () => {
   const cases = [
     ['schema', campaign => { campaign[0].terrain[0] = ['broken'] }, /expected \[id, kind, x, y, width, height\]/],

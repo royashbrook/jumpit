@@ -17,7 +17,10 @@ test('portrait shell stays inside the phone and keeps navigation visible', async
   expect(shell.nav.bottom).toBeLessThanOrEqual(shell.innerHeight)
 
   await page.getByRole('button', { name: 'TRAILS' }).click()
-  await expect(page.locator('.trail-button')).toHaveCount(16)
+  await expect(page.locator('#trail-summary')).toHaveText('20 TRAILS · 5 PLACES')
+  await expect(page.locator('.trail-button')).toHaveCount(20)
+  await expect(page.locator('.region-divider')).toHaveCount(5)
+  await expect(page.locator('.region-divider').last()).toHaveText('BEACON KEEP')
   await expect(page.getByRole('navigation', { name: 'game menu' })).toBeVisible()
 })
 
@@ -35,5 +38,5 @@ test('game controls and pause remain readable without hiding the world', async (
   await expect(page.getByRole('heading', { name: 'PAUSED' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'KEEP GOING' })).toBeVisible()
   await page.getByRole('button', { name: 'START OVER' }).click()
-  await expect(page.getByRole('button', { name: 'pause game' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'pause game' })).toBeFocused()
 })

@@ -15,6 +15,10 @@ The validator treats three empty horizontal tiles, three upward tiles, and six
 downward tiles as the conservative jump envelope. Every finish, seed, and
 checkpoint must be connected to spawn by that graph.
 
+Beacon Keep uses authored two-tile climbs, patrolling Sentries, and one final
+checkpointed arena. Its sole Warden guards the finish bell until three separated
+stomps clear the way.
+
 All layouts, place names, creatures, and mechanics were authored for Jumpit.
 They borrow only the general run-and-jump genre verbs; they do not copy a map,
 character, name, art treatment, or trade dress from another game.

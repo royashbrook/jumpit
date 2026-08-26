@@ -1,6 +1,17 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { activateCheckpoint, activateLamps, activateSwitches, coachMessage, makeWorld } from '../game.js'
+import {
+  activateCheckpoint,
+  activateLamps,
+  activateSwitches,
+  advanceEnemy,
+  coachMessage,
+  enemyAttackLands,
+  finishOutcome,
+  guardianState,
+  makeWorld,
+  strikeEnemy,
+} from '../game.js'
 import { createBody } from '../engine/physics.js'
 import { LEVELS, TILE } from '../levels.js'
 
@@ -72,6 +83,61 @@ test('Lantern Market carries Mothlights and lamps that open paired gates', () =>
   assert.equal(gate.open, true)
   assert.equal(gate.active, false)
   assert.equal(activateLamps(world, player), false)
+})
+
+test('Beacon Keep sentries patrol and turn at their authored range', () => {
+  const world = makeWorld(LEVELS.find(level => level.id === 'keep-1'))
+  const sentry = world.enemies.find(enemy => enemy.kind === 'sentry')
+  const start = sentry.x
+  advanceEnemy(sentry)
+  assert.equal(sentry.x, start - 1)
+
+  sentry.x = sentry.home - sentry.patrol
+  sentry.vx = -1
+  advanceEnemy(sentry)
+  assert.equal(sentry.x, sentry.home - sentry.patrol)
+  assert.equal(sentry.vx, 1)
+})
+
+test('the Beacon Warden takes exactly three separated hits', () => {
+  const world = makeWorld(LEVELS.find(level => level.id === 'keep-4'))
+  const warden = world.enemies.find(enemy => enemy.kind === 'warden')
+  assert.equal(enemyAttackLands({ y: warden.y, h: 42, vy: 0, glowing: true }, warden), false)
+  assert.equal(enemyAttackLands({ y: warden.y - 42, h: 42, vy: 5, glowing: false }, warden), true)
+  assert.deepEqual(guardianState(world), {
+    guardianHealth: 3,
+    guardianMax: 3,
+    guardianDefeated: false,
+  })
+
+  assert.deepEqual(strikeEnemy(warden), { hit: true, defeated: false })
+  assert.equal(warden.health, 2)
+  assert.deepEqual(strikeEnemy(warden), { hit: false, defeated: false })
+  for (let frame = 0; frame < 22; frame += 1) advanceEnemy(warden, frame)
+  assert.deepEqual(strikeEnemy(warden), { hit: true, defeated: false })
+  assert.equal(warden.health, 1)
+  for (let frame = 0; frame < 22; frame += 1) advanceEnemy(warden, frame)
+  assert.deepEqual(strikeEnemy(warden), { hit: true, defeated: true })
+  assert.equal(warden.alive, false)
+  assert.deepEqual(guardianState(world), {
+    guardianHealth: 0,
+    guardianMax: 3,
+    guardianDefeated: true,
+  })
+})
+
+test('the finish bell stays locked until the Beacon Warden is defeated', () => {
+  const world = makeWorld(LEVELS.find(level => level.id === 'keep-4'))
+  const warden = world.enemies.find(enemy => enemy.kind === 'warden')
+  const player = { x: world.finish.x, y: world.finish.y - 40, w: 28, h: 42 }
+
+  assert.equal(finishOutcome(world, player), 'locked')
+  assert.equal(finishOutcome(world, player), '')
+  for (let hit = 0; hit < 3; hit += 1) {
+    warden.invulnerable = 0
+    strikeEnemy(warden)
+  }
+  assert.equal(finishOutcome(world, player), 'finished')
 })
 
 test('coaching is one short action at a time and then gets out of the way', () => {
