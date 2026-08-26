@@ -5,6 +5,10 @@ import {
   activateLamps,
   activateSwitches,
   advanceEnemy,
+  backgroundCrop,
+  cameraProgress,
+  cameraScale,
+  cameraTarget,
   clearInputState,
   coachMessage,
   createGame,
@@ -18,6 +22,7 @@ import {
   playHint,
   setInputState,
   strikeEnemy,
+  verticalCameraTarget,
 } from '../game.js'
 import { createBody } from '../engine/physics.js'
 import { LEVELS, TILE } from '../levels.js'
@@ -166,6 +171,37 @@ test('coaching is one short action at a time and then gets out of the way', () =
     kind: 'none',
     text: '',
   })
+})
+
+test('the landscape camera keeps the courier large and looks ahead both ways', () => {
+  const scale = cameraScale(844, 320)
+  const viewWidth = 844 / scale
+  const viewHeight = 320 / scale
+  assert.equal(viewWidth, 28 * TILE)
+  assert.ok(82 * scale >= 44)
+  assert.equal(cameraTarget({ playerX: 1_000, facing: 1, viewWidth, worldWidth: 3_000 }), 1_000 - viewWidth * .3)
+  assert.equal(cameraTarget({ playerX: 1_000, facing: -1, viewWidth, worldWidth: 3_000 }), 1_000 - viewWidth * .7)
+  assert.equal(cameraTarget({ playerX: 10, facing: 1, viewWidth, worldWidth: 3_000 }), 0)
+  assert.equal(cameraTarget({ playerX: 3_000, facing: 1, viewWidth, worldWidth: 3_000 }), 3_000 - viewWidth)
+  assert.equal(
+    cameraTarget({ playerX: 1_000, facing: 1, viewWidth, worldWidth: 3_000, reducedMotion: true }),
+    cameraTarget({ playerX: 1_000, facing: -1, viewWidth, worldWidth: 3_000, reducedMotion: true }),
+  )
+  assert.ok(verticalCameraTarget({ playerY: 438, playerHeight: 42, viewHeight }) > 0)
+  assert.equal(verticalCameraTarget({ playerY: 0, playerHeight: 42, viewHeight }), 0)
+  assert.equal(cameraProgress(3_000 - viewWidth, 3_000, viewWidth), 1)
+})
+
+test('landscape backgrounds keep their source aspect and retain room to pan', () => {
+  for (const [imageWidth, rowHeight] of [[1_774, 887], [1_536, 512]]) {
+    const start = backgroundCrop({ imageWidth, rowHeight, width: 844, height: 320, progress: 0 })
+    const end = backgroundCrop({ imageWidth, rowHeight, width: 844, height: 320, progress: 1 })
+    assert.ok(Math.abs(start.width / start.height - 844 / 320) < 1e-9)
+    assert.equal(start.x, 0)
+    assert.ok(end.x > 0)
+    assert.ok(start.y >= 0)
+    assert.ok(start.y + start.height <= rowHeight)
+  }
 })
 
 test('reward feedback adds a short impact without moving reduced-motion play', () => {

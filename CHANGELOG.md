@@ -4,6 +4,8 @@
 
 - Stabilized the twenty-trail campaign across five grounded places with full progression,
   original art and sound, optional Hidden Lights, and a three-hit final guardian.
+- Made play landscape-first with a clear portrait rotate gate, a wider direction-aware
+  camera, larger obstacles, and corner controls that leave the trail visible.
 - Proved the exact shipped v1.9 installed client upgrades once into the coherent v2 cache,
   while a failed v2.1 precache leaves the active offline shell untouched.
 - Prepared v2 for the protected permanent-origin and Pages workflows. Its deploy, exact

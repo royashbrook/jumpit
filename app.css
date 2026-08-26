@@ -696,7 +696,60 @@ h1 {
 }
 
 .game-screen {
+  position: relative;
   gap: .45rem;
+  max-width: 72rem;
+}
+
+.rotate-device {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  overflow: auto;
+  border: .18rem solid var(--line);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(to top, rgb(from var(--line) r g b / .82), rgb(from var(--line) r g b / .12)),
+    url('assets/backgrounds/garden-walk.webp') center / cover;
+  box-shadow: var(--shadow);
+  color: var(--surface-raised);
+  text-align: center;
+}
+
+.rotate-device h2 {
+  max-width: 18rem;
+  margin: .15rem 0 .45rem;
+  font-size: clamp(1.75rem, 8vw, 2.5rem);
+  line-height: 1;
+}
+
+.rotate-device p {
+  max-width: 20rem;
+  margin: 0;
+  font-size: .9rem;
+  font-weight: 900;
+}
+
+.rotate-device .rotate-kicker {
+  color: var(--surface-raised);
+  font-size: .7rem;
+  letter-spacing: .08em;
+}
+
+.orientation-blocked .stage-shell,
+.orientation-blocked .controls {
+  display: none;
+}
+
+.orientation-blocked .level-name,
+.orientation-blocked .seed-count,
+.orientation-blocked .pause {
+  display: none;
 }
 
 .stage-shell {
@@ -758,7 +811,7 @@ h1 {
 .game-overlay {
   position: absolute;
   inset: 0;
-  z-index: 2;
+  z-index: 4;
   display: grid;
   place-items: center;
   padding: 1rem;
@@ -773,7 +826,9 @@ h1 {
 
 .game-card {
   width: min(19rem, 100%);
+  max-height: calc(100% - .5rem);
   padding: 1rem;
+  overflow: auto;
   border: .18rem solid var(--line);
   border-radius: calc(var(--radius) * 1.2);
   background: var(--surface-raised);
@@ -1020,6 +1075,63 @@ dialog ol {
 
   .campaign-ending .game-card .big + .big {
     margin-top: .4rem;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 38rem) {
+  body {
+    padding:
+      max(.35rem, env(safe-area-inset-top))
+      max(.5rem, env(safe-area-inset-right))
+      max(.35rem, env(safe-area-inset-bottom))
+      max(.5rem, env(safe-area-inset-left));
+  }
+
+  .game-screen {
+    gap: .35rem;
+  }
+
+  .bar {
+    flex: 0 0 auto;
+  }
+
+  .chip {
+    min-height: 2.75rem;
+  }
+
+  .stage-shell {
+    min-height: 0;
+  }
+
+  .controls {
+    position: absolute;
+    right: .75rem;
+    bottom: .65rem;
+    left: .75rem;
+    z-index: 3;
+    grid-template-columns:
+      clamp(56px, 11vw, 76px)
+      clamp(56px, 11vw, 76px)
+      1fr
+      clamp(76px, 16vw, 112px);
+    gap: .45rem;
+    width: auto;
+    padding: 0;
+    pointer-events: none;
+  }
+
+  .control {
+    min-height: clamp(44px, 17dvh, 68px);
+    background: rgb(from var(--surface-raised) r g b / .94);
+    pointer-events: auto;
+  }
+
+  .control.jump {
+    grid-column: 4;
+  }
+
+  .campaign-ending .ending-art {
+    height: clamp(48px, 14dvh, 60px);
   }
 }
 

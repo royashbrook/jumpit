@@ -1,7 +1,8 @@
 # Jumpit
 
 Jumpit is an original mobile-first storybook platform game for kids. Run, jump,
-find lantern seeds, and carry light through five grounded places.
+find lantern seeds, and carry light through five grounded places. Home works upright;
+play turns landscape so the next jump stays visible.
 
 The v2.0 release candidate completes all 20 trails across Garden Walk, Rooftop Rain,
 Workshop Loft, Lantern Market, and Beacon Keep. Its short First Light opening leads

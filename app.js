@@ -47,6 +47,11 @@ let queuedNext = null
 let lastCompleted = null
 let activeChallenge = null
 let overlayOpen = false
+let orientationBlocked = false
+let pendingPlay = null
+let pendingAudio = null
+let pendingNeedsResume = false
+let gameStarted = false
 
 function fillHowto({ title, steps, copy }) {
   howto.querySelector('h2').textContent = title
@@ -116,8 +121,8 @@ const game = createGame($('stage'), state => {
     : ''
   const overlayVisible = state.paused || state.finished
   overlay.hidden = !overlayVisible
-  $('game-bar').inert = overlayVisible
-  $('controls').inert = overlayVisible
+  $('game-bar').inert = overlayVisible && !orientationBlocked
+  $('controls').inert = overlayVisible || orientationBlocked
   overlay.classList.toggle('campaign-ending', campaignFinished)
   $('ending-art').hidden = !campaignFinished
   $('overlay-kicker').textContent = challengeFinished
@@ -151,7 +156,7 @@ const game = createGame($('stage'), state => {
     queueMicrotask(() => {
       const next = !challengeFinished && state.finished && release.next(state.levelId) ? $('next-trail') : null
       const target = campaignFinished ? $('ending-home') : state.paused ? $('resume') : next || $('restart')
-      target.focus({ preventScroll: true })
+      target.focus()
     })
   } else if (!overlayVisible) {
     overlayOpen = false
@@ -212,10 +217,59 @@ function releaseAllInputs() {
   game.clearInput()
 }
 
+function beginPendingPlay() {
+  if (!pendingPlay || orientationBlocked) return false
+  const next = pendingPlay
+  const startPaused = pendingNeedsResume
+  pendingPlay = null
+  pendingNeedsResume = false
+  gameStarted = true
+  game.start(next.levelId, { foundHiddenLights: store.get().hiddenLights })
+  if (startPaused) game.pause()
+  void Promise.resolve(pendingAudio).then(ready => { if (ready) audio.cue('start') })
+  pendingAudio = null
+  $('pause').focus({ preventScroll: true })
+  return true
+}
+
+function syncOrientation() {
+  const blocked = !gameScreen.hidden && innerHeight > innerWidth
+  const newlyBlocked = blocked && !orientationBlocked
+  orientationBlocked = blocked
+  gameScreen.classList.toggle('orientation-blocked', blocked)
+  $('rotate-device').hidden = !blocked
+  $('pause').disabled = blocked
+  $('controls').inert = blocked || !overlay.hidden
+  $('game-bar').inert = !blocked && !overlay.hidden
+
+  if (blocked) {
+    releaseAllInputs()
+    if (newlyBlocked && gameStarted) game.pause()
+    $('back').focus({ preventScroll: true })
+    return
+  }
+
+  if (!beginPendingPlay()) requestAnimationFrame(() => game.resize())
+  if (!overlay.hidden) {
+    const target = !$('resume').hidden
+      ? $('resume')
+      : overlay.classList.contains('campaign-ending')
+        ? $('ending-home')
+        : !$('next-trail').hidden ? $('next-trail') : $('restart')
+    requestAnimationFrame(() => target.focus())
+  }
+}
+
 function pauseForInterruption() {
   releaseAllInputs()
   void audio.suspend()
-  if (!gameScreen.hidden) game.pause()
+  if (gameScreen.hidden) return
+  if (pendingPlay) {
+    pendingNeedsResume = true
+    pendingAudio = null
+    return
+  }
+  game.pause()
 }
 
 function show(screen) {
@@ -227,14 +281,21 @@ function playLevel(levelId = store.get().selectedLevel, challenge = null) {
     ? release.find(challenge.levelId)?.id
     : release.playable(levelId, store.get().unlocked)
   if (!levelId) return
-  void audio.startFromGesture().then(ready => { if (ready) audio.cue('start') })
+  const level = release.find(levelId)
+  pendingAudio = audio.startFromGesture()
   activeChallenge = challenge
   if (!challenge) store.selectLevel(levelId)
   queuedNext = null
   lastCompleted = null
+  pendingPlay = { levelId }
+  pendingNeedsResume = false
+  gameStarted = false
+  $('level-name').textContent = level.name.toUpperCase()
+  $('seed-count').textContent = `◆ 0/${level.objects.filter(([, kind]) => kind === 'seed').length}`
+  $('pause').textContent = 'Ⅱ'
+  $('pause').setAttribute('aria-label', 'pause game')
   show(gameScreen)
-  game.start(levelId, { foundHiddenLights: store.get().hiddenLights })
-  $('pause').focus({ preventScroll: true })
+  syncOrientation()
 }
 
 function openTab(name) {
@@ -366,15 +427,20 @@ function renderMenu(nextState = store.get()) {
   $('sound-toggle').textContent = save.muted ? 'SOUND OFF' : 'SOUND ON'
 }
 
-window.addEventListener('resize', () => game.resize())
+window.addEventListener('resize', syncOrientation)
 $('version').textContent = `v${VERSION}`
 $('play').addEventListener('click', () => playLevel())
 $('daily-play')?.addEventListener('click', () => playLevel(featuredChallenge.levelId, featuredChallenge))
 $('back').addEventListener('click', () => {
   releaseAllInputs()
   game.stop()
+  pendingPlay = null
+  pendingAudio = null
+  pendingNeedsResume = false
+  gameStarted = false
   activeChallenge = null
   show(menu)
+  syncOrientation()
   renderMenu()
   $('play').focus({ preventScroll: true })
 })
@@ -397,8 +463,13 @@ $('next-trail').addEventListener('click', () => playLevel(queuedNext))
 $('ending-home').addEventListener('click', () => {
   releaseAllInputs()
   game.stop()
+  pendingPlay = null
+  pendingAudio = null
+  pendingNeedsResume = false
+  gameStarted = false
   activeChallenge = null
   show(menu)
+  syncOrientation()
   openTab('play')
   renderMenu()
   $('play').focus({ preventScroll: true })

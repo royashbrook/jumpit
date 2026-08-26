@@ -18,9 +18,40 @@ export {
 } from './engine/simulation.js'
 
 const WORLD_HEIGHT = 18 * TILE
+const MAX_VIEW_WIDTH = 28 * TILE
+const BACKGROUND_PAN_MARGIN = .08
 const FIXED_STEP = 1000 / 60
 const PLAYER_FRAMES = { idle: 0, run: 1, jump: 4, fall: 5 }
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value))
+
+export function cameraScale(width, height) {
+  return Math.max(height / WORLD_HEIGHT, width / MAX_VIEW_WIDTH)
+}
+
+export function cameraTarget({ playerX, facing, viewWidth, worldWidth, reducedMotion = false }) {
+  const anchor = reducedMotion ? .5 : facing < 0 ? .7 : .3
+  return clamp(playerX - viewWidth * anchor, 0, Math.max(0, worldWidth - viewWidth))
+}
+
+export function verticalCameraTarget({ playerY, playerHeight, viewHeight }) {
+  return clamp(playerY + playerHeight - viewHeight * .7, 0, Math.max(0, WORLD_HEIGHT - viewHeight))
+}
+
+export function cameraProgress(camera, worldWidth, viewWidth) {
+  return clamp(camera / Math.max(1, worldWidth - viewWidth), 0, 1)
+}
+
+export function backgroundCrop({ imageWidth, rowHeight, width, height, progress }) {
+  const destinationAspect = width / height
+  const sourceWidth = Math.min(imageWidth * (1 - BACKGROUND_PAN_MARGIN), rowHeight * destinationAspect)
+  const sourceHeight = sourceWidth / destinationAspect
+  return {
+    x: (imageWidth - sourceWidth) * clamp(progress, 0, 1),
+    y: (rowHeight - sourceHeight) / 2,
+    width: sourceWidth,
+    height: sourceHeight,
+  }
+}
 
 export const ART_SOURCES = Object.freeze({
   gardenBackground: 'assets/backgrounds/garden-walk.webp',
@@ -109,6 +140,10 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
   let world = simulation.world
   let player = simulation.player
   let camera = 0
+  let cameraY = 0
+  let cameraViewWidth = 320
+  let cameraViewHeight = WORLD_HEIGHT
+  let cameraReady = false
   let running = false
   let paused = false
   let finished = simulation.finished
@@ -217,7 +252,18 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
         cameraKick = Math.max(cameraKick, feedback.kick)
       }
       if (event.type === 'hurt' || event.type === 'fall') {
-        camera = clamp(player.x - 72, 0, Math.max(0, world.width - 320))
+        camera = cameraTarget({
+          playerX: player.x,
+          facing: player.facing,
+          viewWidth: cameraViewWidth,
+          worldWidth: world.width,
+          reducedMotion,
+        })
+        cameraY = verticalCameraTarget({
+          playerY: player.y,
+          playerHeight: player.h,
+          viewHeight: cameraViewHeight,
+        })
       }
       if (event.cue) onCue(event.cue)
       if (event.message) report(event.message, event)
@@ -226,17 +272,22 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     advanceFeedback()
   }
 
-  function drawBackground(width, height) {
+  function drawBackground(width, height, viewWidth) {
     const region = world.level.region
     const atlasRow = ['rooftop', 'market'].includes(region) ? 0 : ['workshop', 'keep'].includes(region) ? 1 : -1
     const image = ['market', 'keep'].includes(region) ? finalAtlas : atlasRow >= 0 ? regionAtlas : background
     if (image.complete && image.naturalWidth) {
-      const sourceHeight = atlasRow >= 0 ? image.naturalHeight / 2 : image.naturalHeight
-      const sourceY = atlasRow >= 0 ? atlasRow * sourceHeight : 0
-      const sourceWidth = Math.min(image.naturalWidth, sourceHeight * width / height)
-      const progress = camera / Math.max(1, world.width - width)
-      const sourceX = (image.naturalWidth - sourceWidth) * clamp(progress, 0, 1)
-      context.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, width, height)
+      const progress = cameraProgress(camera, world.width, viewWidth)
+      const rowHeight = atlasRow >= 0 ? image.naturalHeight / 2 : image.naturalHeight
+      const crop = backgroundCrop({
+        imageWidth: image.naturalWidth,
+        rowHeight,
+        width,
+        height,
+        progress,
+      })
+      const sourceY = (atlasRow >= 0 ? atlasRow * rowHeight : 0) + crop.y
+      context.drawImage(image, crop.x, sourceY, crop.width, crop.height, 0, 0, width, height)
       context.fillStyle = 'rgb(255 250 224 / .08)'
       context.fillRect(0, 0, width, height)
       return
@@ -612,20 +663,44 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       canvas.width = Math.round(width * ratio)
       canvas.height = Math.round(height * ratio)
     }
+    const scale = cameraScale(width, height)
+    const viewWidth = width / scale
+    const viewHeight = height / scale
+    const maxCamera = Math.max(0, world.width - viewWidth)
+    const maxCameraY = Math.max(0, WORLD_HEIGHT - viewHeight)
+    const target = cameraTarget({
+      playerX: player.x,
+      facing: player.facing,
+      viewWidth,
+      worldWidth: world.width,
+      reducedMotion,
+    })
+    const targetY = verticalCameraTarget({
+      playerY: player.y,
+      playerHeight: player.h,
+      viewHeight,
+    })
+    cameraViewWidth = viewWidth
+    cameraViewHeight = viewHeight
+    if (reducedMotion || !cameraReady) {
+      camera = target
+      cameraY = targetY
+      cameraReady = true
+    } else {
+      camera += (target - camera) * .12
+      cameraY += (targetY - cameraY) * .12
+    }
     context.setTransform(ratio, 0, 0, ratio, 0, 0)
     context.clearRect(0, 0, width, height)
-    drawBackground(width, height)
-
-    const scale = height / WORLD_HEIGHT
-    const viewWidth = width / scale
-    const maxCamera = Math.max(0, world.width - viewWidth)
-    const target = clamp(player.x - viewWidth * 0.34, 0, maxCamera)
-    camera = reducedMotion ? target : camera + (target - camera) * 0.12
+    drawBackground(width, height, viewWidth)
 
     context.save()
     context.scale(scale, scale)
     const cameraJolt = reducedMotion || !cameraKick ? 0 : (frame % 2 ? cameraKick : -cameraKick)
-    context.translate(-clamp(camera + cameraJolt, 0, maxCamera), 0)
+    context.translate(
+      -clamp(camera + cameraJolt, 0, maxCamera),
+      -clamp(cameraY, 0, maxCameraY),
+    )
     for (const rect of world.terrain) drawTerrain(rect)
     for (const seed of world.seeds) drawSeed(seed)
     drawCloaks()
@@ -701,6 +776,8 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       clearInput()
       resetFeedback()
       camera = 0
+      cameraY = 0
+      cameraReady = false
       paused = false
       lastTime = 0
       accumulator = 0

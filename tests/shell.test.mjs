@@ -26,6 +26,7 @@ test('the manifest has a stable app identity and a separate maskable icon', asyn
   assert.equal(manifest.id, './')
   assert.equal(manifest.start_url, './')
   assert.equal(manifest.scope, './')
+  assert.equal(manifest.orientation, 'landscape')
   assert.ok(any.length >= 2)
   assert.equal(maskable.length, 1)
   assert.ok(!any.some(icon => icon.src === maskable[0].src))
