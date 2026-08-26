@@ -5,11 +5,16 @@ import {
   activateLamps,
   activateSwitches,
   advanceEnemy,
+  clearInputState,
   coachMessage,
+  createGame,
   enemyAttackLands,
   finishOutcome,
   guardianState,
+  interactiveKeyTarget,
+  keyInputMode,
   makeWorld,
+  setInputState,
   strikeEnemy,
 } from '../game.js'
 import { createBody } from '../engine/physics.js'
@@ -145,4 +150,64 @@ test('coaching is one short action at a time and then gets out of the way', () =
   assert.equal(coachMessage({ moved: true, jumped: false, glowing: false, x: 190 }), 'TAP JUMP · LAND ON TOP')
   assert.equal(coachMessage({ moved: true, jumped: true, glowing: true, x: 400 }), 'GLOWING? BUMP CREATURES!')
   assert.equal(coachMessage({ moved: true, jumped: true, glowing: false, x: 700 }), '')
+})
+
+test('overlay keyboard actions cannot preload a jump while paused or finished', () => {
+  assert.equal(keyInputMode({ type: 'keydown', running: true, paused: true, finished: false }), 'ignore')
+  assert.equal(keyInputMode({ type: 'keydown', running: true, paused: false, finished: true }), 'ignore')
+  assert.equal(keyInputMode({ type: 'keyup', running: true, paused: true, finished: false }), 'release')
+  assert.equal(keyInputMode({ type: 'keydown', running: true, paused: false, finished: false }), 'control')
+  let selector = ''
+  const button = { closest(value) { selector = value; return {} } }
+  assert.equal(interactiveKeyTarget(button, 'Space'), true)
+  assert.equal(interactiveKeyTarget(button, 'ArrowRight'), false)
+  assert.equal(interactiveKeyTarget(button, 'KeyD'), false)
+  assert.match(selector, /button/)
+  assert.equal(interactiveKeyTarget({ closest: () => null }, 'Space'), false)
+})
+
+test('boundary input clearing cancels queued intent without weakening a quick tap', () => {
+  const input = { left: true, right: true, jumpHeld: false, jumpPressed: false }
+  const player = { jumpBuffer: 6, jumpWasHeld: true, coyote: 4 }
+  setInputState(input, 'jump', true)
+  setInputState(input, 'jump', false)
+  assert.equal(input.jumpPressed, true)
+  assert.equal(input.jumpHeld, false)
+
+  clearInputState(input, player)
+  assert.deepEqual(input, { left: false, right: false, jumpHeld: false, jumpPressed: false })
+  assert.equal(player.jumpBuffer, 0)
+  assert.equal(player.jumpWasHeld, false)
+  assert.equal(player.coyote, 4)
+})
+
+test('large game art waits for the first play gesture', () => {
+  const originals = new Map(['Image', 'window', 'requestAnimationFrame', 'cancelAnimationFrame'].map(key => [key, globalThis[key]]))
+  const images = []
+  class FakeImage {
+    constructor() {
+      this.src = ''
+      images.push(this)
+    }
+    addEventListener() {}
+    decode() { return Promise.resolve() }
+  }
+
+  globalThis.Image = FakeImage
+  globalThis.window = { addEventListener() {} }
+  globalThis.requestAnimationFrame = () => 1
+  globalThis.cancelAnimationFrame = () => {}
+  try {
+    const game = createGame({ getContext: () => ({}) })
+    assert.equal(images.length, 7)
+    assert.ok(images.every(image => image.src === ''))
+    game.start('garden-1')
+    assert.ok(images.every(image => image.src.startsWith('assets/')))
+    game.stop()
+  } finally {
+    for (const [key, value] of originals) {
+      if (value === undefined) delete globalThis[key]
+      else globalThis[key] = value
+    }
+  }
 })

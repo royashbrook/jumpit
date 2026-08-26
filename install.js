@@ -16,10 +16,12 @@ const isInstalled = () =>
   window.matchMedia('(display-mode: fullscreen)').matches ||
   navigator.standalone === true
 
-export function wireInstall(button, { showIosHint }) {
+export function wireInstall(button, { showIosHint } = {}) {
   if (!button) return
+  button.hidden = true
   if (isInstalled()) return // already on the home screen, the button would be a lie
 
+  const ios = isIos()
   let deferred = null
 
   window.addEventListener('beforeinstallprompt', event => {
@@ -28,21 +30,31 @@ export function wireInstall(button, { showIosHint }) {
     button.hidden = false
   })
 
-  if (isIos()) button.hidden = false
+  if (ios && typeof showIosHint === 'function') button.hidden = false
 
   button.addEventListener('click', async () => {
     if (deferred) {
-      deferred.prompt()
-      const { outcome } = await deferred.userChoice
+      const prompt = deferred
       deferred = null
-      if (outcome === 'accepted') button.hidden = true
+      button.disabled = true
+      try {
+        await prompt.prompt()
+        await prompt.userChoice
+      } catch {
+        // a cancelled or unavailable native prompt is spent; wait for a new event.
+      } finally {
+        button.disabled = false
+        if (!deferred) button.hidden = true
+      }
       return
     }
-    showIosHint()
+    if (ios && typeof showIosHint === 'function') showIosHint()
+    else button.hidden = true
   })
 
   window.addEventListener('appinstalled', () => {
     deferred = null
+    button.disabled = false
     button.hidden = true
   })
 }

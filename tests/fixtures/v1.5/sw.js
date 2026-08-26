@@ -8,14 +8,12 @@
 //      reach it again while online. offline falls back to the cached shell.
 //   2. the update probe is passed straight through. a cached answer there would
 //      hide every new deployment from the update banner, silently.
-//   3. only ok asset responses are cached, and the write is wrapped in waitUntil.
-//      navigations never rewrite the active version cache: a newer html response
-//      is not coherent until that newer worker atomically installs every asset.
-//   4. the complete shell installs atomically. one missing file rejects the new
-//      worker, so it cannot replace a known-good offline version with half a game.
+//   3. only ok responses are cached, and the write is wrapped in waitUntil. the
+//      worker can be killed the instant respondWith settles, and a dropped put
+//      means the next offline load serves the PREVIOUS deployment's shell.
 //
 // bump CACHE when the shell list changes.
-const CACHE = 'jumpit-v1.7.0'
+const CACHE = 'jumpit-v1.5.0'
 const SHELL = [
   './',
   './index.html',
@@ -28,7 +26,6 @@ const SHELL = [
   './release.js',
   './save.js',
   './engine/physics.js',
-  './engine/simulation.js',
   './version.js',
   './seed.js',
   './install.js',
@@ -48,33 +45,22 @@ const SHELL = [
 ]
 
 self.addEventListener('install', event => {
+  // one bad url must not fail the whole install, so each is added on its own
   event.waitUntil(
-    caches.open(CACHE)
-      .then(cache => cache.addAll(SHELL))
-      .then(() => self.skipWaiting()),
+    caches.open(CACHE).then(cache =>
+      Promise.all(SHELL.map(url => cache.add(url).catch(() => {})))),
   )
+  self.skipWaiting()
 })
 
 self.addEventListener('activate', event => {
-  event.waitUntil((async () => {
-    const keys = await caches.keys()
-    const migrateV15 = keys.includes('jumpit-v1.5.0')
-    await Promise.all(keys
-      .filter(key => key.startsWith('jumpit-') && key !== CACHE)
-      .map(key => caches.delete(key)))
-    await self.clients.claim()
-    if (!migrateV15) return
-
-    // v1.5 had no controllerchange listener, so claiming it cannot reload its old
-    // modules. this one-release bridge moves only clients in this worker's scope;
-    // later releases use update.js and will not take this branch after v1.5 is gone.
-    const clients = await self.clients.matchAll?.({ type: 'window', includeUncontrolled: true }) || []
-    const scope = self.registration?.scope || `${self.location.origin}/`
-    // Do not await navigate here: the navigation waits for activation to settle.
-    for (const client of clients.filter(client => client.url.startsWith(scope))) {
-      void client.navigate(client.url).catch(() => {})
-    }
-  })())
+  event.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys
+        .filter(key => key.startsWith('jumpit-') && key !== CACHE)
+        .map(key => caches.delete(key))))
+      .then(() => self.clients.claim()),
+  )
 })
 
 function store(request, response) {
@@ -90,6 +76,10 @@ self.addEventListener('fetch', event => {
   if (request.mode === 'navigate') { // rule 1
     event.respondWith(
       fetch(request)
+        .then(response => {
+          if (response.ok) event.waitUntil(store(request, response))
+          return response
+        })
         .catch(() => caches.match(request).then(hit => hit || caches.match('./index.html'))),
     )
     return

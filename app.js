@@ -14,6 +14,15 @@ const menu = $('menu')
 const gameScreen = $('game')
 const howto = $('howto')
 const overlay = $('game-overlay')
+const HOW_TO_PLAY = Object.freeze({
+  title: 'How to play',
+  steps: [
+    'Move along the garden trail.',
+    'Jump over gaps and onto safe paths.',
+    'Gather lantern seeds and reach the bell.',
+  ],
+  copy: 'Hold a direction to run. Tap or hold JUMP for a short or high leap. Reach the golden bell.',
+})
 const release = createRelease(LEVELS, 20)
 const releaseLevels = release.levels
 const activeSeed = currentSeed()
@@ -33,6 +42,16 @@ let queuedNext = null
 let lastCompleted = null
 let activeChallenge = null
 let overlayOpen = false
+
+function fillHowto({ title, steps, copy }) {
+  howto.querySelector('h2').textContent = title
+  howto.querySelector('ol').replaceChildren(...steps.map(text => {
+    const item = document.createElement('li')
+    item.textContent = text
+    return item
+  }))
+  howto.querySelector('.small').textContent = copy
+}
 
 const store = createSaveStore({ onChange: renderMenu })
 save = store.get()
@@ -59,6 +78,8 @@ const game = createGame($('stage'), state => {
     : ''
   const overlayVisible = state.paused || state.finished
   overlay.hidden = !overlayVisible
+  $('game-bar').inert = overlayVisible
+  $('controls').inert = overlayVisible
   overlay.classList.toggle('campaign-ending', campaignFinished)
   $('ending-art').hidden = !campaignFinished
   $('overlay-kicker').textContent = challengeFinished
@@ -82,7 +103,7 @@ const game = createGame($('stage'), state => {
   $('restart').textContent = campaignFinished
     ? 'PLAY THE KEEP AGAIN'
     : state.finished ? challengeFinished && !stamped ? 'TRY AGAIN' : 'RUN IT AGAIN' : 'START OVER'
-  $('ending-home').hidden = !campaignFinished
+  $('ending-home').hidden = !overlayVisible
 
   if (overlayVisible && !overlayOpen) {
     overlayOpen = true
@@ -113,6 +134,44 @@ const game = createGame($('stage'), state => {
   if (pulse) navigator.vibrate?.(pulse)
 })
 
+const controlBindings = [['move-left', 'left'], ['move-right', 'right'], ['jump', 'jump']]
+const activeInputs = new Set()
+const releaseTimers = new Map()
+
+function pressInput(action, button) {
+  clearTimeout(releaseTimers.get(action))
+  releaseTimers.delete(action)
+  if (activeInputs.has(action)) return
+  activeInputs.add(action)
+  button.setAttribute('data-held', '')
+  game.setInput(action, true)
+}
+
+function releaseInput(action, button) {
+  clearTimeout(releaseTimers.get(action))
+  releaseTimers.delete(action)
+  if (!activeInputs.delete(action) && !button.hasAttribute('data-held')) return
+  button.removeAttribute('data-held')
+  game.setInput(action, false)
+}
+
+function releaseAllInputs() {
+  for (const [id, action] of controlBindings) {
+    clearTimeout(releaseTimers.get(action))
+    $(id).removeAttribute('data-held')
+    game.setInput(action, false)
+  }
+  releaseTimers.clear()
+  activeInputs.clear()
+  game.clearInput()
+}
+
+function pauseForInterruption() {
+  releaseAllInputs()
+  void audio.suspend()
+  if (!gameScreen.hidden) game.pause()
+}
+
 function show(screen) {
   for (const element of [menu, gameScreen]) element.hidden = element !== screen
 }
@@ -122,8 +181,7 @@ function playLevel(levelId = store.get().selectedLevel, challenge = null) {
     ? release.find(challenge.levelId)?.id
     : release.playable(levelId, store.get().unlocked)
   if (!levelId) return
-  audio.startFromGesture()
-  audio.cue('start')
+  void audio.startFromGesture().then(ready => { if (ready) audio.cue('start') })
   activeChallenge = challenge
   if (!challenge) store.selectLevel(levelId)
   queuedNext = null
@@ -229,23 +287,31 @@ $('version').textContent = `v${VERSION}`
 $('play').addEventListener('click', () => playLevel())
 $('daily-play')?.addEventListener('click', () => playLevel(featuredChallenge.levelId, featuredChallenge))
 $('back').addEventListener('click', () => {
+  releaseAllInputs()
   game.stop()
   activeChallenge = null
   show(menu)
   renderMenu()
   $('play').focus({ preventScroll: true })
 })
-$('pause').addEventListener('click', () => game.togglePause())
+$('pause').addEventListener('click', () => {
+  releaseAllInputs()
+  game.togglePause()
+})
 $('resume').addEventListener('click', () => {
+  void audio.startFromGesture()
   game.togglePause()
   $('pause').focus({ preventScroll: true })
 })
 $('restart').addEventListener('click', () => {
+  releaseAllInputs()
+  void audio.startFromGesture()
   game.restart()
   $('pause').focus({ preventScroll: true })
 })
 $('next-trail').addEventListener('click', () => playLevel(queuedNext))
 $('ending-home').addEventListener('click', () => {
+  releaseAllInputs()
   game.stop()
   activeChallenge = null
   show(menu)
@@ -254,22 +320,28 @@ $('ending-home').addEventListener('click', () => {
   $('play').focus({ preventScroll: true })
 })
 
-for (const [id, action] of [['move-left', 'left'], ['move-right', 'right'], ['jump', 'jump']]) {
+for (const [id, action] of controlBindings) {
   const button = $(id)
   const release = event => {
     event.preventDefault()
-    button.removeAttribute('data-held')
-    game.setInput(action, false)
+    releaseInput(action, button)
   }
   button.addEventListener('pointerdown', event => {
     event.preventDefault()
     try { button.setPointerCapture?.(event.pointerId) } catch {}
-    button.setAttribute('data-held', '')
-    game.setInput(action, true)
+    pressInput(action, button)
   })
   button.addEventListener('pointerup', release)
   button.addEventListener('pointercancel', release)
   button.addEventListener('lostpointercapture', release)
+  button.addEventListener('click', event => {
+    if (event.detail !== 0) return
+    pressInput(action, button)
+    releaseTimers.set(action, setTimeout(() => releaseInput(action, button), 120))
+  })
+  for (const type of ['keydown', 'keyup']) button.addEventListener(type, event => {
+    if (event.key === ' ' || event.key === 'Enter') event.stopPropagation()
+  })
 }
 
 for (const button of document.querySelectorAll('.nav-item')) button.addEventListener('click', () => {
@@ -281,9 +353,8 @@ for (const look of looks) $('look-' + look.id)?.addEventListener('click', () => 
 })
 
 $('sound-toggle').addEventListener('click', () => {
-  audio.startFromGesture()
   const muted = audio.setMuted(!audio.isMuted())
-  if (!muted) audio.cue('start')
+  if (!muted) void audio.startFromGesture().then(ready => { if (ready) audio.cue('start') })
 })
 
 $('reset-progress').addEventListener('click', event => {
@@ -300,7 +371,10 @@ $('reset-progress').addEventListener('click', event => {
   openTab('play')
 })
 
-$('howto-open').addEventListener('click', () => howto.showModal())
+$('howto-open').addEventListener('click', () => {
+  fillHowto(HOW_TO_PLAY)
+  howto.showModal()
+})
 $('howto-close').addEventListener('click', () => howto.close())
 $('about-open').addEventListener('click', () => $('about').showModal())
 $('about-close').addEventListener('click', () => $('about').close())
@@ -318,20 +392,25 @@ $('friends').addEventListener('click', async event => {
 
 wireInstall($('install'), {
   showIosHint: () => {
-    howto.querySelector('h2').textContent = 'Add to home screen'
-    howto.querySelector('ol').innerHTML =
-      '<li>Tap the <b>share</b> button at the bottom of Safari.</li>' +
-      '<li>Scroll down and tap <b>Add to Home Screen</b>.</li>' +
-      '<li>Tap <b>Add</b>. It opens like an app and works offline.</li>'
-    howto.querySelector('.small').textContent = ''
+    fillHowto({
+      title: 'Add to home screen',
+      steps: [
+        'Tap the share button at the bottom of Safari.',
+        'Scroll down and tap Add to Home Screen.',
+        'Tap Add. It opens like an app and works offline.',
+      ],
+      copy: '',
+    })
     howto.showModal()
   },
 })
 
 renderMenu(save)
-document.addEventListener('pointerdown', () => audio.startFromGesture(), { once: true })
+document.addEventListener('pointerdown', () => { void audio.startFromGesture() }, { once: true })
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) game.pause()
+  if (document.hidden) pauseForInterruption()
 })
+window.addEventListener('pagehide', pauseForInterruption)
+window.addEventListener('blur', pauseForInterruption)
 wireUpdate($('update'))
 registerWorker()

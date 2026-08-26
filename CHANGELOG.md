@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.7.0: 2026-08-26
+
+- Made live play and deterministic verification use one fixed-step game transition.
+- Added exact replay hashes and real finish receipts for all twenty trails.
+- Made the v1.7 offline cache immutable while a complete replacement installs, and
+  proved the successful migration from the exact shipped v1.5 worker and updater.
+- Paused safely on app interruption, released held controls, and required an explicit
+  gesture to resume sound and play.
+- Deferred the seven gameplay-canvas image elements until play and strengthened
+  keyboard, screen-reader, large-text, safe-area, and reduced-motion behavior.
+
 ## 1.5.0: 2026-08-26
 
 - Opened four vertical Beacon Keep trails to complete the twenty-trail campaign.

@@ -2,6 +2,23 @@ import { expect, test } from 'playwright/test'
 import { dailyChallenge } from '../../daily.js'
 import { LEVELS } from '../../levels.js'
 
+const lifecycleAudioStub = `
+export function createAudio() {
+  const mark = value => { document.documentElement.dataset.audioState = value }
+  return {
+    startFromGesture() { mark('running'); return Promise.resolve(true) },
+    suspend() { mark('suspended'); return Promise.resolve(true) },
+    cue(name) {
+      const cues = JSON.parse(document.documentElement.dataset.audioCues || '[]')
+      cues.push(name)
+      document.documentElement.dataset.audioCues = JSON.stringify(cues)
+      return true
+    },
+    setMuted(value) { return value }, isMuted() { return false }, stop() {},
+  }
+}
+`
+
 test('theme selection survives reload and remount', async ({ page, context }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'LOOKS' }).click()
@@ -103,4 +120,115 @@ test('production exposes no deterministic test-control hook', async ({ page }) =
   await page.goto('/')
   const hooks = await page.evaluate(() => Object.keys(window).filter(key => /jumpit|testhook|advancegame/i.test(key)))
   expect(hooks).toEqual([])
+})
+
+test('the iOS install hint cannot overwrite the normal gameplay help', async ({ browser, baseURL }) => {
+  const context = await browser.newContext({
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)',
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+  })
+  const page = await context.newPage()
+  await page.goto(baseURL)
+  await page.getByRole('button', { name: 'MORE' }).click()
+  await page.getByRole('button', { name: 'ADD TO HOME SCREEN' }).click()
+  await expect(page.getByRole('heading', { name: 'Add to home screen' })).toBeVisible()
+  await page.getByRole('button', { name: 'GOT IT' }).click()
+
+  await page.getByRole('button', { name: 'HOW TO PLAY' }).click()
+  await expect(page.getByRole('heading', { name: 'How to play' })).toBeVisible()
+  await expect(page.getByText('Hold a direction to run.')).toBeVisible()
+  await context.close()
+})
+
+test('blur, pagehide, and hidden visibility pause, release input, and wait for explicit audio resume', async ({ page }) => {
+  await page.route('**/audio.js', route => route.fulfill({ contentType: 'text/javascript', body: lifecycleAudioStub }))
+  await page.goto('/')
+  await page.getByRole('button', { name: 'PLAY THE TRAIL' }).dispatchEvent('click')
+  await expect(page.locator('html')).toHaveAttribute('data-audio-state', 'running')
+
+  const interrupt = async eventName => {
+    for (const selector of ['#move-left', '#move-right', '#jump']) {
+      await page.dispatchEvent(selector, 'pointerdown', { pointerId: selector.length, pointerType: 'touch', isPrimary: true, buttons: 1 })
+      await expect(page.locator(selector)).toHaveAttribute('data-held', '')
+    }
+    await page.evaluate(name => {
+      if (name === 'visibilitychange') Object.defineProperty(document, 'hidden', { configurable: true, value: true })
+      ;(name === 'visibilitychange' ? document : window).dispatchEvent(new Event(name))
+    }, eventName)
+    await expect(page.getByRole('heading', { name: 'PAUSED' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'KEEP GOING' })).toBeFocused()
+    await expect(page.locator('html')).toHaveAttribute('data-audio-state', 'suspended')
+    for (const selector of ['#move-left', '#move-right', '#jump']) await expect(page.locator(selector)).not.toHaveAttribute('data-held', '')
+    await expect(page.locator('#game-bar')).toHaveAttribute('inert', '')
+    await expect(page.locator('#controls')).toHaveAttribute('inert', '')
+    await page.locator('#jump').focus()
+    await expect(page.getByRole('button', { name: 'KEEP GOING' })).toBeFocused()
+  }
+
+  await interrupt('blur')
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect(page.getByRole('heading', { name: 'PAUSED' })).toBeVisible()
+  await expect(page.locator('html')).toHaveAttribute('data-audio-state', 'suspended')
+  await page.getByRole('button', { name: 'KEEP GOING' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-audio-state', 'running')
+  await expect(page.getByRole('button', { name: 'pause game' })).toBeFocused()
+
+  await interrupt('pagehide')
+  await page.evaluate(() => window.dispatchEvent(new Event('pageshow')))
+  await expect(page.getByRole('heading', { name: 'PAUSED' })).toBeVisible()
+  await expect(page.locator('html')).toHaveAttribute('data-audio-state', 'suspended')
+  await page.evaluate(() => window.dispatchEvent(new Event('blur')))
+  await expect(page.getByRole('heading', { name: 'PAUSED' })).toBeVisible()
+  await page.getByRole('button', { name: 'KEEP GOING' }).click()
+
+  await interrupt('visibilitychange')
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false })
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+  await expect(page.getByRole('heading', { name: 'PAUSED' })).toBeVisible()
+  await expect(page.locator('html')).toHaveAttribute('data-audio-state', 'suspended')
+  await page.getByRole('button', { name: 'KEEP GOING' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-audio-state', 'running')
+  await expect(page.locator('#game-bar')).not.toHaveAttribute('inert', '')
+  await expect(page.locator('#controls')).not.toHaveAttribute('inert', '')
+
+  await page.getByRole('button', { name: 'pause game' }).click()
+  const resume = page.getByRole('button', { name: 'KEEP GOING' })
+  await expect(resume).toBeFocused()
+  await page.evaluate(() => { document.documentElement.dataset.audioCues = '[]' })
+  await resume.press('Space')
+  await expect(page.getByRole('button', { name: 'pause game' })).toBeFocused()
+  await page.waitForTimeout(100)
+  const cues = await page.evaluate(() => JSON.parse(document.documentElement.dataset.audioCues || '[]'))
+  expect(cues).not.toContain('jump')
+
+  const pause = page.getByRole('button', { name: 'pause game' })
+  await page.evaluate(() => { document.documentElement.dataset.audioCues = '[]' })
+  await pause.press('Space')
+  await expect(page.getByRole('heading', { name: 'PAUSED' })).toBeVisible()
+  await page.waitForTimeout(100)
+  const pauseCues = await page.evaluate(() => JSON.parse(document.documentElement.dataset.audioCues || '[]'))
+  expect(pauseCues).not.toContain('jump')
+})
+
+test('a jump pressed on the interruption frame cannot fire after explicit resume', async ({ page }) => {
+  await page.route('**/audio.js', route => route.fulfill({ contentType: 'text/javascript', body: lifecycleAudioStub }))
+  await page.goto('/')
+  await page.getByRole('button', { name: 'PLAY THE TRAIL' }).dispatchEvent('click')
+  await page.evaluate(() => {
+    document.querySelector('#jump').dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, pointerId: 11, pointerType: 'touch', isPrimary: true, buttons: 1,
+    }))
+    window.dispatchEvent(new Event('blur'))
+  })
+  await expect(page.getByRole('heading', { name: 'PAUSED' })).toBeVisible()
+  await page.evaluate(() => { document.documentElement.dataset.audioCues = '[]' })
+  await page.getByRole('button', { name: 'KEEP GOING' }).click()
+  await page.waitForTimeout(180)
+  const cues = await page.evaluate(() => JSON.parse(document.documentElement.dataset.audioCues || '[]'))
+  expect(cues).toContain('pause')
+  expect(cues).not.toContain('jump')
 })

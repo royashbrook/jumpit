@@ -3,10 +3,12 @@
 Jumpit is an original mobile-first storybook platform game for kids. Run, jump,
 find lantern seeds, and carry light through five grounded places.
 
-Version 1.5 opens all 20 trails across Garden Walk, Rooftop Rain, Workshop Loft,
-Lantern Market, and Beacon Keep. The Keep adds patrolling Sentries, a forgiving
-three-stomp Warden, a guarded bell, and the campaign ending. Earned looks and
-authored daily or friend challenges remain separate from campaign progress.
+Version 1.7 opens all 20 trails across Garden Walk, Rooftop Rain, Workshop Loft,
+Lantern Market, and Beacon Keep. One shared fixed-step transition now powers both
+live play and deterministic level replays. Its v1.7 offline cache stays immutable
+while a complete replacement installs, it pauses safely when interrupted, and waits for play before
+decoding its gameplay-canvas art. Earned looks and authored daily or friend challenges remain
+separate from campaign progress.
 
 The gameplay borrows genre verbs, not somebody else's identity. Jumpit contains
 no Nintendo characters, names, art, music, sounds, trade dress, or copied maps.

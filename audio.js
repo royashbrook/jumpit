@@ -27,9 +27,12 @@ export function createAudio({
   let context = null
   let master = null
   let muted = Boolean(readMuted())
+  let gestureRequired = true
+  let pendingSuspend = null
 
   async function startFromGesture() {
     try {
+      if (pendingSuspend) await pendingSuspend
       if (!context) {
         context = contextFactory()
         if (!context) return false
@@ -37,15 +40,17 @@ export function createAudio({
         master.gain.value = muted ? 0 : .72
         master.connect(context.destination)
       }
-      if (context.state === 'suspended') await context.resume()
-      return true
+      if (context.state === 'closed') return false
+      if (context.state !== 'running') await context.resume()
+      gestureRequired = context.state !== 'running'
+      return !gestureRequired
     } catch {
       return false
     }
   }
 
   function cue(name) {
-    if (!context || !master || muted || !CUES[name]) return false
+    if (!context || !master || muted || gestureRequired || context.state !== 'running' || !CUES[name]) return false
     const origin = context.currentTime
     for (const [note, delay, duration, volume, wave = 'sine'] of CUES[name]) {
       const oscillator = context.createOscillator()
@@ -71,13 +76,30 @@ export function createAudio({
     return muted
   }
 
+  async function suspend() {
+    gestureRequired = true
+    try {
+      if (!pendingSuspend && context?.state === 'running') {
+        pendingSuspend = Promise.resolve(context.suspend()).finally(() => { pendingSuspend = null })
+      }
+      if (pendingSuspend) await pendingSuspend
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  function stop() {
+    gestureRequired = true
+    return context?.close?.()
+  }
+
   return {
     startFromGesture,
     cue,
     setMuted,
     isMuted: () => muted,
-    suspend: () => context?.suspend?.(),
-    resume: () => context?.resume?.(),
-    stop: () => context?.close?.(),
+    suspend,
+    stop,
   }
 }

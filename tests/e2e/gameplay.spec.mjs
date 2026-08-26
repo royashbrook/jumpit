@@ -2,6 +2,13 @@ import { expect, test } from 'playwright/test'
 
 const pointer = (page, selector, type) => page.dispatchEvent(selector, type, { pointerId: 7, pointerType: 'touch', isPrimary: true, buttons: type === 'pointerdown' ? 1 : 0 })
 
+async function launchTrail(page) {
+  const play = page.getByRole('button', { name: 'PLAY THE TRAIL' })
+  await expect(play).toBeVisible()
+  await expect(play).toBeEnabled()
+  await play.dispatchEvent('click')
+}
+
 const completedBeforeKeep = [
   'garden-1', 'garden-2', 'garden-3', 'garden-4',
   'rooftop-1', 'rooftop-2', 'rooftop-3', 'rooftop-4',
@@ -39,6 +46,7 @@ export function createGame(_canvas, onState = () => {}, onCue = () => {}) {
     restart() { start(levelId) },
     stop() {},
     resize() {},
+    clearInput() {},
     setInput(action, value) {
       if (!value || levelId !== 'keep-4' || finished) return
       if (action === 'jump' && health > 0) {
@@ -57,19 +65,58 @@ export function createGame(_canvas, onState = () => {}, onCue = () => {}) {
 }
 `
 
-test('the opening run pays off immediately with a seed and a visible creature', async ({ page }) => {
+const inputGameStub = `
+export function createGame(_canvas, onState = () => {}) {
+  const log = (action, value) => {
+    const events = JSON.parse(document.documentElement.dataset.inputEvents || '[]')
+    events.push(action + ':' + value)
+    document.documentElement.dataset.inputEvents = JSON.stringify(events)
+  }
+  const setInput = (action, value) => log(action, value)
+  const onKey = event => {
+    if (event.code !== 'Space') return
+    setInput('jump', event.type === 'keydown')
+  }
+  window.addEventListener('keydown', onKey)
+  window.addEventListener('keyup', onKey)
+  const report = (paused = false) => onState({
+    levelId: 'garden-1', levelName: 'Dewdrop Dash', regionName: 'Garden Walk',
+    seeds: 0, maxSeeds: 4, paused, finished: false, message: '',
+  })
+  return {
+    start() { report(false) }, restart() { report(false) }, stop() {}, resize() {}, setInput,
+    clearInput() { setInput('left', false); setInput('right', false); setInput('jump', false) },
+    togglePause() { report(true); return true }, pause() { report(true); return true },
+  }
+}
+`
+
+test('the first visible action pays off inside five seconds with a seed and a visible creature', async ({ page }) => {
   await page.goto('/')
-  await page.getByRole('button', { name: 'PLAY THE TRAIL' }).click()
-  await pointer(page, '#move-right', 'pointerdown')
-  await page.waitForTimeout(850)
-  await pointer(page, '#move-right', 'pointerup')
-  await expect(page.locator('#seed-count')).toContainText('1/4')
+  const started = Date.now()
+  await launchTrail(page)
   await expect(page.locator('#stage')).toBeVisible()
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+  await pointer(page, '#move-right', 'pointerdown')
+  await expect(page.locator('#seed-count')).toContainText('1/4', { timeout: 5_000 })
+  await pointer(page, '#move-right', 'pointerup')
+  expect(Date.now() - started).toBeLessThan(5_000)
+  await expect(page.locator('#stage')).toBeVisible()
+})
+
+test('ArrowRight moves from the focused PAUSE button without a blur workaround', async ({ page }) => {
+  await page.goto('/')
+  await launchTrail(page)
+  await expect(page.getByRole('button', { name: 'pause game' })).toBeFocused()
+  await page.keyboard.down('ArrowRight')
+  await page.waitForTimeout(1_200)
+  await page.keyboard.up('ArrowRight')
+  await expect(page.locator('#seed-count')).toContainText('1/4')
 })
 
 test('run and jump can overlap on touch without sticking either control', async ({ page }) => {
   await page.goto('/')
-  await page.getByRole('button', { name: 'PLAY THE TRAIL' }).click()
+  await launchTrail(page)
   await pointer(page, '#move-right', 'pointerdown')
   await page.waitForTimeout(300)
   await pointer(page, '#jump', 'pointerdown')
@@ -80,6 +127,28 @@ test('run and jump can overlap on touch without sticking either control', async 
   await expect(page.locator('#move-right')).not.toHaveAttribute('data-held', '')
   await expect(page.locator('#jump')).not.toHaveAttribute('data-held', '')
   await expect(page.locator('#stage')).toBeVisible()
+})
+
+test('each pointer, keyboard, and screen-reader control action fires exactly once', async ({ page }) => {
+  await page.route('**/game.js', route => route.fulfill({ contentType: 'text/javascript', body: inputGameStub }))
+  await page.goto('/')
+  await launchTrail(page)
+  const read = () => page.evaluate(() => JSON.parse(document.documentElement.dataset.inputEvents || '[]'))
+  const clear = () => page.evaluate(() => { document.documentElement.dataset.inputEvents = '[]' })
+
+  await page.locator('#jump').focus()
+  await page.locator('#jump').press('Space')
+  await page.waitForTimeout(150)
+  expect(await read()).toEqual(['jump:true', 'jump:false'])
+
+  await clear()
+  await page.locator('#move-right').evaluate(button => button.click())
+  await page.waitForTimeout(150)
+  expect(await read()).toEqual(['right:true', 'right:false'])
+
+  await clear()
+  await page.locator('#move-left').click()
+  expect(await read()).toEqual(['left:true', 'left:false'])
 })
 
 test('beating the guardian gives the campaign a focused mobile ending with replay and home', async ({ page }) => {
@@ -97,7 +166,7 @@ test('beating the guardian gives the campaign a focused mobile ending with repla
     }))
   }, completedBeforeKeep)
   await page.goto('/')
-  await page.getByRole('button', { name: 'PLAY THE TRAIL' }).click()
+  await launchTrail(page)
 
   await expect(page.locator('#guardian-status')).toHaveText('WARDEN 3/3 · BELL LOCKED')
   for (let hit = 0; hit < 3; hit += 1) await page.locator('#jump').click()
@@ -109,6 +178,10 @@ test('beating the guardian gives the campaign a focused mobile ending with repla
   await expect(page.getByRole('heading', { name: 'THE GARDEN GLOWS!' })).toBeVisible()
   await expect(page.locator('#ending-art')).toBeVisible()
   await expect(page.getByRole('button', { name: 'PLAY THE KEEP AGAIN' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'HOME' })).toBeFocused()
+  await expect(page.locator('#game-bar')).toHaveAttribute('inert', '')
+  await expect(page.locator('#controls')).toHaveAttribute('inert', '')
+  await page.locator('#jump').focus()
   await expect(page.getByRole('button', { name: 'HOME' })).toBeFocused()
 
   const fit = await page.evaluate(() => {
@@ -124,6 +197,9 @@ test('beating the guardian gives the campaign a focused mobile ending with repla
 
   await page.getByRole('button', { name: 'PLAY THE KEEP AGAIN' }).click()
   await expect(ending).toBeHidden()
+  await expect(page.locator('#game-bar')).not.toHaveAttribute('inert', '')
+  await expect(page.locator('#controls')).not.toHaveAttribute('inert', '')
+  await expect(page.getByRole('button', { name: 'pause game' })).toBeFocused()
   await expect(page.locator('#guardian-status')).toHaveText('WARDEN 3/3 · BELL LOCKED')
   for (let hit = 0; hit < 3; hit += 1) await page.locator('#jump').click()
   await page.locator('#move-right').click()

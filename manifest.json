@@ -2,6 +2,7 @@
   "name": "Jumpit",
   "short_name": "Jumpit",
   "description": "A warm storybook platform game for kids. no ads, no lives, no timers, nothing to buy, no accounts, no cookies, nothing sold or shared.",
+  "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

@@ -106,7 +106,7 @@
   </main>
 
   <main id="game" class="screen game-screen" hidden>
-    <header class="bar">
+    <header id="game-bar" class="bar">
       <button id="back" class="chip">MENU</button>
       <span id="level-name" class="chip flat level-name">GARDEN WALK</span>
       <span id="seed-count" class="chip flat seed-count">◆ 0/4</span>
@@ -116,7 +116,7 @@
       <canvas id="stage" aria-label="Jumpit game world" aria-describedby="game-status"></canvas>
       <p id="game-status" class="game-status" role="status" aria-live="polite"></p>
       <p id="guardian-status" class="guardian-status" role="status" aria-live="polite" aria-atomic="true" hidden></p>
-      <section id="game-overlay" class="game-overlay" role="dialog" aria-labelledby="overlay-title" aria-describedby="overlay-copy" hidden>
+      <section id="game-overlay" class="game-overlay" role="dialog" aria-modal="true" aria-labelledby="overlay-title" aria-describedby="overlay-copy" hidden>
         <div class="game-card">
           <div id="ending-art" class="ending-art" aria-hidden="true" hidden></div>
           <p id="overlay-kicker" class="overlay-kicker">TAKE A BREATH</p>
@@ -129,7 +129,7 @@
         </div>
       </section>
     </div>
-    <div class="controls" aria-label="touch controls">
+    <div id="controls" class="controls" aria-label="game controls">
       <button id="move-left" class="control direction" aria-label="move left"><span aria-hidden="true">◀</span></button>
       <button id="move-right" class="control direction" aria-label="move right"><span aria-hidden="true">▶</span></button>
       <button id="jump" class="control jump" aria-label="jump">JUMP</button>

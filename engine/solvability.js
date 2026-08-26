@@ -1,49 +1,160 @@
-import { createBody, stepPhysics } from './physics.js'
-import { TILE } from '../levels.js'
+import { createSimulation, stepSimulation } from './simulation.js'
 
-function runtimeTerrain(level) {
-  return level.terrain.map(([, , x, y, width, height]) => ({
-    type: height === 1 ? 'oneway' : 'solid',
-    x: x * TILE,
-    y: y * TILE,
-    w: width * TILE,
-    h: height * TILE,
-  }))
-}
+const INPUT = Object.freeze({ left: 1, right: 2, jumpHeld: 4, jumpPressed: 8 })
 
-function hasLandingAhead(body, terrain) {
-  const lookAhead = body.x + body.w + Math.max(22, Math.abs(body.vx) * 7)
-  const feet = body.y + body.h
-  return terrain.some(rect =>
-    lookAhead >= rect.x && lookAhead <= rect.x + rect.w &&
+const encodeInput = input =>
+  (input.left ? INPUT.left : 0) |
+  (input.right ? INPUT.right : 0) |
+  (input.jumpHeld ? INPUT.jumpHeld : 0) |
+  (input.jumpPressed ? INPUT.jumpPressed : 0)
+
+const decodeInput = value => ({
+  left: Boolean(value & INPUT.left),
+  right: Boolean(value & INPUT.right),
+  jumpHeld: Boolean(value & INPUT.jumpHeld),
+  jumpPressed: Boolean(value & INPUT.jumpPressed),
+})
+
+function hasLandingAhead(simulation) {
+  const { player, world } = simulation
+  const lookAhead = player.x + player.w + Math.max(22, Math.abs(player.vx) * 7)
+  const feet = player.y + player.h
+  return [...world.terrain, ...world.gates].some(rect =>
+    rect.active && lookAhead >= rect.x && lookAhead <= rect.x + rect.w &&
     rect.y >= feet - 4 && rect.y <= feet + 30)
 }
 
-export function proveFinishable(level, maxFrames = 3600) {
-  const terrain = runtimeTerrain(level)
-  const player = createBody({
-    x: level.spawn[0] * TILE + 2,
-    y: (level.spawn[1] + 1) * TILE - 42,
+function dangerAhead(simulation, direction) {
+  const { player, world } = simulation
+  const center = player.x + player.w / 2
+  return world.enemies.some(enemy => {
+    if (!enemy.alive) return false
+    const distance = enemy.x + enemy.w / 2 - center
+    return Math.sign(distance) === direction && Math.abs(distance) < (enemy.kind === 'warden' ? 160 : 190)
   })
-  const finishX = level.finish[1] * TILE
-  let jumpFrames = 0
-  let jumps = 0
+}
 
-  for (let frame = 0; frame < maxFrames; frame += 1) {
-    const shouldJump = player.onGround && !hasLandingAhead(player, terrain)
-    if (shouldJump) {
-      jumpFrames = 13
-      jumps += 1
-    }
-    stepPhysics(player, {
-      right: true,
-      jumpPressed: shouldJump,
-      jumpHeld: jumpFrames > 0,
-    }, terrain)
-    jumpFrames = Math.max(0, jumpFrames - 1)
+function nextInput(simulation, memory) {
+  const { player, world } = simulation
+  const crumbleUnderfoot = world.terrain.find(rect =>
+    rect.kind === 'crumble' && rect.active && player.onGround &&
+    Math.abs(player.y + player.h - rect.y) < 3 &&
+    player.x + player.w > rect.x && player.x < rect.x + rect.w)
+  const witnessingCrumble = !memory.sawCrumble && Boolean(crumbleUnderfoot)
+  const guardian = world.enemies.find(enemy => enemy.kind === 'warden' && enemy.alive)
+  const center = player.x + player.w / 2
+  const guardianDistance = guardian ? guardian.x + guardian.w / 2 - center : 0
+  const direction = witnessingCrumble
+    ? 0
+    : guardian && (world.finish.blocked || center > guardian.home - 150)
+      ? Math.abs(guardianDistance) < 12 ? 0 : Math.sign(guardianDistance)
+      : 1
+  const shouldJump = !witnessingCrumble && player.onGround && (
+    !hasLandingAhead(simulation) ||
+    dangerAhead(simulation, direction || 1) ||
+    (guardian && Math.abs(guardianDistance) < 150)
+  )
 
-    if (player.x + player.w >= finishX) return { finishable: true, frames: frame + 1, jumps }
-    if (player.y > level.size[1] * TILE + 96) return { finishable: false, frames: frame + 1, jumps, reason: 'fell' }
+  if (shouldJump) {
+    memory.jumpFrames = 13
+    memory.jumps += 1
   }
-  return { finishable: false, frames: maxFrames, jumps, reason: 'timeout' }
+  const input = {
+    left: direction < 0,
+    right: direction > 0,
+    jumpPressed: shouldJump,
+    jumpHeld: memory.jumpFrames > 0,
+  }
+  memory.jumpFrames = Math.max(0, memory.jumpFrames - 1)
+  return input
+}
+
+function stateVector(simulation, events) {
+  const { world, player } = simulation
+  return [
+    simulation.frame,
+    Number(simulation.finished),
+    simulation.respawns,
+    player.x, player.y, player.vx, player.vy, Number(player.onGround), player.coyote,
+    player.jumpBuffer, Number(player.jumpWasHeld), Number(player.glowing), player.spawnX, player.spawnY,
+    ...world.terrain.flatMap(rect => [rect.id, rect.y, Number(rect.active), rect.timer]),
+    ...world.seeds.flatMap(seed => [seed.id, Number(seed.found)]),
+    ...world.enemies.flatMap(enemy => [enemy.id, enemy.x, enemy.y, enemy.vx, Number(enemy.alive), enemy.health, enemy.invulnerable, enemy.squash]),
+    ...world.switches.flatMap(item => [item.id, Number(item.active)]),
+    ...world.gates.flatMap(gate => [gate.id, Number(gate.active), Number(gate.open)]),
+    ...world.lamps.flatMap(lamp => [lamp.id, Number(lamp.lit)]),
+    Number(world.checkpoint?.active),
+    Number(world.finish.blocked),
+    ...events.map(event => event.type),
+  ]
+}
+
+function hashFrame(hash, simulation, events) {
+  const text = JSON.stringify(stateVector(simulation, events))
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return hash >>> 0
+}
+
+function runReplay(level, inputs) {
+  const simulation = createSimulation(level)
+  const eventCounts = {}
+  let hash = 2166136261
+  let maxX = simulation.player.x
+  for (const encoded of inputs) {
+    const events = stepSimulation(simulation, decodeInput(encoded))
+    for (const event of events) eventCounts[event.type] = (eventCounts[event.type] || 0) + 1
+    hash = hashFrame(hash, simulation, events)
+    maxX = Math.max(maxX, simulation.player.x)
+    if (simulation.finished) break
+  }
+  return {
+    finishable: simulation.finished,
+    frames: simulation.frame,
+    respawns: simulation.respawns,
+    maxX,
+    events: eventCounts,
+    hash: hash.toString(16).padStart(8, '0'),
+    simulation,
+  }
+}
+
+export function recordReplay(level, maxFrames = 7200) {
+  const simulation = createSimulation(level)
+  const memory = { jumpFrames: 0, jumps: 0, sawCrumble: false }
+  const inputs = []
+  for (let frame = 0; frame < maxFrames && !simulation.finished; frame += 1) {
+    const input = nextInput(simulation, memory)
+    inputs.push(encodeInput(input))
+    const events = stepSimulation(simulation, input)
+    if (events.some(event => event.type === 'crumble')) memory.sawCrumble = true
+  }
+  const replay = runReplay(level, inputs)
+  return {
+    ...replay,
+    jumps: memory.jumps,
+    inputs,
+    reason: replay.finishable ? '' : simulation.respawns ? 'timeout after respawns' : 'timeout',
+  }
+}
+
+export function replayLevel(level, inputs) {
+  return runReplay(level, inputs)
+}
+
+export function proveFinishable(level, maxFrames = 7200) {
+  const recorded = recordReplay(level, maxFrames)
+  const replayed = replayLevel(level, recorded.inputs)
+  return {
+    finishable: recorded.finishable && replayed.finishable && recorded.hash === replayed.hash,
+    frames: replayed.frames,
+    jumps: recorded.jumps,
+    respawns: replayed.respawns,
+    events: replayed.events,
+    hash: replayed.hash,
+    replayFrames: recorded.inputs.length,
+    reason: replayed.finishable ? '' : recorded.reason,
+  }
 }
