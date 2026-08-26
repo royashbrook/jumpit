@@ -117,7 +117,7 @@ function activateWith(keys, clients = []) {
 
 test('activation migrates v1.5 clients in scope after the complete B cache wins', async () => {
   const activation = activateWith(
-    ['jumpit-v1.5.0', 'jumpit-v1.9.0', 'sibling-game-v4'],
+    ['jumpit-v1.5.0', 'jumpit-v1.9.0', 'jumpit-v2.0.0', 'sibling-game-v4'],
     [
       'https://example.test/jumpit/?seed=7',
       'https://example.test/other-game/',
@@ -125,18 +125,18 @@ test('activation migrates v1.5 clients in scope after the complete B cache wins'
     ],
   )
   await activation.done
-  assert.deepEqual(activation.deleted, ['jumpit-v1.5.0'])
+  assert.deepEqual(activation.deleted, ['jumpit-v1.5.0', 'jumpit-v1.9.0'])
   assert.equal(activation.claims(), 1)
   assert.equal(activation.matches(), 1)
   assert.deepEqual(activation.navigated, ['https://example.test/jumpit/?seed=7'])
 })
 
 test('activation without the v1.5 cache claims but never forces a navigation', async () => {
-  const activation = activateWith(['jumpit-v1.8.0', 'jumpit-v1.9.0'], [
+  const activation = activateWith(['jumpit-v1.8.0', 'jumpit-v1.9.0', 'jumpit-v2.0.0'], [
     'https://example.test/jumpit/',
   ])
   await activation.done
-  assert.deepEqual(activation.deleted, ['jumpit-v1.8.0'])
+  assert.deepEqual(activation.deleted, ['jumpit-v1.8.0', 'jumpit-v1.9.0'])
   assert.equal(activation.claims(), 1)
   assert.equal(activation.matches(), 0)
   assert.deepEqual(activation.navigated, [])

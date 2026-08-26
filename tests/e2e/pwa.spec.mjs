@@ -9,11 +9,12 @@ const updateSource = await readFile(resolve(releaseRoot, 'update.js'), 'utf8')
 const versionSource = await readFile(resolve(releaseRoot, 'version.js'), 'utf8')
 const legacyWorkerSource = await readFile(new URL('../fixtures/v1.5/sw.js', import.meta.url), 'utf8')
 const legacyUpdateSource = await readFile(new URL('../fixtures/v1.5/update.js', import.meta.url), 'utf8')
-const previousWorkerSource = await readFile(new URL('../fixtures/v1.8/sw.js', import.meta.url), 'utf8')
-const previousUpdateSource = await readFile(new URL('../fixtures/v1.8/update.js', import.meta.url), 'utf8')
-const previousVersion = '1.8.0'
+const previousWorkerSource = await readFile(new URL('../fixtures/v1.9/sw.js', import.meta.url), 'utf8')
+const previousUpdateSource = await readFile(new URL('../fixtures/v1.9/update.js', import.meta.url), 'utf8')
+const previousVersion = '1.9.0'
 const currentVersion = versionSource.match(/VERSION\s*=\s*['"]([^'"]+)/)?.[1]
-const nextVersion = '2.0.0'
+const currentCache = `jumpit-v${currentVersion}`
+const nextVersion = '2.1.0'
 const REQUIRED_SHELL = [
   './', './index.html', './app.css', './app.js', './audio.js', './daily.js',
   './game.js', './levels.js', './release.js', './save.js', './engine/physics.js',
@@ -66,7 +67,7 @@ async function startVersionServer(initial = '1.5.0') {
           ? previousWorkerSource
         : release === currentVersion
           ? workerSource
-          : workerSource.replace("'jumpit-v1.9.0'", `'jumpit-v${release}'`)
+          : workerSource.replace(`'${currentCache}'`, `'jumpit-v${release}'`)
       response.writeHead(200, { ...headers, 'content-type': 'text/javascript' }).end(worker)
       return
     }
@@ -135,8 +136,8 @@ test('the installed shell is controlled with a complete precache; Chromium also 
       caches: (await globalThis.caches.keys()).filter(name => name.startsWith('jumpit-')),
       missing,
     }
-  }, { cacheName: 'jumpit-v1.9.0', required: REQUIRED_SHELL })
-  expect(proof).toEqual({ controlled: true, caches: ['jumpit-v1.9.0'], missing: [] })
+  }, { cacheName: currentCache, required: REQUIRED_SHELL })
+  expect(proof).toEqual({ controlled: true, caches: [currentCache], missing: [] })
 
   // Playwright WebKit cannot reliably force network loss. The worker-event oracle
   // proves its fallback branches; an actual iPhone offline receipt remains a v2 gate.
@@ -230,7 +231,7 @@ test('the exact shipped v1.5 client migrates once into a coherent current shell'
         app: await app.text(),
       }
     })
-    expect(proof.cacheNames).toEqual(['jumpit-v1.9.0'])
+    expect(proof.cacheNames).toEqual([currentCache])
     expect(proof.index).toContain(`content="${currentVersion}"`)
     expect(proof.version).toContain(`VERSION = '${currentVersion}'`)
     expect(proof.app).toContain(`BUILD = '${currentVersion}'`)
@@ -247,13 +248,16 @@ test('the exact shipped v1.5 client migrates once into a coherent current shell'
   }
 })
 
-test('the exact shipped v1.8 client upgrades once into a coherent current shell', async ({ page, context, browserName }) => {
+test('the exact shipped v1.9 client upgrades once into a coherent current shell', async ({ page, context, browserName }) => {
   const server = await startVersionServer(previousVersion)
   try {
     await page.goto(server.origin, { waitUntil: 'domcontentloaded' })
     await page.evaluate(() => navigator.serviceWorker.ready)
     await page.reload({ waitUntil: 'domcontentloaded' })
     await expect(page.locator('html')).toHaveAttribute('data-release', previousVersion)
+    await expect.poll(() => page.evaluate(async () =>
+      (await caches.keys()).filter(name => name.startsWith('jumpit-')),
+    )).toEqual([`jumpit-v${previousVersion}`])
     const before = server.navigations.length
 
     server.use(currentVersion)
@@ -274,7 +278,7 @@ test('the exact shipped v1.8 client upgrades once into a coherent current shell'
         app: await app.text(),
       }
     })
-    expect(proof.cacheNames).toEqual(['jumpit-v1.9.0'])
+    expect(proof.cacheNames).toEqual([currentCache])
     expect(proof.index).toContain(`content="${currentVersion}"`)
     expect(proof.version).toContain(`VERSION = '${currentVersion}'`)
     expect(proof.app).toContain(`BUILD = '${currentVersion}'`)
@@ -306,7 +310,7 @@ test('failed next precache cannot mutate the active shell; Chromium reloads that
       const index = await cache.match('./index.html')
       const app = await cache.match('./app.js')
       return { root: await root.text(), index: await index.text(), app: await app.text() }
-    }, 'jumpit-v1.9.0')
+    }, currentCache)
     const navigationCount = server.navigations.length
 
     server.use(nextVersion)
@@ -330,7 +334,7 @@ test('failed next precache cannot mutate the active shell; Chromium reloads that
       const index = await cache.match('./index.html')
       const app = await cache.match('./app.js')
       return { root: await root.text(), index: await index.text(), app: await app.text() }
-    }, 'jumpit-v1.9.0')
+    }, currentCache)
     expect(after).toEqual(before)
     expect(server.navigations.filter(release => release === nextVersion)).toHaveLength(1)
     expect(server.navigations.length).toBe(navigationCount + 1)

@@ -19,6 +19,7 @@
 - v1.9.0: v2 release candidate and complete audit.
 - v2.0.0: twenty verified levels, full progression, all original assets, stable PWA.
 
-The release receipt must prove every level finishable, both target iPhone sizes
-unclipped, install/offline/update behavior, the house checker, asset provenance,
-and the cold kid gates recorded in issue #1.
+The release receipt must prove every level finishable; the 390x844 and 420x912 phone
+viewports unclipped; physical iPhone install, update, and offline reopen; physical Android
+install and offline reopen; the house checker; asset provenance; and the 4-of-5 cold-kid
+gate recorded in issue #1.
