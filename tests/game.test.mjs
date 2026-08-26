@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { activateCheckpoint, coachMessage, makeWorld } from '../game.js'
+import { activateCheckpoint, activateSwitches, coachMessage, makeWorld } from '../game.js'
 import { createBody } from '../engine/physics.js'
 import { LEVELS, TILE } from '../levels.js'
 
@@ -45,6 +45,18 @@ test('the v1 regions expose rain and workshop mechanics at runtime', () => {
   assert.ok(workshop.terrain.some(rect => rect.kind === 'belt'))
   assert.ok(workshop.terrain.some(rect => rect.kind === 'lift'))
   assert.ok(workshop.switches.length >= 1)
+})
+
+test('workshop switches raise their authored bridges once', () => {
+  const world = makeWorld(LEVELS[11])
+  const [button] = world.switches
+  const bridge = world.terrain.find(item => item.id === button.targetId)
+  assert.equal(bridge.active, false)
+  const player = { x: button.x - 10, y: button.y - 30, w: 20, h: 30 }
+  assert.equal(activateSwitches(world, player), true)
+  assert.equal(button.active, true)
+  assert.equal(bridge.active, true)
+  assert.equal(activateSwitches(world, player), false)
 })
 
 test('coaching is one short action at a time and then gets out of the way', () => {

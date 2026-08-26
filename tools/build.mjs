@@ -3,7 +3,7 @@ import { dirname } from 'node:path'
 
 const files = [
   'index.html', 'app.css', 'app.js', 'audio.js', 'game.js', 'install.js',
-  'levels.js', 'manifest.json', 'save.js', 'seed.js', 'sw.js', 'update.js',
+  'levels.js', 'manifest.json', 'release.js', 'save.js', 'seed.js', 'sw.js', 'update.js',
   'version.js', 'icon-180.png', 'icon-192.png', 'icon-512.png',
   'icon-maskable-512.png', 'engine/physics.js',
   'assets/backgrounds/garden-walk.png',

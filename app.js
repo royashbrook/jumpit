@@ -3,6 +3,7 @@ import { createAudio } from './audio.js'
 import { createGame } from './game.js'
 import { wireInstall } from './install.js'
 import { LEVELS, REGIONS } from './levels.js'
+import { createRelease } from './release.js'
 import { createSaveStore } from './save.js'
 import { wireUpdate, registerWorker } from './update.js'
 import { VERSION } from './version.js'
@@ -12,7 +13,8 @@ const menu = $('menu')
 const gameScreen = $('game')
 const howto = $('howto')
 const overlay = $('game-overlay')
-const releaseLevels = LEVELS.slice(0, 12)
+const release = createRelease(LEVELS, 12)
+const releaseLevels = release.levels
 let save
 let queuedNext = null
 let lastCompleted = null
@@ -41,8 +43,7 @@ const game = createGame($('stage'), state => {
 
   if (state.finished && lastCompleted !== state.levelId) {
     lastCompleted = state.levelId
-    const levelIndex = LEVELS.findIndex(level => level.id === state.levelId)
-    queuedNext = LEVELS[levelIndex + 1]?.id || null
+    queuedNext = release.next(state.levelId)
     store.completeLevel(state.levelId, state.seeds, queuedNext)
   }
   $('next-trail').hidden = !state.finished || !queuedNext
@@ -57,6 +58,8 @@ function show(screen) {
 }
 
 function playLevel(levelId = store.get().selectedLevel) {
+  levelId = release.playable(levelId, store.get().unlocked)
+  if (!levelId) return
   audio.startFromGesture()
   audio.cue('start')
   store.selectLevel(levelId)
@@ -105,7 +108,8 @@ function trailButton(level, index, state) {
 function renderMenu(nextState = store.get()) {
   save = nextState
   document.documentElement.dataset.theme = save.theme
-  const selected = LEVELS.find(level => level.id === save.selectedLevel) || LEVELS[0]
+  const selectedId = release.playable(save.selectedLevel, save.unlocked)
+  const selected = release.find(selectedId) || releaseLevels[0]
   const selectedMax = selected.objects.filter(([, kind]) => kind === 'seed').length
   $('continue-label').textContent = `${selected.name.toUpperCase()} · ${save.bestSeeds[selected.id] || 0}/${selectedMax} SEEDS`
   const trailNodes = []

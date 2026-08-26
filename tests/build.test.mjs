@@ -30,7 +30,7 @@ test('the production build is an exact allowlist without test controls', async (
     'assets/sprites/region-sheet.png', 'assets/sprites/world-sheet.png',
     'audio.js', 'engine/physics.js', 'game.js', 'icon-180.png', 'icon-192.png',
     'icon-512.png', 'icon-maskable-512.png', 'index.html', 'install.js',
-    'levels.js', 'manifest.json', 'save.js', 'seed.js', 'sw.js', 'update.js',
+    'levels.js', 'manifest.json', 'release.js', 'save.js', 'seed.js', 'sw.js', 'update.js',
     'version.js',
   ])
 })

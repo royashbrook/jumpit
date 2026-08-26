@@ -13,7 +13,7 @@
 //      means the next offline load serves the PREVIOUS deployment's shell.
 //
 // bump CACHE when the shell list changes.
-const CACHE = 'jumpit-v1.0.0'
+const CACHE = 'jumpit-v1.0.1'
 const SHELL = [
   './',
   './index.html',
@@ -22,6 +22,7 @@ const SHELL = [
   './audio.js',
   './game.js',
   './levels.js',
+  './release.js',
   './save.js',
   './engine/physics.js',
   './version.js',
@@ -52,7 +53,9 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key))))
+      .then(keys => Promise.all(keys
+        .filter(key => key.startsWith('jumpit-') && key !== CACHE)
+        .map(key => caches.delete(key))))
       .then(() => self.clients.claim()),
   )
 })

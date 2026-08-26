@@ -26,22 +26,24 @@ function overlaps(body, x, y, width, height) {
 
 export function makeWorld(level) {
   const checkpoint = level.objects.find(([, kind]) => kind === 'checkpoint')
+  const terrain = level.terrain.map(([id, kind, x, y, width, height], index) => ({
+    id,
+    kind,
+    type: height === 1 ? 'oneway' : 'solid',
+    x: x * TILE,
+    y: y * TILE,
+    baseY: y * TILE,
+    w: width * TILE,
+    h: height * TILE,
+    active: kind !== 'bridge',
+    timer: 0,
+    phase: index * 1.37,
+  }))
+  const bridges = terrain.filter(item => item.kind === 'bridge')
   return {
     level,
     width: level.size[0] * TILE,
-    terrain: level.terrain.map(([id, kind, x, y, width, height], index) => ({
-      id,
-      kind,
-      type: height === 1 ? 'oneway' : 'solid',
-      x: x * TILE,
-      y: y * TILE,
-      baseY: y * TILE,
-      w: width * TILE,
-      h: height * TILE,
-      active: true,
-      timer: 0,
-      phase: index * 1.37,
-    })),
+    terrain,
     seeds: level.objects
       .filter(([, kind]) => kind === 'seed')
       .map(([id,, x, y]) => ({ id, x: (x + 0.5) * TILE, y: (y + 0.45) * TILE, found: false })),
@@ -70,7 +72,13 @@ export function makeWorld(level) {
       .map(([id,, x, y]) => ({ id, x: (x + 0.5) * TILE, y: (y + 1) * TILE })),
     switches: level.objects
       .filter(([, kind]) => kind === 'switch')
-      .map(([id,, x, y]) => ({ id, x: (x + 0.5) * TILE, y: (y + 1) * TILE })),
+      .map(([id,, x, y], index) => ({
+        id,
+        x: (x + 0.5) * TILE,
+        y: (y + 1) * TILE,
+        targetId: bridges[index]?.id || null,
+        active: false,
+      })),
     checkpoint: checkpoint ? {
       id: checkpoint[0],
       x: (checkpoint[2] + 0.5) * TILE,
@@ -79,6 +87,18 @@ export function makeWorld(level) {
     } : null,
     finish: { id: level.finish[0], x: level.finish[1] * TILE, y: level.finish[2] * TILE },
   }
+}
+
+export function activateSwitches(world, player) {
+  let changed = false
+  for (const item of world.switches) {
+    if (item.active || !overlaps(player, item.x - 20, item.y - 30, 40, 30)) continue
+    item.active = true
+    const bridge = world.terrain.find(rect => rect.id === item.targetId)
+    if (bridge) bridge.active = true
+    changed = true
+  }
+  return changed
 }
 
 export function activateCheckpoint(world, player) {
@@ -235,6 +255,12 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
         player.vy = Math.max(-8.4, player.vy - .48)
         if (frame % 12 === 0) particles.push({ x: fan.x + (frame % 3 - 1) * 18, y: fan.y - 20, vx: 0, vy: -2.1, life: 28, color: '#B8E9F2' })
       }
+    }
+
+    if (activateSwitches(world, player)) {
+      burst(player.x + player.w / 2, player.y + player.h, '#FFD563')
+      onCue('checkpoint')
+      report('BRIDGE ON!')
     }
 
     for (const rect of world.terrain.filter(item => item.kind === 'crumble')) {
@@ -451,7 +477,15 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
 
   function drawFansAndSwitches() {
     for (const fan of world.fans) drawCell(regionSheet, 4, fan.x - 24, fan.y - 48, 48, 50)
-    for (const item of world.switches) drawCell(regionSheet, 7, item.x - 20, item.y - 43, 40, 45)
+    for (const item of world.switches) {
+      context.save()
+      if (item.active) {
+        context.shadowColor = '#FFE377'
+        context.shadowBlur = 15
+      }
+      drawCell(regionSheet, 7, item.x - 20, item.y - 43, 40, 45)
+      context.restore()
+    }
   }
 
   function drawCheckpoint() {

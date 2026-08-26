@@ -150,7 +150,7 @@ export const LEVELS = [
     ['w02-seed-a', 'seed', 10, 11], ['w02-seed-b', 'seed', 25, 11],
     ['w02-seed-c', 'seed', 37, 11], ['w02-seed-d', 'seed', 52, 11],
     ['w02-check', 'checkpoint', 44, 14], ['w02-gear-a', 'gearling', 18, 14],
-    ['w02-gear-b', 'gearling', 46, 14], ['w02-switch', 'switch', 58, 14],
+    ['w02-gear-b', 'gearling', 46, 14],
   ]),
 
   level('workshop-3', 11, 'workshop', 'Hoist House', 74, [2, 14], ['w03-bell', 71, 14], ['freight-lifts'], [
@@ -179,7 +179,7 @@ export const LEVELS = [
     ['w04-seed-c', 'seed', 36, 11], ['w04-seed-d', 'seed', 48, 11],
     ['w04-seed-e', 'seed', 60, 11], ['w04-check', 'checkpoint', 44, 14],
     ['w04-gear-a', 'gearling', 19, 14], ['w04-gear-b', 'gearling', 54, 14],
-    ['w04-switch-a', 'switch', 29, 14], ['w04-switch-b', 'switch', 67, 14],
+    ['w04-switch-a', 'switch', 16, 14], ['w04-switch-b', 'switch', 40, 14],
   ]),
 
   level('market-1', 13, 'market', 'Paper Lantern Lane', 68, [2, 14], ['m01-bell', 65, 14], ['market-moths'], [
