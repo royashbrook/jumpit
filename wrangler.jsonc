@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "jumpit",
+  "account_id": "b13c1cf2483bdad430b91ae25126e984",
+  "compatibility_date": "2026-08-26",
+  "assets": {
+    "directory": "./build"
+  },
+  "routes": [
+    { "pattern": "jumpit.royashbrook.com", "custom_domain": true }
+  ]
+}

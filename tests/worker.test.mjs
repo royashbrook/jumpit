@@ -58,11 +58,12 @@ test('one failed shell entry rejects installation and never calls skipWaiting', 
   assert.equal(install.skipped(), 0)
 })
 
-test('migration fixtures are byte-for-byte the shipped v1.5, v1.7, and v1.8 clients', async () => {
+test('migration fixtures are byte-for-byte the shipped v1.5, v1.7, v1.8, and v1.9 clients', async () => {
   const fixtures = [
     ['v1.5', '6aeef5886fd93e86fce0df9e5f736284d6136e66', '640c09cff6ced479dce12f70daa4147f1d97cd2d'],
     ['v1.7', 'cd89bbe2545e463e82269012fc0c6d5aefcabacc', '6b325b24741f7e9becef5cb138a0f50f55d256da'],
     ['v1.8', 'd8ac9ef32bc8bfe0b20fc35cf2e879830a9db4b3', '6b325b24741f7e9becef5cb138a0f50f55d256da'],
+    ['v1.9', 'f19f86bde0c64b7e3f1b660915951730112a9d41', '6b325b24741f7e9becef5cb138a0f50f55d256da'],
   ]
   for (const [version, workerHash, updaterHash] of fixtures) {
     const worker = await readFile(new URL(`./fixtures/${version}/sw.js`, import.meta.url))
