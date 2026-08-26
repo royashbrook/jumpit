@@ -8,12 +8,21 @@ const $ = id => document.getElementById(id)
 const menu = $('menu')
 const gameScreen = $('game')
 const howto = $('howto')
+const overlay = $('game-overlay')
 const game = createGame($('stage'), state => {
   $('level-name').textContent = state.levelName.toUpperCase()
   $('seed-count').textContent = `◆ ${state.seeds}/${state.maxSeeds}`
   $('pause').textContent = state.paused ? '▶' : 'Ⅱ'
   $('pause').setAttribute('aria-label', state.paused ? 'resume game' : 'pause game')
   $('game-status').textContent = state.message
+  overlay.hidden = !state.paused && !state.finished
+  $('overlay-kicker').textContent = state.finished ? 'GARDEN WALK' : 'TAKE A BREATH'
+  $('overlay-title').textContent = state.finished ? 'TRAIL CLEARED!' : 'PAUSED'
+  $('overlay-copy').textContent = state.finished
+    ? `${state.seeds} OF ${state.maxSeeds} LANTERN SEEDS FOUND`
+    : 'The trail waits for you.'
+  $('resume').hidden = !state.paused
+  $('restart').textContent = state.finished ? 'RUN IT AGAIN' : 'START OVER'
 })
 window.addEventListener('resize', () => game.resize())
 
@@ -33,6 +42,8 @@ $('back').addEventListener('click', () => {
   show(menu)
 })
 $('pause').addEventListener('click', () => game.togglePause())
+$('resume').addEventListener('click', () => game.togglePause())
+$('restart').addEventListener('click', () => game.restart())
 
 for (const [id, action] of [['move-left', 'left'], ['move-right', 'right'], ['jump', 'jump']]) {
   const button = $(id)

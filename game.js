@@ -17,7 +17,8 @@ function overlaps(body, x, y, width, height) {
   return body.x < x + width && body.x + body.w > x && body.y < y + height && body.y + body.h > y
 }
 
-function makeWorld(level) {
+export function makeWorld(level) {
+  const checkpoint = level.objects.find(([, kind]) => kind === 'checkpoint')
   return {
     level,
     width: level.size[0] * TILE,
@@ -32,9 +33,23 @@ function makeWorld(level) {
     seeds: level.objects
       .filter(([, kind]) => kind === 'seed')
       .map(([id,, x, y]) => ({ id, x: (x + 0.5) * TILE, y: (y + 0.45) * TILE, found: false })),
-    checkpoint: level.objects.find(([, kind]) => kind === 'checkpoint'),
+    checkpoint: checkpoint ? {
+      id: checkpoint[0],
+      x: (checkpoint[2] + 0.5) * TILE,
+      y: (checkpoint[3] + 1) * TILE,
+      active: false,
+    } : null,
     finish: { id: level.finish[0], x: level.finish[1] * TILE, y: level.finish[2] * TILE },
   }
+}
+
+export function activateCheckpoint(world, player) {
+  const checkpoint = world.checkpoint
+  if (!checkpoint || checkpoint.active || !overlaps(player, checkpoint.x - 14, checkpoint.y - 52, 28, 52)) return false
+  checkpoint.active = true
+  player.spawnX = checkpoint.x - player.w / 2
+  player.spawnY = checkpoint.y - player.h
+  return true
 }
 
 export function createGame(canvas, onState = () => {}) {
@@ -106,6 +121,11 @@ export function createGame(canvas, onState = () => {}) {
       }
     }
 
+    if (activateCheckpoint(world, player)) {
+      burst(world.checkpoint.x, world.checkpoint.y - 30, '#A9F0B2')
+      report('LANTERN LIT · CHECKPOINT!')
+    }
+
     const bell = world.finish
     if (overlaps(player, bell.x - 6, bell.y - 48, 44, 72)) {
       finished = true
@@ -113,7 +133,10 @@ export function createGame(canvas, onState = () => {}) {
       report('TRAIL CLEARED!')
     }
 
-    if (player.y > WORLD_HEIGHT + 96) resetPlayer()
+    if (player.y > WORLD_HEIGHT + 96) {
+      resetPlayer()
+      report(world.checkpoint?.active ? 'BACK TO THE LANTERN' : 'TRY THAT JUMP AGAIN')
+    }
 
     for (const particle of particles) {
       particle.x += particle.vx
@@ -190,15 +213,20 @@ export function createGame(canvas, onState = () => {}) {
   }
 
   function drawCheckpoint() {
-    const data = world.checkpoint
-    if (!data) return
-    const [, , x, y] = data
-    const px = (x + 0.5) * TILE
-    const py = (y + 1) * TILE
+    const checkpoint = world.checkpoint
+    if (!checkpoint) return
+    const px = checkpoint.x
+    const py = checkpoint.y
     context.fillStyle = '#5A4534'
     context.fillRect(px - 2, py - 48, 4, 48)
-    context.fillStyle = '#FFE8A2'
+    context.save()
+    if (checkpoint.active) {
+      context.shadowColor = '#B8F4BD'
+      context.shadowBlur = 16
+    }
+    context.fillStyle = checkpoint.active ? '#C9F5C9' : '#FFE8A2'
     context.fillRect(px - 10, py - 45, 20, 20)
+    context.restore()
     context.strokeStyle = '#5A4534'
     context.lineWidth = 3
     context.strokeRect(px - 10, py - 45, 20, 20)
@@ -370,6 +398,9 @@ export function createGame(canvas, onState = () => {}) {
       report('RUN RIGHT · TAP JUMP')
       cancelAnimationFrame(raf)
       raf = requestAnimationFrame(loop)
+    },
+    restart() {
+      this.start(world.level.id)
     },
     stop() {
       running = false

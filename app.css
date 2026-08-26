@@ -258,6 +258,50 @@ h1 {
   animation: status-pop 1.35s ease both;
 }
 
+.game-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(from var(--surface-sunk) r g b / .46);
+  backdrop-filter: blur(2px);
+}
+
+.game-card {
+  width: min(19rem, 100%);
+  padding: 1rem;
+  border: .18rem solid var(--line);
+  border-radius: calc(var(--radius) * 1.2);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.game-card h2 {
+  margin: .1rem 0 .35rem;
+  font-size: 1.65rem;
+}
+
+.game-card p {
+  margin: 0 0 .8rem;
+  color: var(--ink-dim);
+  font-size: .82rem;
+  font-weight: 900;
+}
+
+.game-card .overlay-kicker {
+  margin: 0;
+  color: var(--accent-dim);
+  font-size: .68rem;
+  letter-spacing: .08em;
+}
+
+.game-card .big + .big {
+  margin-top: .65rem;
+}
+
 #stage {
   display: block;
   width: 100%;
