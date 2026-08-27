@@ -972,8 +972,8 @@ h1 {
 }
 
 .controls {
-  --control-size: clamp(60px, 17dvh, 72px);
-  --jump-width: clamp(92px, 25dvh, 108px);
+  --control-size: clamp(68px, 20dvh, 82px);
+  --jump-width: clamp(108px, 31dvh, 132px);
   --control-moat: clamp(16px, 5dvh, 20px);
   position: absolute;
   inset: 0;
@@ -1015,6 +1015,7 @@ h1 {
   color: var(--ink);
   font: inherit;
   font-weight: 900;
+  opacity: 1;
   pointer-events: auto;
   touch-action: none;
 }

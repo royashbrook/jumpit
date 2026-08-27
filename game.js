@@ -74,7 +74,7 @@ export function artKeysForLevel(level) {
 
 export function coachMessage({ moved, jumped, glowing, x }) {
   if (!moved) return 'HOLD ▶ TO RUN'
-  if (!jumped) return 'TAP ANYWHERE TO JUMP'
+  if (!jumped) return 'STOP + HOLD JUMP FOR LEDGES'
   if (glowing && x < 620) return 'GLOW BUMPS CREATURES'
   return ''
 }
