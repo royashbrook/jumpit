@@ -6,6 +6,8 @@
   original art and sound, optional Hidden Lights, and a three-hit final guardian.
 - Made play landscape-first with a clear portrait rotate gate, an edge-to-edge world,
   a wider direction-aware camera, a transient left-side stick, and right-side jumping.
+- Kept the camera's look direction through a stop so releasing the stick no longer
+  pulls the world backward, while reversals still ease across the trail.
 - Moved the Bramble Bank checkpoint off its collapsing bank and reject future
   checkpoints on terrain that disappears.
 - Proved the exact shipped v1.9 installed client and same-version preview cache upgrade

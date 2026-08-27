@@ -124,7 +124,7 @@ test('a landscape Keep render crops vertically and survives a wider resize', () 
   game.stop()
 })
 
-test('a running reversal turns the camera without snapping across the trail', () => {
+test('running, stopping, and reversal ease without pulling the camera backward', () => {
   const originalRequest = globalThis.requestAnimationFrame
   const originalCancel = globalThis.cancelAnimationFrame
   let pending = null
@@ -134,7 +134,7 @@ test('a running reversal turns the camera without snapping across the trail', ()
   globalThis.cancelAnimationFrame = () => {}
 
   try {
-    const harness = canvasHarness(844, 320)
+    const harness = canvasHarness(812, 375)
     const game = createGame(harness.canvas)
     const tick = () => {
       const firstTranslate = harness.translates.length
@@ -149,18 +149,29 @@ test('a running reversal turns the camera without snapping across the trail', ()
     game.start('garden-1')
     tick()
     const replay = recordReplay(LEVELS[0])
-    let beforeTurn = 0
-    for (const encoded of replay.inputs.slice(0, 120)) {
+    const running = []
+    for (const encoded of replay.inputs.slice(0, 80)) {
       game.setInput('left', Boolean(encoded & 1))
       game.setInput('right', Boolean(encoded & 2))
       game.setInput('jump', Boolean(encoded & 4))
-      beforeTurn = tick()
+      running.push(tick())
     }
 
     game.setInput('jump', false)
     game.setInput('right', false)
+    game.setInput('left', false)
+    const stopped = []
+    for (let frame = 0; frame < 30; frame += 1) stopped.push(tick())
+    const beforeStop = running.at(-1)
+    assert.ok(beforeStop < -20 && beforeStop > -300)
+    const runningStep = beforeStop - running.at(-2)
+    const firstStoppedStep = stopped[0] - beforeStop
+    assert.ok(Math.abs(firstStoppedStep - runningStep) < 1)
+    const backwardStep = Math.max(...stopped.slice(1).map((value, index) => value - stopped[index]))
+    assert.ok(backwardStep <= 1e-9, `camera pulled backward ${backwardStep.toFixed(2)} world pixels in one frame`)
+
     game.setInput('left', true)
-    assert.ok(beforeTurn < -280)
+    const beforeTurn = stopped.at(-1)
     const firstTurn = tick()
     assert.ok(Math.abs(firstTurn - beforeTurn) < 8)
 
