@@ -5,9 +5,9 @@ import test from 'node:test'
 import vm from 'node:vm'
 
 const REQUIRED_SHELL = [
-  './', './index.html', './app.css', './app.js', './audio.js', './daily.js',
-  './game.js', './levels.js', './release.js', './save.js', './engine/physics.js',
-  './engine/simulation.js', './version.js', './seed.js', './install.js', './update.js', './manifest.json',
+  './', './index.html', './app.css?v=4', './app.js?v=4', './audio.js', './daily.js',
+  './game.js?v=4', './levels.js', './release.js', './save.js', './engine/physics.js',
+  './engine/simulation.js', './version.js', './seed.js', './install.js', './update.js?v=4', './manifest.json',
   './icon-180.png', './icon-192.png', './icon-512.png', './icon-maskable-512.png',
   './assets/backgrounds/garden-walk.webp', './assets/backgrounds/region-atlas.webp',
   './assets/backgrounds/final-atlas.webp', './assets/sprites/courier-sheet.webp',
@@ -58,12 +58,13 @@ test('one failed shell entry rejects installation and never calls skipWaiting', 
   assert.equal(install.skipped(), 0)
 })
 
-test('migration fixtures are byte-for-byte the shipped v1.5, v1.7, v1.8, and v1.9 clients', async () => {
+test('migration fixtures are byte-for-byte shipped and preview clients', async () => {
   const fixtures = [
     ['v1.5', '6aeef5886fd93e86fce0df9e5f736284d6136e66', '640c09cff6ced479dce12f70daa4147f1d97cd2d'],
     ['v1.7', 'cd89bbe2545e463e82269012fc0c6d5aefcabacc', '6b325b24741f7e9becef5cb138a0f50f55d256da'],
     ['v1.8', 'd8ac9ef32bc8bfe0b20fc35cf2e879830a9db4b3', '6b325b24741f7e9becef5cb138a0f50f55d256da'],
     ['v1.9', 'f19f86bde0c64b7e3f1b660915951730112a9d41', '6b325b24741f7e9becef5cb138a0f50f55d256da'],
+    ['v2.0-preview', '8c5ed7906916992030404b6cee0db6d354b28b7a', '6b325b24741f7e9becef5cb138a0f50f55d256da'],
   ]
   for (const [version, workerHash, updaterHash] of fixtures) {
     const worker = await readFile(new URL(`./fixtures/${version}/sw.js`, import.meta.url))
@@ -117,7 +118,7 @@ function activateWith(keys, clients = []) {
 
 test('activation migrates v1.5 clients in scope after the complete B cache wins', async () => {
   const activation = activateWith(
-    ['jumpit-v1.5.0', 'jumpit-v1.9.0', 'jumpit-v2.0.0', 'sibling-game-v4'],
+    ['jumpit-v1.5.0', 'jumpit-v1.9.0', 'jumpit-v2.0.0', 'jumpit-v2.0.0-r2', 'jumpit-v2.0.0-r3', 'jumpit-v2.0.0-r4', 'sibling-game-v4'],
     [
       'https://example.test/jumpit/?seed=7',
       'https://example.test/other-game/',
@@ -125,18 +126,18 @@ test('activation migrates v1.5 clients in scope after the complete B cache wins'
     ],
   )
   await activation.done
-  assert.deepEqual(activation.deleted, ['jumpit-v1.5.0', 'jumpit-v1.9.0'])
+  assert.deepEqual(activation.deleted, ['jumpit-v1.5.0', 'jumpit-v1.9.0', 'jumpit-v2.0.0', 'jumpit-v2.0.0-r2', 'jumpit-v2.0.0-r3'])
   assert.equal(activation.claims(), 1)
   assert.equal(activation.matches(), 1)
   assert.deepEqual(activation.navigated, ['https://example.test/jumpit/?seed=7'])
 })
 
 test('activation without the v1.5 cache claims but never forces a navigation', async () => {
-  const activation = activateWith(['jumpit-v1.8.0', 'jumpit-v1.9.0', 'jumpit-v2.0.0'], [
+  const activation = activateWith(['jumpit-v1.8.0', 'jumpit-v1.9.0', 'jumpit-v2.0.0', 'jumpit-v2.0.0-r2', 'jumpit-v2.0.0-r3', 'jumpit-v2.0.0-r4'], [
     'https://example.test/jumpit/',
   ])
   await activation.done
-  assert.deepEqual(activation.deleted, ['jumpit-v1.8.0', 'jumpit-v1.9.0'])
+  assert.deepEqual(activation.deleted, ['jumpit-v1.8.0', 'jumpit-v1.9.0', 'jumpit-v2.0.0', 'jumpit-v2.0.0-r2', 'jumpit-v2.0.0-r3'])
   assert.equal(activation.claims(), 1)
   assert.equal(activation.matches(), 0)
   assert.deepEqual(activation.navigated, [])

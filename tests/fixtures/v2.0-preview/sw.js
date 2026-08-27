@@ -14,16 +14,16 @@
 //   4. the complete shell installs atomically. one missing file rejects the new
 //      worker, so it cannot replace a known-good offline version with half a game.
 //
-// bump CACHE whenever a cached shell file changes, including within a release candidate.
-const CACHE = 'jumpit-v2.0.0-r4'
+// bump CACHE when the shell list changes.
+const CACHE = 'jumpit-v2.0.0'
 const SHELL = [
   './',
   './index.html',
-  './app.css?v=4',
-  './app.js?v=4',
+  './app.css',
+  './app.js',
   './audio.js',
   './daily.js',
-  './game.js?v=4',
+  './game.js',
   './levels.js',
   './release.js',
   './save.js',
@@ -32,7 +32,7 @@ const SHELL = [
   './version.js',
   './seed.js',
   './install.js',
-  './update.js?v=4',
+  './update.js',
   './manifest.json',
   './icon-180.png',
   './icon-192.png',

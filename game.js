@@ -74,7 +74,7 @@ export function artKeysForLevel(level) {
 
 export function coachMessage({ moved, jumped, glowing, x }) {
   if (!moved) return 'HOLD ▶ TO RUN'
-  if (!jumped) return 'TAP JUMP'
+  if (!jumped) return 'TAP ANYWHERE TO JUMP'
   if (glowing && x < 620) return 'GLOW BUMPS CREATURES'
   return ''
 }
@@ -133,6 +133,11 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
   const finalSheet = art.final.image
   const reducedMotion = Boolean(globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
   const input = { left: false, right: false, jumpHeld: false, jumpPressed: false }
+  const inputSources = {
+    left: new Set(),
+    right: new Set(),
+    jump: new Set(),
+  }
   const particles = []
   let impact = null
   let cameraKick = 0
@@ -731,11 +736,18 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     raf = requestAnimationFrame(loop)
   }
 
-  function setInput(action, pressed) {
-    setInputState(input, action, pressed)
+  function setInput(action, pressed, source = 'direct') {
+    const sources = inputSources[action]
+    if (!sources) return
+    const wasPressed = sources.size > 0
+    if (pressed) sources.add(source)
+    else sources.delete(source)
+    const isPressed = sources.size > 0
+    if (wasPressed !== isPressed) setInputState(input, action, isPressed)
   }
 
   function clearInput() {
+    for (const sources of Object.values(inputSources)) sources.clear()
     clearInputState(input, player)
   }
 
@@ -748,15 +760,16 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
           ? 'jump'
           : null
     if (!action) return
+    const source = `key:${event.code}`
     if (interactiveKeyTarget(event.target, event.code)) {
-      if (event.type === 'keyup') setInput(action, false)
+      if (event.type === 'keyup') setInput(action, false, source)
       return
     }
     const mode = keyInputMode({ type: event.type, running, paused, finished })
     if (mode === 'ignore') return
-    if (mode === 'release') return setInput(action, false)
+    if (mode === 'release') return setInput(action, false, source)
     event.preventDefault()
-    setInput(action, event.type === 'keydown')
+    setInput(action, event.type === 'keydown', source)
   }
 
   window.addEventListener('keydown', onKey)

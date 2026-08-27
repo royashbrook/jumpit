@@ -696,9 +696,53 @@ h1 {
 }
 
 .game-screen {
-  position: relative;
-  gap: .45rem;
-  max-width: 72rem;
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  gap: 0;
+  width: auto;
+  height: auto;
+  max-width: none;
+  overflow: hidden;
+  background: var(--surface-sunk);
+}
+
+.game-screen .bar {
+  position: absolute;
+  top: max(.35rem, env(safe-area-inset-top));
+  right: max(.5rem, env(safe-area-inset-right));
+  left: max(.5rem, env(safe-area-inset-left));
+  z-index: 5;
+  width: auto;
+  pointer-events: none;
+}
+
+.game-screen .bar > button {
+  pointer-events: auto;
+}
+
+.game-screen .chip {
+  min-width: 44px;
+  min-height: 44px;
+  padding: .3rem .55rem;
+  border-width: .12rem;
+  background: rgb(from var(--surface-raised) r g b / .9);
+  box-shadow: var(--shadow-pressed);
+}
+
+.game-screen .chip.flat {
+  border-color: rgb(from var(--line) r g b / .42);
+  background: rgb(from var(--surface-raised) r g b / .86);
+  color: var(--ink-dim);
+}
+
+.game-screen .level-name {
+  flex: 0 1 auto;
+  max-width: min(14rem, 36vw);
+}
+
+.game-screen .seed-count {
+  margin-left: auto;
 }
 
 .rotate-device {
@@ -753,20 +797,21 @@ h1 {
 }
 
 .stage-shell {
-  position: relative;
-  flex: 1;
-  width: 100%;
-  min-height: 0;
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
   overflow: hidden;
-  border: .18rem solid var(--line);
-  border-radius: var(--radius);
+  border: 0;
+  border-radius: 0;
   background: var(--surface-sunk);
-  box-shadow: var(--shadow);
+  box-shadow: none;
+  touch-action: none;
 }
 
 .game-status {
   position: absolute;
-  top: .6rem;
+  top: max(3.35rem, calc(env(safe-area-inset-top) + 3.35rem));
   left: 50%;
   z-index: 1;
   max-width: calc(100% - 1.2rem);
@@ -791,7 +836,7 @@ h1 {
 
 .guardian-status {
   position: absolute;
-  top: 3rem;
+  top: max(5.35rem, calc(env(safe-area-inset-top) + 5.35rem));
   left: 50%;
   z-index: 1;
   max-width: calc(100% - 1.2rem);
@@ -811,10 +856,14 @@ h1 {
 .game-overlay {
   position: absolute;
   inset: 0;
-  z-index: 4;
+  z-index: 6;
   display: grid;
   place-items: center;
-  padding: 1rem;
+  padding:
+    max(1rem, env(safe-area-inset-top))
+    max(1rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom))
+    max(1rem, env(safe-area-inset-left));
   overflow: auto;
   background: rgb(from var(--surface-sunk) r g b / .46);
   backdrop-filter: blur(2px);
@@ -897,32 +946,48 @@ h1 {
 }
 
 .controls {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1.2fr;
-  gap: .55rem;
-  width: 100%;
-  padding-top: .2rem;
+  --control-size: clamp(48px, 13dvh, 58px);
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
 }
 
 .control {
-  min-height: 4rem;
-  border: .18rem solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface-raised);
-  box-shadow: var(--shadow);
+  position: absolute;
+  bottom: max(.5rem, env(safe-area-inset-bottom));
+  width: var(--control-size);
+  min-height: var(--control-size);
+  padding: 0;
+  border: .12rem solid rgb(from var(--line) r g b / .82);
+  border-radius: calc(var(--radius) * .8);
+  background: rgb(from var(--surface-raised) r g b / .93);
+  box-shadow: var(--shadow-pressed);
   color: var(--ink);
   font: inherit;
   font-weight: 900;
+  pointer-events: auto;
   touch-action: none;
 }
 
 .control.direction {
-  font-size: 1.65rem;
+  font-size: 1.2rem;
+}
+
+.control#move-left {
+  left: max(.5rem, env(safe-area-inset-left));
+}
+
+.control#move-right {
+  left: calc(max(.5rem, env(safe-area-inset-left)) + var(--control-size) + .4rem);
 }
 
 .control.jump {
+  right: max(.5rem, env(safe-area-inset-right));
+  width: clamp(64px, 18dvh, 84px);
   background: var(--accent);
   color: var(--ink-on-accent);
+  font-size: .72rem;
 }
 
 .control[data-held] {
@@ -1018,6 +1083,7 @@ dialog ol {
 
 .update {
   position: fixed;
+  z-index: 20;
   left: 50%;
   bottom: max(1rem, env(safe-area-inset-bottom));
   translate: -50% 0;
@@ -1087,51 +1153,14 @@ dialog ol {
       max(.5rem, env(safe-area-inset-left));
   }
 
-  .game-screen {
-    gap: .35rem;
-  }
-
-  .bar {
-    flex: 0 0 auto;
-  }
-
-  .chip {
-    min-height: 2.75rem;
-  }
-
-  .stage-shell {
-    min-height: 0;
-  }
-
-  .controls {
-    position: absolute;
-    right: .75rem;
-    bottom: .65rem;
-    left: .75rem;
-    z-index: 3;
-    grid-template-columns:
-      clamp(56px, 11vw, 76px)
-      clamp(56px, 11vw, 76px)
-      1fr
-      clamp(76px, 16vw, 112px);
-    gap: .45rem;
-    width: auto;
-    padding: 0;
-    pointer-events: none;
-  }
-
-  .control {
-    min-height: clamp(44px, 17dvh, 68px);
-    background: rgb(from var(--surface-raised) r g b / .94);
-    pointer-events: auto;
-  }
-
-  .control.jump {
-    grid-column: 4;
-  }
-
   .campaign-ending .ending-art {
     height: clamp(48px, 14dvh, 60px);
+  }
+}
+
+@media (orientation: landscape) and (max-height: 480px) {
+  .game-screen .level-name {
+    display: none;
   }
 }
 

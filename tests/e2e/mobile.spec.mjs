@@ -30,7 +30,7 @@ test('portrait Home stays inside the phone and keeps navigation visible', async 
   await expect(page.getByRole('navigation', { name: 'game menu' })).toBeVisible()
 })
 
-test('portrait Play waits for rotation, then opens a wide readable trail', async ({ page }) => {
+test('portrait Play waits for rotation, then fills an iPhone Air landscape', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   let courierRequests = 0
   page.on('request', request => {
@@ -49,14 +49,17 @@ test('portrait Play waits for rotation, then opens a wide readable trail', async
   await expect(page.locator('#pause')).toBeDisabled()
   expect(courierRequests).toBe(0)
 
-  await page.setViewportSize({ width: 844, height: 390 })
+  await page.setViewportSize({ width: 812, height: 375 })
   await expect(page.locator('#rotate-device')).toBeHidden()
   await expect(page.locator('#stage')).toBeVisible()
   await expect(page.getByRole('button', { name: 'pause game' })).toBeFocused()
   await expect.poll(() => courierRequests).toBeGreaterThan(0)
 
   const fit = await page.evaluate(() => {
+    const game = document.querySelector('#game').getBoundingClientRect()
+    const bar = document.querySelector('#game-bar').getBoundingClientRect()
     const stage = document.querySelector('.stage-shell').getBoundingClientRect()
+    const controls = document.querySelector('#controls').getBoundingClientRect()
     const canvas = document.querySelector('#stage')
     const left = document.querySelector('#move-left').getBoundingClientRect()
     const right = document.querySelector('#move-right').getBoundingClientRect()
@@ -64,19 +67,40 @@ test('portrait Play waits for rotation, then opens a wide readable trail', async
     return {
       width: innerWidth,
       height: innerHeight,
+      scrollWidth: document.documentElement.scrollWidth,
+      scrollHeight: document.documentElement.scrollHeight,
+      game: game.toJSON(),
+      bar: bar.toJSON(),
       stage: stage.toJSON(),
+      controls: controls.toJSON(),
       canvas: [canvas.width, canvas.height],
       left: left.toJSON(),
       right: right.toJSON(),
       jump: jump.toJSON(),
     }
   })
-  expect(fit.stage.width).toBeGreaterThan(fit.width * .9)
+  expect(fit.scrollWidth).toBeLessThanOrEqual(fit.width)
+  expect(fit.scrollHeight).toBeLessThanOrEqual(fit.height)
+  for (const rect of [fit.game, fit.stage, fit.controls]) {
+    expect(rect.left).toBeLessThanOrEqual(1)
+    expect(rect.top).toBeLessThanOrEqual(1)
+    expect(rect.right).toBeGreaterThanOrEqual(fit.width - 1)
+    expect(rect.bottom).toBeGreaterThanOrEqual(fit.height - 1)
+  }
+  expect(fit.bar.top).toBeGreaterThanOrEqual(fit.stage.top)
+  expect(fit.bar.bottom).toBeLessThanOrEqual(fit.stage.bottom)
   expect(fit.stage.width / fit.stage.height).toBeGreaterThan(2)
   expect(fit.canvas[0] / fit.canvas[1]).toBeGreaterThan(2)
   expect(fit.left.right).toBeLessThan(fit.width * .3)
   expect(fit.right.right).toBeLessThan(fit.width * .35)
   expect(fit.jump.left).toBeGreaterThan(fit.width * .7)
+  for (const control of [fit.left, fit.right, fit.jump]) {
+    expect(control.width).toBeGreaterThanOrEqual(44)
+    expect(control.height).toBeGreaterThanOrEqual(44)
+  }
+  const controlArea = [fit.left, fit.right, fit.jump]
+    .reduce((area, control) => area + control.width * control.height, 0)
+  expect(controlArea).toBeLessThan(fit.width * fit.height * .12)
 })
 
 test('all four looks keep every text token pair at WCAG AA contrast', async ({ page }) => {
@@ -123,7 +147,7 @@ test('discovered Hidden Lights fit Home at two-times text without becoming a men
     'g03-hidden-light', 'r03-hidden-light', 'w02-hidden-light',
     'm03-hidden-light', 'k01-hidden-light',
   ]
-  await page.route('**/app.css', async route => {
+  await page.route('**/app.css*', async route => {
     const response = await route.fetch()
     await route.fulfill({ response, body: `${await response.text()}\nhtml { font-size: 200%; }\n` })
   })
@@ -235,10 +259,10 @@ test('an interrupted portrait launch waits at Pause after rotation', async ({ pa
 
 test('two-times text and phone safe-area insets keep menu and play inside the viewport', async ({ page }) => {
   await page.setViewportSize({ width: 844, height: 390 })
-  await page.route('**/app.css', async route => {
+  await page.route('**/app.css*', async route => {
     const response = await route.fetch()
     const css = (await response.text())
-      .replaceAll('env(safe-area-inset-top)', '0px')
+      .replaceAll('env(safe-area-inset-top)', '19px')
       .replaceAll('env(safe-area-inset-right)', '47px')
       .replaceAll('env(safe-area-inset-bottom)', '21px')
       .replaceAll('env(safe-area-inset-left)', '47px')
@@ -259,7 +283,7 @@ test('two-times text and phone safe-area insets keep menu and play inside the vi
       nav: nav.toJSON(),
     }
   })
-  expect(menuFit.paddingTop).toBeGreaterThanOrEqual(0)
+  expect(menuFit.paddingTop).toBeGreaterThanOrEqual(19)
   expect(menuFit.rootFont).toBeGreaterThanOrEqual(32)
   expect(menuFit.paddingRight).toBeGreaterThanOrEqual(47)
   expect(menuFit.paddingBottom).toBeGreaterThanOrEqual(21)
@@ -281,22 +305,31 @@ test('two-times text and phone safe-area insets keep menu and play inside the vi
       width: innerWidth, height: innerHeight,
       scrollWidth: document.documentElement.scrollWidth,
       scrollHeight: document.documentElement.scrollHeight,
-      paddingRight: parseFloat(body.paddingRight), paddingBottom: parseFloat(body.paddingBottom),
+      paddingTop: parseFloat(body.paddingTop), paddingRight: parseFloat(body.paddingRight),
+      paddingBottom: parseFloat(body.paddingBottom),
       paddingLeft: parseFloat(body.paddingLeft),
       bar: bar.toJSON(), stage: stage.toJSON(), controls: controls.toJSON(), targets,
     }
   })
   expect(gameFit.scrollWidth).toBeLessThanOrEqual(gameFit.width)
   expect(gameFit.scrollHeight).toBeLessThanOrEqual(gameFit.height)
-  for (const rect of [gameFit.bar, gameFit.stage, gameFit.controls]) {
-    expect(rect.left).toBeGreaterThanOrEqual(gameFit.paddingLeft - 1)
-    expect(rect.right).toBeLessThanOrEqual(gameFit.width - gameFit.paddingRight + 1)
+  for (const rect of [gameFit.stage, gameFit.controls]) {
+    expect(rect.left).toBeLessThanOrEqual(1)
+    expect(rect.top).toBeLessThanOrEqual(1)
+    expect(rect.right).toBeGreaterThanOrEqual(gameFit.width - 1)
+    expect(rect.bottom).toBeGreaterThanOrEqual(gameFit.height - 1)
   }
-  expect(gameFit.controls.bottom).toBeLessThanOrEqual(gameFit.height - gameFit.paddingBottom + 1)
-  expect(gameFit.stage.height).toBeGreaterThan(120)
+  expect(gameFit.bar.top).toBeGreaterThanOrEqual(gameFit.paddingTop - 1)
+  expect(gameFit.bar.left).toBeGreaterThanOrEqual(gameFit.paddingLeft - 1)
+  expect(gameFit.bar.right).toBeLessThanOrEqual(gameFit.width - gameFit.paddingRight + 1)
+  expect(gameFit.stage.height).toBeGreaterThanOrEqual(gameFit.height - 1)
   for (const target of gameFit.targets) {
     expect(target.width).toBeGreaterThanOrEqual(44)
     expect(target.height).toBeGreaterThanOrEqual(44)
+    expect(target.top).toBeGreaterThanOrEqual(gameFit.paddingTop - 1)
+    expect(target.left).toBeGreaterThanOrEqual(gameFit.paddingLeft - 1)
+    expect(target.right).toBeLessThanOrEqual(gameFit.width - gameFit.paddingRight + 1)
+    expect(target.bottom).toBeLessThanOrEqual(gameFit.height - gameFit.paddingBottom + 1)
   }
 
   await page.getByRole('button', { name: 'pause game' }).click()
@@ -309,6 +342,10 @@ test('two-times text and phone safe-area insets keep menu and play inside the vi
   })
   expect(pauseFit.card.top).toBeGreaterThanOrEqual(pauseFit.overlay.top)
   expect(pauseFit.card.bottom).toBeLessThanOrEqual(pauseFit.overlay.bottom)
+  expect(pauseFit.card.top).toBeGreaterThanOrEqual(gameFit.paddingTop - 1)
+  expect(pauseFit.card.right).toBeLessThanOrEqual(gameFit.width - gameFit.paddingRight + 1)
+  expect(pauseFit.card.bottom).toBeLessThanOrEqual(gameFit.height - gameFit.paddingBottom + 1)
+  expect(pauseFit.card.left).toBeGreaterThanOrEqual(gameFit.paddingLeft - 1)
   expect(pauseFit.primary.top).toBeGreaterThanOrEqual(pauseFit.card.top)
   expect(pauseFit.primary.bottom).toBeLessThanOrEqual(pauseFit.card.bottom)
   await page.getByRole('button', { name: 'START OVER' }).click()

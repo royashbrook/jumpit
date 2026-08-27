@@ -11,14 +11,23 @@ const legacyWorkerSource = await readFile(new URL('../fixtures/v1.5/sw.js', impo
 const legacyUpdateSource = await readFile(new URL('../fixtures/v1.5/update.js', import.meta.url), 'utf8')
 const previousWorkerSource = await readFile(new URL('../fixtures/v1.9/sw.js', import.meta.url), 'utf8')
 const previousUpdateSource = await readFile(new URL('../fixtures/v1.9/update.js', import.meta.url), 'utf8')
+const previewWorkerSource = await readFile(new URL('../fixtures/v2.0-preview/sw.js', import.meta.url), 'utf8')
+const previewUpdateSource = await readFile(new URL('../fixtures/v2.0-preview/update.js', import.meta.url), 'utf8')
+const previewState = JSON.parse(await readFile(new URL('../fixtures/v2.0-preview/state.json', import.meta.url), 'utf8'))
 const previousVersion = '1.9.0'
 const currentVersion = versionSource.match(/VERSION\s*=\s*['"]([^'"]+)/)?.[1]
-const currentCache = `jumpit-v${currentVersion}`
+const currentCache = workerSource.match(/const CACHE\s*=\s*['"]([^'"]+)/)?.[1]
 const nextVersion = '2.1.0'
+const CURRENT_URLS = Object.freeze({
+  css: './app.css?v=4',
+  app: './app.js?v=4',
+  game: './game.js?v=4',
+  update: './update.js?v=4',
+})
 const REQUIRED_SHELL = [
-  './', './index.html', './app.css', './app.js', './audio.js', './daily.js',
-  './game.js', './levels.js', './release.js', './save.js', './engine/physics.js',
-  './engine/simulation.js', './version.js', './seed.js', './install.js', './update.js', './manifest.json',
+  './', './index.html', CURRENT_URLS.css, CURRENT_URLS.app, './audio.js', './daily.js',
+  CURRENT_URLS.game, './levels.js', './release.js', './save.js', './engine/physics.js',
+  './engine/simulation.js', './version.js', './seed.js', './install.js', CURRENT_URLS.update, './manifest.json',
   './icon-180.png', './icon-192.png', './icon-512.png', './icon-maskable-512.png',
   './assets/backgrounds/garden-walk.webp', './assets/backgrounds/region-atlas.webp',
   './assets/backgrounds/final-atlas.webp', './assets/sprites/courier-sheet.webp',
@@ -34,6 +43,116 @@ const ART_ASSETS = [
   { file: './assets/sprites/region-sheet.webp', width: 768, height: 512, alpha: true },
   { file: './assets/sprites/final-sheet.webp', width: 768, height: 512, alpha: true },
 ]
+
+const currentFiles = new Map()
+for (const entry of REQUIRED_SHELL.filter(entry => entry !== './')) {
+  const url = `/${entry.slice(2)}`
+  const path = `/${entry.slice(2).split('?')[0]}`
+  const bytes = await readFile(resolve(releaseRoot, entry.slice(2).split('?')[0]))
+  currentFiles.set(url, bytes)
+  if (!currentFiles.has(path)) currentFiles.set(path, bytes)
+}
+currentFiles.set('/', currentFiles.get('/index.html'))
+
+function contentType(path) {
+  if (path.endsWith('.html') || path === '/') return 'text/html'
+  if (path.endsWith('.css')) return 'text/css'
+  if (path.endsWith('.js')) return 'text/javascript'
+  if (path.endsWith('.json')) return 'application/json'
+  if (path.endsWith('.webp')) return 'image/webp'
+  if (path.endsWith('.png')) return 'image/png'
+  return 'application/octet-stream'
+}
+
+async function startSameVersionServer() {
+  let current = false
+  let currentWorkerChecks = 0
+  let currentWorkerReleased = false
+  const navigations = []
+  const requests = []
+  const workerResponses = []
+  const heldWorkerResponses = []
+  let refreshSeenResolve
+  const refreshSeen = new Promise(resolveSeen => { refreshSeenResolve = resolveSeen })
+  const previewApp = `
+    import { VERSION } from './version.js'
+    import { registerWorker } from './update.js'
+    document.documentElement.dataset.release = VERSION
+    document.documentElement.dataset.shell = 'preview'
+    registerWorker()
+  `
+  const previewIndex = `<!doctype html>
+    <html data-release="boot" data-shell="preview"><head>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <link rel="stylesheet" href="./app.css">
+    </head><body><script type="module" src="./app.js"></script></body></html>`
+  const previewFiles = new Map([
+    ['/', previewIndex],
+    ['/index.html', previewIndex],
+    ['/app.css', `/* pre-fullscreen ${previewState.blobs['app.css']} */`],
+    ['/app.js', previewApp],
+    ['/update.js', previewUpdateSource],
+    ['/version.js', versionSource],
+    ['/manifest.json', JSON.stringify({ id: './', start_url: './', scope: './' })],
+  ])
+  const send = (response, path, body) => {
+    response.writeHead(200, {
+      'cache-control': 'no-store',
+      'content-type': contentType(path),
+    }).end(body)
+  }
+  const server = createServer((request, response) => {
+    const url = new URL(request.url, 'http://local.test')
+    const path = url.pathname
+    const key = `${path}${url.search}`
+    requests.push({ generation: current ? 'current' : 'preview', path: key })
+    if (request.headers['sec-fetch-mode'] === 'navigate') navigations.push(current ? 'current' : 'preview')
+    if (current && path === '/sw.js') {
+      currentWorkerChecks += 1
+      if (currentWorkerChecks === 1) {
+        workerResponses.push('preview')
+        send(response, path, previewWorkerSource)
+        return
+      }
+      if (!currentWorkerReleased) {
+        heldWorkerResponses.push(response)
+        refreshSeenResolve()
+        return
+      }
+      workerResponses.push('current')
+      send(response, path, workerSource)
+      return
+    }
+    const body = path === '/sw.js'
+      ? (current ? workerSource : previewWorkerSource)
+      : current
+        ? currentFiles.get(key) || currentFiles.get(path)
+        : previewFiles.get(path) || currentFiles.get(path) || `pre-fullscreen ${previewState.sourceCommit} ${path}`
+    if (body === undefined) {
+      response.writeHead(404, { 'cache-control': 'no-store' }).end('not found')
+      return
+    }
+    send(response, path, body)
+  })
+  await new Promise(resolveListen => server.listen(0, '127.0.0.1', resolveListen))
+  const { port } = server.address()
+  return {
+    origin: `http://127.0.0.1:${port}/`,
+    navigations,
+    requests,
+    workerResponses,
+    useCurrent: () => { current = true },
+    waitForRefresh: () => refreshSeen,
+    releaseCurrentWorker: () => {
+      currentWorkerReleased = true
+      for (const response of heldWorkerResponses.splice(0)) {
+        workerResponses.push('current')
+        send(response, '/sw.js', workerSource)
+      }
+    },
+    close: () => new Promise((resolveClose, reject) => server.close(error => error ? reject(error) : resolveClose())),
+  }
+}
 
 async function startVersionServer(initial = '1.5.0') {
   let release = initial
@@ -219,18 +338,18 @@ test('the exact shipped v1.5 client migrates once into a coherent current shell'
     await expect.poll(() => server.navigations.filter(release => release === currentVersion).length).toBe(1)
     expect(server.navigations.length).toBe(before + 1)
 
-    const proof = await page.evaluate(async () => {
+    const proof = await page.evaluate(async appUrl => {
       const cacheNames = (await caches.keys()).filter(name => name.startsWith('jumpit-'))
       const index = await caches.match('./index.html')
       const version = await caches.match('./version.js')
-      const app = await caches.match('./app.js')
+      const app = await caches.match(appUrl)
       return {
         cacheNames,
         index: await index.text(),
         version: await version.text(),
         app: await app.text(),
       }
-    })
+    }, CURRENT_URLS.app)
     expect(proof.cacheNames).toEqual([currentCache])
     expect(proof.index).toContain(`content="${currentVersion}"`)
     expect(proof.version).toContain(`VERSION = '${currentVersion}'`)
@@ -266,18 +385,18 @@ test('the exact shipped v1.9 client upgrades once into a coherent current shell'
     await expect.poll(() => server.navigations.filter(release => release === currentVersion).length).toBe(1)
     expect(server.navigations.length).toBe(before + 1)
 
-    const proof = await page.evaluate(async () => {
+    const proof = await page.evaluate(async appUrl => {
       const cacheNames = (await caches.keys()).filter(name => name.startsWith('jumpit-'))
       const index = await caches.match('./index.html')
       const version = await caches.match('./version.js')
-      const app = await caches.match('./app.js')
+      const app = await caches.match(appUrl)
       return {
         cacheNames,
         index: await index.text(),
         version: await version.text(),
         app: await app.text(),
       }
-    })
+    }, CURRENT_URLS.app)
     expect(proof.cacheNames).toEqual([currentCache])
     expect(proof.index).toContain(`content="${currentVersion}"`)
     expect(proof.version).toContain(`VERSION = '${currentVersion}'`)
@@ -297,6 +416,66 @@ test('the exact shipped v1.9 client upgrades once into a coherent current shell'
   }
 })
 
+test('the pre-fullscreen v2 preview updates on first open without a version bump', async ({ page, context, browserName }) => {
+  const server = await startSameVersionServer()
+  try {
+    await page.goto(server.origin, { waitUntil: 'domcontentloaded' })
+    await page.evaluate(() => navigator.serviceWorker.ready)
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await expect(page.locator('html')).toHaveAttribute('data-release', currentVersion)
+    await expect(page.locator('html')).toHaveAttribute('data-shell', 'preview')
+    await expect.poll(() => page.evaluate(async () =>
+      (await caches.keys()).filter(name => name.startsWith('jumpit-')),
+    )).toEqual([previewState.cache])
+    const before = server.navigations.length
+
+    server.useCurrent()
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await expect(page.getByRole('button', { name: 'PLAY THE TRAIL' })).toBeVisible()
+    await expect(page.locator('#version')).toHaveText(`v${currentVersion}`)
+    await server.waitForRefresh()
+    expect(server.navigations.filter(generation => generation === 'current')).toHaveLength(1)
+    for (const path of Object.values(CURRENT_URLS).map(url => `/${url.slice(2)}`)) {
+      expect(server.requests).toContainEqual({ generation: 'current', path })
+    }
+    expect(server.workerResponses).toEqual(['preview'])
+
+    server.releaseCurrentWorker()
+    await expect.poll(() => server.navigations.filter(generation => generation === 'current').length).toBe(2)
+    expect(server.navigations).toHaveLength(before + 2)
+    expect(server.workerResponses.slice(0, 2)).toEqual(['preview', 'current'])
+
+    const proof = await page.evaluate(async urls => {
+      const cacheNames = (await caches.keys()).filter(name => name.startsWith('jumpit-'))
+      const index = await caches.match('./index.html')
+      const app = await caches.match(urls.app)
+      const css = await caches.match(urls.css)
+      return {
+        cacheNames,
+        index: await index.text(),
+        app: await app.text(),
+        css: await css.text(),
+      }
+    }, CURRENT_URLS)
+    expect(proof.cacheNames).toEqual([currentCache])
+    expect(proof.index).toBe(currentFiles.get('/index.html').toString())
+    expect(proof.app).toBe(currentFiles.get(`/${CURRENT_URLS.app.slice(2)}`).toString())
+    expect(proof.css).toBe(currentFiles.get(`/${CURRENT_URLS.css.slice(2)}`).toString())
+    // Playwright WebKit cannot reliably force network loss. The coherent-cache
+    // transition above still runs there; Chromium also proves the reopened shell.
+    if (browserName === 'webkit') return
+    await context.setOffline(true)
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await expect(page.getByRole('button', { name: 'PLAY THE TRAIL' })).toBeVisible()
+    expect(server.navigations.filter(generation => generation === 'current')).toHaveLength(2)
+    await context.setOffline(false)
+  } finally {
+    server.releaseCurrentWorker()
+    await context.setOffline(false).catch(() => {})
+    await server.close()
+  }
+})
+
 test('failed next precache cannot mutate the active shell; Chromium reloads that shell offline', async ({ page, context, browserName }) => {
   const server = await startVersionServer(currentVersion)
   try {
@@ -304,13 +483,13 @@ test('failed next precache cannot mutate the active shell; Chromium reloads that
     await page.evaluate(() => navigator.serviceWorker.ready)
     await page.reload({ waitUntil: 'domcontentloaded' })
     await expect(page.locator('html')).toHaveAttribute('data-release', currentVersion)
-    const before = await page.evaluate(async cacheName => {
+    const before = await page.evaluate(async ({ cacheName, appUrl }) => {
       const cache = await caches.open(cacheName)
       const root = await cache.match('./')
       const index = await cache.match('./index.html')
-      const app = await cache.match('./app.js')
+      const app = await cache.match(appUrl)
       return { root: await root.text(), index: await index.text(), app: await app.text() }
-    }, currentCache)
+    }, { cacheName: currentCache, appUrl: CURRENT_URLS.app })
     const navigationCount = server.navigations.length
 
     server.use(nextVersion)
@@ -328,13 +507,13 @@ test('failed next precache cannot mutate the active shell; Chromium reloads that
       return !registration.installing && !registration.waiting
     })).toBe(true)
 
-    const after = await page.evaluate(async cacheName => {
+    const after = await page.evaluate(async ({ cacheName, appUrl }) => {
       const cache = await caches.open(cacheName)
       const root = await cache.match('./')
       const index = await cache.match('./index.html')
-      const app = await cache.match('./app.js')
+      const app = await cache.match(appUrl)
       return { root: await root.text(), index: await index.text(), app: await app.text() }
-    }, currentCache)
+    }, { cacheName: currentCache, appUrl: CURRENT_URLS.app })
     expect(after).toEqual(before)
     expect(server.navigations.filter(release => release === nextVersion)).toHaveLength(1)
     expect(server.navigations.length).toBe(navigationCount + 1)
@@ -344,7 +523,7 @@ test('failed next precache cannot mutate the active shell; Chromium reloads that
     await page.reload({ waitUntil: 'domcontentloaded' })
     await expect(page.locator('meta[name="build"]')).toHaveAttribute('content', currentVersion)
     await expect(page.locator('html')).toHaveAttribute('data-release', currentVersion)
-    const offlineApp = await page.evaluate(async () => (await fetch('./app.js')).text())
+    const offlineApp = await page.evaluate(async appUrl => (await fetch(appUrl)).text(), CURRENT_URLS.app)
     expect(offlineApp).toContain(`BUILD = '${currentVersion}'`)
     expect(server.navigations.filter(release => release === nextVersion)).toHaveLength(1)
     await context.setOffline(false)

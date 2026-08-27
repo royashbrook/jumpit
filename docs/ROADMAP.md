@@ -20,6 +20,6 @@
 - v2.0.0: twenty verified levels, full progression, all original assets, stable PWA.
 
 The release receipt must prove every level finishable; the portrait Home and rotate gate
-unclipped; the 844x390 and 912x420 landscape playfields readable; physical iPhone install,
+unclipped; the edge-to-edge 812x375, 844x390, and 912x420 landscape playfields readable; physical iPhone install,
 update, rotation, and offline reopen; physical Android install, rotation, and offline reopen;
 the house checker; asset provenance; and the 4-of-5 cold-kid gate recorded in issue #1.
