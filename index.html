@@ -11,17 +11,25 @@
   <link rel="apple-touch-icon" href="icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="stylesheet" href="app.css?v=4">
+  <link rel="stylesheet" href="app.css?v=8">
 </head>
 <body>
   <main id="menu" class="screen menu-screen">
-    <div class="brand">
-      <img src="icon-192.png" width="72" height="72" alt="">
-      <div>
-        <h1>Jumpit</h1>
-        <p class="tagline">run the lantern trail</p>
+    <header class="menu-header">
+      <div class="brand">
+        <img src="icon-192.png" width="72" height="72" alt="">
+        <div>
+          <h1>Jumpit</h1>
+          <p class="tagline">run the lantern trail</p>
+        </div>
       </div>
-    </div>
+      <nav class="menu-nav" aria-label="game menu">
+        <button class="nav-item" data-tab="play" aria-pressed="true"><span aria-hidden="true">⌂</span><b>HOME</b></button>
+        <button class="nav-item" data-tab="trails" aria-pressed="false"><span aria-hidden="true">⌁</span><b>TRAILS</b></button>
+        <button class="nav-item" data-tab="looks" aria-pressed="false"><span aria-hidden="true">✦</span><b>LOOKS</b></button>
+        <button class="nav-item" data-tab="more" aria-pressed="false"><span aria-hidden="true">•••</span><b>MORE</b></button>
+      </nav>
+    </header>
 
     <div class="menu-content">
       <section id="play-panel" class="tab-panel">
@@ -101,12 +109,6 @@
       </section>
     </div>
 
-    <nav class="bottom-nav" aria-label="game menu">
-      <button class="nav-item" data-tab="play" aria-pressed="true"><span aria-hidden="true">▶</span><b>PLAY</b></button>
-      <button class="nav-item" data-tab="trails" aria-pressed="false"><span aria-hidden="true">⌁</span><b>TRAILS</b></button>
-      <button class="nav-item" data-tab="looks" aria-pressed="false"><span aria-hidden="true">✦</span><b>LOOKS</b></button>
-      <button class="nav-item" data-tab="more" aria-pressed="false"><span aria-hidden="true">•••</span><b>MORE</b></button>
-    </nav>
   </main>
 
   <main id="game" class="screen game-screen" hidden>
@@ -116,11 +118,6 @@
       <span id="seed-count" class="chip flat seed-count">◆ 0/3</span>
       <button id="pause" class="chip pause" aria-label="pause game">Ⅱ</button>
     </header>
-    <section id="rotate-device" class="rotate-device" role="status" aria-live="polite" hidden>
-      <p class="rotate-kicker">MORE TRAIL AHEAD</p>
-      <h2>Turn your phone sideways</h2>
-      <p>Jumpit plays wide so you can see the next jump.</p>
-    </section>
     <div id="stage-shell" class="stage-shell">
       <canvas id="stage" aria-label="Jumpit game world. Tap anywhere to jump." aria-describedby="game-status"></canvas>
       <p id="game-status" class="game-status" role="status" aria-live="polite"></p>
@@ -143,11 +140,23 @@
       </section>
     </div>
     <div id="controls" class="controls" aria-label="game controls">
-      <button id="move-left" class="control direction" aria-label="move left"><span aria-hidden="true">◀</span></button>
-      <button id="move-right" class="control direction" aria-label="move right"><span aria-hidden="true">▶</span></button>
-      <button id="jump" class="control jump" aria-label="jump">JUMP</button>
+      <div id="direction-zone" class="control-zone direction-zone" role="group" aria-label="movement">
+        <button id="move-left" class="control direction" aria-label="move left"><span aria-hidden="true">◀</span></button>
+        <button id="move-right" class="control direction" aria-label="move right"><span aria-hidden="true">▶</span></button>
+      </div>
+      <div id="jump-zone" class="control-zone jump-zone">
+        <button id="jump" class="control jump" aria-label="jump">JUMP</button>
+      </div>
     </div>
   </main>
+
+  <dialog id="rotate-device" class="rotate-device" aria-labelledby="rotate-title" aria-describedby="rotate-copy">
+    <p class="rotate-kicker">MORE TRAIL AHEAD</p>
+    <h2 id="rotate-title" tabindex="-1">Turn your phone sideways</h2>
+    <p id="rotate-copy">Jumpit plays wide so you can see the next jump.</p>
+    <button id="rotate-home" class="big secondary" hidden>EXIT TO HOME</button>
+    <button id="rotate-about" class="chip rotate-about">ABOUT</button>
+  </dialog>
 
   <dialog id="howto">
     <h2>How to play</h2>
@@ -174,6 +183,6 @@
   </dialog>
 
   <button id="update" class="update" hidden>NEW VERSION, TAP TO LOAD</button>
-  <script type="module" src="app.js?v=4"></script>
+  <script type="module" src="app.js?v=7"></script>
 </body>
 </html>

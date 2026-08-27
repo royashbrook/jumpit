@@ -145,6 +145,10 @@ body {
     max(.8rem, env(safe-area-inset-left));
 }
 
+body.orientation-blocked > .screen {
+  visibility: hidden;
+}
+
 [hidden] {
   display: none !important;
 }
@@ -172,6 +176,16 @@ button {
 
 .menu-screen {
   justify-content: flex-start;
+  max-width: 56rem;
+}
+
+.menu-header {
+  display: grid;
+  width: 100%;
+  flex: 0 0 auto;
+  grid-template-columns: minmax(7rem, 1fr) auto;
+  align-items: center;
+  gap: .75rem;
 }
 
 .brand {
@@ -567,14 +581,10 @@ h1 {
   color: var(--ink-on-accent);
 }
 
-.bottom-nav {
+.menu-nav {
   display: grid;
-  width: 100%;
-  flex: 0 0 auto;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(44px, 1fr));
   gap: .35rem;
-  padding-top: .35rem;
-  border-top: .12rem solid rgb(from var(--line) r g b / .18);
 }
 
 .nav-item {
@@ -746,23 +756,40 @@ h1 {
 }
 
 .rotate-device {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
   display: flex;
   width: 100%;
-  min-height: 0;
-  flex: 1;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  min-height: 100dvh;
+  margin: 0;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 1.25rem;
+  padding:
+    max(1.25rem, env(safe-area-inset-top))
+    max(1.25rem, env(safe-area-inset-right))
+    max(1.25rem, env(safe-area-inset-bottom))
+    max(1.25rem, env(safe-area-inset-left));
   overflow: auto;
-  border: .18rem solid var(--line);
-  border-radius: var(--radius);
+  border: 0;
+  border-radius: 0;
   background:
     linear-gradient(to top, rgb(from var(--line) r g b / .82), rgb(from var(--line) r g b / .12)),
     url('assets/backgrounds/garden-walk.webp') center / cover;
-  box-shadow: var(--shadow);
   color: var(--surface-raised);
   text-align: center;
+}
+
+.rotate-device:not([open]) {
+  display: none;
+}
+
+.rotate-device::backdrop {
+  background: var(--surface-sunk);
 }
 
 .rotate-device h2 {
@@ -785,15 +812,14 @@ h1 {
   letter-spacing: .08em;
 }
 
-.orientation-blocked .stage-shell,
-.orientation-blocked .controls {
-  display: none;
+.rotate-device .big {
+  max-width: 20rem;
+  margin-top: 1.25rem;
 }
 
-.orientation-blocked .level-name,
-.orientation-blocked .seed-count,
-.orientation-blocked .pause {
-  display: none;
+.rotate-device .rotate-about {
+  margin-top: 1rem;
+  background: rgb(from var(--surface-raised) r g b / .9);
 }
 
 .stage-shell {
@@ -946,23 +972,46 @@ h1 {
 }
 
 .controls {
-  --control-size: clamp(48px, 13dvh, 58px);
+  --control-size: clamp(60px, 17dvh, 72px);
+  --jump-width: clamp(92px, 25dvh, 108px);
+  --control-moat: clamp(16px, 5dvh, 20px);
   position: absolute;
   inset: 0;
   z-index: 3;
   pointer-events: none;
 }
 
-.control {
+.control-zone {
   position: absolute;
-  bottom: max(.5rem, env(safe-area-inset-bottom));
+  bottom: 0;
+  display: flex;
+  gap: .5rem;
+  padding-top: var(--control-moat);
+  padding-bottom: max(var(--control-moat), env(safe-area-inset-bottom));
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.direction-zone {
+  left: 0;
+  padding-right: var(--control-moat);
+  padding-left: max(var(--control-moat), env(safe-area-inset-left));
+}
+
+.jump-zone {
+  right: 0;
+  padding-right: max(var(--control-moat), env(safe-area-inset-right));
+  padding-left: var(--control-moat);
+}
+
+.control {
   width: var(--control-size);
   min-height: var(--control-size);
   padding: 0;
-  border: .12rem solid rgb(from var(--line) r g b / .82);
+  border: .12rem solid var(--line);
   border-radius: calc(var(--radius) * .8);
-  background: rgb(from var(--surface-raised) r g b / .93);
-  box-shadow: var(--shadow-pressed);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow);
   color: var(--ink);
   font: inherit;
   font-weight: 900;
@@ -971,23 +1020,14 @@ h1 {
 }
 
 .control.direction {
-  font-size: 1.2rem;
-}
-
-.control#move-left {
-  left: max(.5rem, env(safe-area-inset-left));
-}
-
-.control#move-right {
-  left: calc(max(.5rem, env(safe-area-inset-left)) + var(--control-size) + .4rem);
+  font-size: 1.45rem;
 }
 
 .control.jump {
-  right: max(.5rem, env(safe-area-inset-right));
-  width: clamp(64px, 18dvh, 84px);
+  width: var(--jump-width);
   background: var(--accent);
   color: var(--ink-on-accent);
-  font-size: .72rem;
+  font-size: .82rem;
 }
 
 .control[data-held] {
@@ -1155,6 +1195,38 @@ dialog ol {
 
   .campaign-ending .ending-art {
     height: clamp(48px, 14dvh, 60px);
+  }
+
+  .brand {
+    grid-template-columns: 3rem 1fr;
+  }
+
+  .brand img {
+    width: 3rem;
+    height: 3rem;
+  }
+
+  .brand h1 {
+    font-size: 2rem;
+  }
+
+  .tagline {
+    margin-top: .15rem;
+    font-size: .72rem;
+  }
+
+  .nav-item {
+    min-height: 3rem;
+    padding: .2rem;
+  }
+
+  .nav-item span {
+    min-height: 1rem;
+    font-size: .9rem;
+  }
+
+  .trail-hero {
+    min-height: 16rem;
   }
 }
 

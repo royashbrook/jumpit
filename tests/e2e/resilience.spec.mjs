@@ -151,6 +151,8 @@ test('the iOS install hint cannot overwrite the normal gameplay help', async ({ 
   })
   const page = await context.newPage()
   await page.goto(baseURL)
+  await expect(page.getByRole('heading', { name: 'Turn your phone sideways' })).toBeVisible()
+  await page.setViewportSize({ width: 844, height: 390 })
   await page.getByRole('button', { name: 'MORE' }).click()
   await page.getByRole('button', { name: 'ADD TO HOME SCREEN' }).click()
   await expect(page.getByRole('heading', { name: 'Add to home screen' })).toBeVisible()

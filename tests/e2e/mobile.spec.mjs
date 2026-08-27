@@ -1,22 +1,44 @@
 import { expect, test } from 'playwright/test'
 
-test('portrait Home stays inside the phone and keeps navigation visible', async ({ page }) => {
+test('portrait entry requires landscape before exposing the one-action Home', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Turn your phone sideways' })).toBeVisible()
+  await expect(page.locator('#rotate-title')).toBeFocused()
+  await expect(page.getByRole('button', { name: 'EXIT TO HOME' })).toBeHidden()
+  await expect(page.getByRole('button', { name: 'PLAY THE TRAIL' })).toBeHidden()
+  await expect(page.locator('#menu')).toHaveAttribute('inert', '')
+  await expect(page.locator('#update')).toHaveAttribute('inert', '')
+  await expect(page.locator('.bottom-nav')).toHaveCount(0)
+
+  await page.keyboard.press('Escape')
+  await expect(page.locator('#rotate-device')).toHaveAttribute('open', '')
+  await page.keyboard.press('Tab')
+  await expect(page.getByRole('button', { name: 'ABOUT' })).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(page.getByRole('button', { name: 'ABOUT' })).toBeFocused()
+  await page.getByRole('button', { name: 'ABOUT' }).click()
+  await expect(page.getByRole('heading', { name: 'About Jumpit' })).toBeVisible()
+  await page.getByRole('button', { name: 'BACK' }).click()
+
+  await page.setViewportSize({ width: 812, height: 375 })
+  await expect(page.locator('#rotate-device')).toBeHidden()
   await expect(page.getByRole('button', { name: 'PLAY THE TRAIL' })).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'game menu' })).toBeVisible()
   await expect(page.locator('#play-panel button')).toHaveCount(1)
   await expect(page.locator('#play-panel #daily-card')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /PLAY/i })).toHaveCount(1)
 
   const shell = await page.evaluate(() => ({
     innerWidth,
     innerHeight,
     scrollWidth: document.documentElement.scrollWidth,
     scrollHeight: document.documentElement.scrollHeight,
-    nav: document.querySelector('.bottom-nav').getBoundingClientRect().toJSON(),
+    nav: document.querySelector('.menu-nav').getBoundingClientRect().toJSON(),
   }))
   expect(shell.scrollWidth).toBeLessThanOrEqual(shell.innerWidth)
   expect(shell.scrollHeight).toBeLessThanOrEqual(shell.innerHeight)
+  expect(shell.nav.top).toBeGreaterThanOrEqual(0)
   expect(shell.nav.bottom).toBeLessThanOrEqual(shell.innerHeight)
 
   await page.getByRole('button', { name: 'TRAILS' }).click()
@@ -27,30 +49,49 @@ test('portrait Home stays inside the phone and keeps navigation visible', async 
   await expect(page.locator('.sleeping-place')).toHaveCount(4)
   await expect(page.locator('.sleeping-place').first()).toContainText('ROOFTOP RAIN')
   await expect(page.locator('.sleeping-place').first()).toContainText('CLEAR GARDEN WALK TO WAKE')
-  await expect(page.getByRole('navigation', { name: 'game menu' })).toBeVisible()
+  await page.getByRole('button', { name: 'HOME' }).click()
+  await expect(page.getByRole('button', { name: 'PLAY THE TRAIL' })).toBeVisible()
 })
 
-test('portrait Play waits for rotation, then fills an iPhone Air landscape', async ({ page }) => {
+test('the portrait gate supersedes an open Home dialog', async ({ page }) => {
+  await page.setViewportSize({ width: 912, height: 420 })
+  await page.goto('/')
+  await page.getByRole('button', { name: 'MORE' }).click()
+  await page.getByRole('button', { name: 'HOW TO PLAY' }).click()
+  await expect(page.getByRole('heading', { name: 'How to play' })).toBeVisible()
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(page.locator('#howto')).not.toHaveAttribute('open', '')
+  await expect(page.getByRole('heading', { name: 'Turn your phone sideways' })).toBeVisible()
+  await expect(page.locator('#rotate-title')).toBeFocused()
+})
+
+test('rotating landscape while portrait About is open returns focus to Home', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+  await page.getByRole('button', { name: 'ABOUT' }).click()
+  await expect(page.getByRole('heading', { name: 'About Jumpit' })).toBeVisible()
+
+  await page.setViewportSize({ width: 812, height: 375 })
+  await expect(page.locator('#about')).not.toHaveAttribute('open', '')
+  await expect(page.locator('#rotate-device')).not.toHaveAttribute('open', '')
+  await expect(page.getByRole('button', { name: 'PLAY THE TRAIL' })).toBeFocused()
+})
+
+test('one landscape Play tap starts a full-screen iPhone Air trail', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   let courierRequests = 0
   page.on('request', request => {
     if (request.url().endsWith('/assets/sprites/courier-sheet.webp')) courierRequests += 1
   })
   await page.goto('/')
-  await page.getByRole('button', { name: 'PLAY THE TRAIL' }).click()
-
   await expect(page.getByRole('heading', { name: 'Turn your phone sideways' })).toBeVisible()
-  await expect(page.locator('#stage')).toBeHidden()
-  await expect(page.locator('#controls')).toHaveAttribute('inert', '')
-  await expect(page.getByRole('button', { name: 'MENU' })).toBeVisible()
-  await expect(page.locator('#level-name')).toBeHidden()
-  await expect(page.locator('#seed-count')).toBeHidden()
-  await expect(page.locator('#pause')).toBeHidden()
-  await expect(page.locator('#pause')).toBeDisabled()
   expect(courierRequests).toBe(0)
 
   await page.setViewportSize({ width: 812, height: 375 })
   await expect(page.locator('#rotate-device')).toBeHidden()
+  expect(courierRequests).toBe(0)
+  await page.getByRole('button', { name: 'PLAY THE TRAIL' }).click()
   await expect(page.locator('#stage')).toBeVisible()
   await expect(page.getByRole('button', { name: 'pause game' })).toBeFocused()
   await expect.poll(() => courierRequests).toBeGreaterThan(0)
@@ -64,6 +105,12 @@ test('portrait Play waits for rotation, then fills an iPhone Air landscape', asy
     const left = document.querySelector('#move-left').getBoundingClientRect()
     const right = document.querySelector('#move-right').getBoundingClientRect()
     const jump = document.querySelector('#jump').getBoundingClientRect()
+    const directionZone = document.querySelector('#direction-zone').getBoundingClientRect()
+    const jumpZone = document.querySelector('#jump-zone').getBoundingClientRect()
+    const backgroundAlpha = selector => {
+      const channels = getComputedStyle(document.querySelector(selector)).backgroundColor.match(/[\d.]+/g)?.map(Number) || []
+      return channels.length > 3 ? channels.at(-1) : 1
+    }
     return {
       width: innerWidth,
       height: innerHeight,
@@ -77,6 +124,11 @@ test('portrait Play waits for rotation, then fills an iPhone Air landscape', asy
       left: left.toJSON(),
       right: right.toJSON(),
       jump: jump.toJSON(),
+      directionZone: directionZone.toJSON(),
+      jumpZone: jumpZone.toJSON(),
+      controlAlpha: ['#move-left', '#move-right', '#jump'].map(backgroundAlpha),
+      controlOpacity: ['#move-left', '#move-right', '#jump']
+        .map(selector => Number(getComputedStyle(document.querySelector(selector)).opacity)),
     }
   })
   expect(fit.scrollWidth).toBeLessThanOrEqual(fit.width)
@@ -94,10 +146,17 @@ test('portrait Play waits for rotation, then fills an iPhone Air landscape', asy
   expect(fit.left.right).toBeLessThan(fit.width * .3)
   expect(fit.right.right).toBeLessThan(fit.width * .35)
   expect(fit.jump.left).toBeGreaterThan(fit.width * .7)
-  for (const control of [fit.left, fit.right, fit.jump]) {
-    expect(control.width).toBeGreaterThanOrEqual(44)
-    expect(control.height).toBeGreaterThanOrEqual(44)
-  }
+  for (const control of [fit.left, fit.right]) expect(control.width).toBeGreaterThanOrEqual(63)
+  expect(fit.jump.width).toBeGreaterThanOrEqual(93)
+  for (const control of [fit.left, fit.right, fit.jump]) expect(control.height).toBeGreaterThanOrEqual(63)
+  expect(fit.controlAlpha).toEqual([1, 1, 1])
+  expect(fit.controlOpacity).toEqual([1, 1, 1])
+  expect(fit.left.left - fit.directionZone.left).toBeGreaterThanOrEqual(16)
+  expect(fit.directionZone.right - fit.right.right).toBeGreaterThanOrEqual(16)
+  expect(fit.left.top - fit.directionZone.top).toBeGreaterThanOrEqual(16)
+  expect(fit.jump.left - fit.jumpZone.left).toBeGreaterThanOrEqual(16)
+  expect(fit.jumpZone.right - fit.jump.right).toBeGreaterThanOrEqual(16)
+  expect(fit.jump.top - fit.jumpZone.top).toBeGreaterThanOrEqual(16)
   const controlArea = [fit.left, fit.right, fit.jump]
     .reduce((area, control) => area + control.width * control.height, 0)
   expect(controlArea).toBeLessThan(fit.width * fit.height * .12)
@@ -230,6 +289,7 @@ test('game controls and pause remain readable without hiding the world', async (
 })
 
 test('turning upright clears movement and pauses until the player continues', async ({ page }) => {
+  await page.setViewportSize({ width: 912, height: 420 })
   await page.goto('/')
   await page.getByRole('button', { name: 'PLAY THE TRAIL' }).click()
   await page.locator('#move-right').dispatchEvent('pointerdown', { pointerId: 1 })
@@ -237,7 +297,17 @@ test('turning upright clears movement and pauses until the player continues', as
 
   await page.setViewportSize({ width: 390, height: 844 })
   await expect(page.getByRole('heading', { name: 'Turn your phone sideways' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'EXIT TO HOME' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'EXIT TO HOME' })).toBeFocused()
+  await expect(page.locator('#update')).toHaveAttribute('inert', '')
   await expect(page.locator('#move-right')).not.toHaveAttribute('data-held', '')
+
+  await page.keyboard.press('Escape')
+  await expect(page.locator('#rotate-device')).toHaveAttribute('open', '')
+  await page.keyboard.press('Tab')
+  await expect(page.getByRole('button', { name: 'ABOUT' })).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(page.getByRole('button', { name: 'EXIT TO HOME' })).toBeFocused()
 
   await page.setViewportSize({ width: 844, height: 390 })
   await expect(page.getByRole('heading', { name: 'PAUSED' })).toBeVisible()
@@ -246,16 +316,21 @@ test('turning upright clears movement and pauses until the player continues', as
   await expect(page.getByRole('heading', { name: 'PAUSED' })).toBeHidden()
 })
 
-test('an interrupted portrait launch waits at Pause after rotation', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 })
+test('the portrait trail gate has a direct, stopped exit to Home', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'PLAY THE TRAIL' }).click()
+  await expect(page.locator('#stage')).toBeVisible()
+
+  await page.setViewportSize({ width: 390, height: 844 })
   await expect(page.getByRole('heading', { name: 'Turn your phone sideways' })).toBeVisible()
-  await page.evaluate(() => window.dispatchEvent(new Event('blur')))
+  await page.getByRole('button', { name: 'EXIT TO HOME' }).click()
+  await expect(page.locator('#game')).toBeHidden()
+  await expect(page.getByRole('button', { name: 'EXIT TO HOME' })).toBeHidden()
 
   await page.setViewportSize({ width: 844, height: 390 })
-  await expect(page.getByRole('heading', { name: 'PAUSED' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'KEEP GOING' })).toBeFocused()
+  await expect(page.getByRole('button', { name: 'PLAY THE TRAIL' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'PLAY THE TRAIL' })).toBeFocused()
+  await expect(page.getByRole('heading', { name: 'PAUSED' })).toBeHidden()
 })
 
 test('two-times text and phone safe-area insets keep menu and play inside the viewport', async ({ page }) => {
@@ -273,7 +348,7 @@ test('two-times text and phone safe-area insets keep menu and play inside the vi
 
   const menuFit = await page.evaluate(() => {
     const body = getComputedStyle(document.body)
-    const nav = document.querySelector('.bottom-nav').getBoundingClientRect()
+    const nav = document.querySelector('.menu-nav').getBoundingClientRect()
     return {
       width: innerWidth, height: innerHeight,
       rootFont: parseFloat(getComputedStyle(document.documentElement).fontSize),

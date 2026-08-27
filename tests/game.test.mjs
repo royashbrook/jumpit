@@ -173,19 +173,25 @@ test('coaching is one short action at a time and then gets out of the way', () =
   })
 })
 
-test('the landscape camera keeps the courier large and looks ahead both ways', () => {
+test('the landscape camera keeps the courier large and eases its look through a reversal', () => {
   const scale = cameraScale(844, 320)
   const viewWidth = 844 / scale
   const viewHeight = 320 / scale
   assert.equal(viewWidth, 28 * TILE)
   assert.ok(82 * scale >= 44)
-  assert.equal(cameraTarget({ playerX: 1_000, facing: 1, viewWidth, worldWidth: 3_000 }), 1_000 - viewWidth * .3)
-  assert.equal(cameraTarget({ playerX: 1_000, facing: -1, viewWidth, worldWidth: 3_000 }), 1_000 - viewWidth * .7)
-  assert.equal(cameraTarget({ playerX: 10, facing: 1, viewWidth, worldWidth: 3_000 }), 0)
-  assert.equal(cameraTarget({ playerX: 3_000, facing: 1, viewWidth, worldWidth: 3_000 }), 3_000 - viewWidth)
+  assert.deepEqual([-1, -.5, 0, .5, 1].map(direction =>
+    cameraTarget({ playerX: 1_000, direction, viewWidth, worldWidth: 3_000 })), [
+    1_000 - viewWidth * .7,
+    1_000 - viewWidth * .6,
+    1_000 - viewWidth * .5,
+    1_000 - viewWidth * .4,
+    1_000 - viewWidth * .3,
+  ])
+  assert.equal(cameraTarget({ playerX: 10, direction: 1, viewWidth, worldWidth: 3_000 }), 0)
+  assert.equal(cameraTarget({ playerX: 3_000, direction: 1, viewWidth, worldWidth: 3_000 }), 3_000 - viewWidth)
   assert.equal(
-    cameraTarget({ playerX: 1_000, facing: 1, viewWidth, worldWidth: 3_000, reducedMotion: true }),
-    cameraTarget({ playerX: 1_000, facing: -1, viewWidth, worldWidth: 3_000, reducedMotion: true }),
+    cameraTarget({ playerX: 1_000, direction: 1, viewWidth, worldWidth: 3_000, reducedMotion: true }),
+    cameraTarget({ playerX: 1_000, direction: -1, viewWidth, worldWidth: 3_000, reducedMotion: true }),
   )
   assert.ok(verticalCameraTarget({ playerY: 438, playerHeight: 42, viewHeight }) > 0)
   assert.equal(verticalCameraTarget({ playerY: 0, playerHeight: 42, viewHeight }), 0)

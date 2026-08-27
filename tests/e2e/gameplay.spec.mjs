@@ -361,11 +361,18 @@ test('browser hit-testing gives open world taps to the trail and chrome taps to 
   const read = () => page.evaluate(() => JSON.parse(document.documentElement.dataset.inputEvents || '[]'))
   const clear = () => page.evaluate(() => { document.documentElement.dataset.inputEvents = '[]' })
   const hits = await page.evaluate(() => {
+    const rect = selector => document.querySelector(selector).getBoundingClientRect()
     const center = selector => {
-      const rect = document.querySelector(selector).getBoundingClientRect()
-      const point = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+      const bounds = rect(selector)
+      const point = { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 }
       return { ...point, hit: document.elementFromPoint(point.x, point.y)?.closest('button')?.id || null }
     }
+    const safe = point => ({ ...point, hit: document.elementFromPoint(point.x, point.y)?.id || null })
+    const left = rect('#move-left')
+    const right = rect('#move-right')
+    const jump = rect('#jump')
+    const directionZone = rect('#direction-zone')
+    const jumpZone = rect('#jump-zone')
     const world = { x: innerWidth / 2, y: innerHeight * .75 }
     return {
       world: { ...world, hit: document.elementFromPoint(world.x, world.y)?.id || null },
@@ -374,15 +381,51 @@ test('browser hit-testing gives open world taps to the trail and chrome taps to 
       left: center('#move-left'),
       right: center('#move-right'),
       jump: center('#jump'),
+      safeDirections: [
+        safe({ x: (left.right + right.left) / 2, y: left.top + left.height / 2 }),
+        safe({ x: left.left - 16, y: left.top + left.height / 2 }),
+        safe({ x: right.right + 16, y: right.top + right.height / 2 }),
+        safe({ x: left.left + left.width / 2, y: left.top - 16 }),
+      ],
+      safeJump: [
+        safe({ x: jump.left - 16, y: jump.top + jump.height / 2 }),
+        safe({ x: jump.right + 16, y: jump.top + jump.height / 2 }),
+        safe({ x: jump.left + jump.width / 2, y: jump.top - 16 }),
+      ],
+      outsideZones: [
+        safe({ x: directionZone.right + 24, y: right.top + right.height / 2 }),
+        safe({ x: jumpZone.left - 24, y: jump.top + jump.height / 2 }),
+      ],
     }
   })
   expect(hits.world.hit).toBe('stage')
   expect([hits.back.hit, hits.pause.hit]).toEqual(['back', 'pause'])
   expect([hits.left.hit, hits.right.hit, hits.jump.hit]).toEqual(['move-left', 'move-right', 'jump'])
+  expect(hits.safeDirections.map(point => point.hit)).toEqual(Array(4).fill('direction-zone'))
+  expect(hits.safeJump.map(point => point.hit)).toEqual(Array(3).fill('jump-zone'))
+  expect(hits.outsideZones.map(point => point.hit)).toEqual(['stage', 'stage'])
 
   await clear()
   await page.mouse.click(hits.world.x, hits.world.y)
   expect(await read()).toEqual(['jump:true', 'jump:false'])
+
+  for (const point of hits.safeDirections) {
+    await clear()
+    await page.touchscreen.tap(point.x, point.y)
+    expect((await read()).filter(event => event.startsWith('jump:'))).toEqual([])
+  }
+
+  for (const point of hits.safeJump) {
+    await clear()
+    await page.mouse.click(point.x, point.y)
+    expect(await read()).toEqual([])
+  }
+
+  for (const point of hits.outsideZones) {
+    await clear()
+    await page.touchscreen.tap(point.x, point.y)
+    expect(await read()).toEqual(['jump:true', 'jump:false'])
+  }
 
   await page.mouse.click(hits.pause.x, hits.pause.y)
   await expect(page.getByRole('heading', { name: 'PAUSED' })).toBeVisible()
