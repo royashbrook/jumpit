@@ -6,6 +6,8 @@
   original art and sound, optional Hidden Lights, and a three-hit final guardian.
 - Made play landscape-first with a clear portrait rotate gate, an edge-to-edge world,
   a wider direction-aware camera, a transient left-side stick, and right-side jumping.
+- Moved the Bramble Bank checkpoint off its collapsing bank and reject future
+  checkpoints on terrain that disappears.
 - Proved the exact shipped v1.9 installed client and same-version preview cache upgrade
   once into the coherent v2 shell,
   while a failed v2.1 precache leaves the active offline shell untouched.

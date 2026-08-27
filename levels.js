@@ -68,7 +68,7 @@ export const LEVELS = [
   ], [
     ['g04-seed-a', 'seed', 11, 11], ['g04-seed-b', 'seed', 19, 14],
     ['g04-seed-c', 'seed', 34, 11], ['g04-seed-d', 'seed', 56, 11],
-    ['g04-check', 'checkpoint', 42, 14], ['g04-moss-a', 'mossling', 28, 14],
+    ['g04-check', 'checkpoint', 33, 14], ['g04-moss-a', 'mossling', 28, 14],
     ['g04-moss-b', 'mossling', 52, 14], ['g04-spring', 'spring', 62, 14],
   ]),
 
@@ -480,6 +480,11 @@ export function validateCampaign(campaign = LEVELS) {
     }
     if (finishOk && !validTerrain.some(tile => supports(tile, entry.finish[1], entry.finish[2]))) {
       errors.push(`${where}: finish bell has no supporting terrain`)
+    }
+    const checkpoint = validObjects.find(([, kind]) => kind === 'checkpoint')
+    if (checkpoint && !validTerrain.some(tile =>
+      tile[1] !== 'crumble' && supports(tile, checkpoint[2], checkpoint[3]))) {
+      errors.push(`${where}: ${checkpoint[0]} must have stable supporting terrain`)
     }
 
     if (spawnOk) {

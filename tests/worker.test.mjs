@@ -118,7 +118,7 @@ function activateWith(keys, clients = []) {
 
 test('activation migrates v1.5 clients in scope after the complete B cache wins', async () => {
   const activation = activateWith(
-    ['jumpit-v1.5.0', 'jumpit-v1.9.0', 'jumpit-v2.0.0', 'jumpit-v2.0.0-r2', 'jumpit-v2.0.0-r3', 'jumpit-v2.0.0-r4', 'jumpit-v2.0.0-r5', 'jumpit-v2.0.0-r6', 'jumpit-v2.0.0-r7', 'jumpit-v2.0.0-r8', 'jumpit-v2.0.0-r9', 'jumpit-v2.0.0-r10', 'sibling-game-v4'],
+    ['jumpit-v1.5.0', 'jumpit-v1.9.0', 'jumpit-v2.0.0', 'jumpit-v2.0.0-r2', 'jumpit-v2.0.0-r3', 'jumpit-v2.0.0-r4', 'jumpit-v2.0.0-r5', 'jumpit-v2.0.0-r6', 'jumpit-v2.0.0-r7', 'jumpit-v2.0.0-r8', 'jumpit-v2.0.0-r9', 'jumpit-v2.0.0-r10', 'jumpit-v2.0.0-r11', 'sibling-game-v4'],
     [
       'https://example.test/jumpit/?seed=7',
       'https://example.test/other-game/',
@@ -126,18 +126,18 @@ test('activation migrates v1.5 clients in scope after the complete B cache wins'
     ],
   )
   await activation.done
-  assert.deepEqual(activation.deleted, ['jumpit-v1.5.0', 'jumpit-v1.9.0', 'jumpit-v2.0.0', 'jumpit-v2.0.0-r2', 'jumpit-v2.0.0-r3', 'jumpit-v2.0.0-r4', 'jumpit-v2.0.0-r5', 'jumpit-v2.0.0-r6', 'jumpit-v2.0.0-r7', 'jumpit-v2.0.0-r8', 'jumpit-v2.0.0-r9'])
+  assert.deepEqual(activation.deleted, ['jumpit-v1.5.0', 'jumpit-v1.9.0', 'jumpit-v2.0.0', 'jumpit-v2.0.0-r2', 'jumpit-v2.0.0-r3', 'jumpit-v2.0.0-r4', 'jumpit-v2.0.0-r5', 'jumpit-v2.0.0-r6', 'jumpit-v2.0.0-r7', 'jumpit-v2.0.0-r8', 'jumpit-v2.0.0-r9', 'jumpit-v2.0.0-r10'])
   assert.equal(activation.claims(), 1)
   assert.equal(activation.matches(), 1)
   assert.deepEqual(activation.navigated, ['https://example.test/jumpit/?seed=7'])
 })
 
 test('activation without the v1.5 cache claims but never forces a navigation', async () => {
-  const activation = activateWith(['jumpit-v1.8.0', 'jumpit-v1.9.0', 'jumpit-v2.0.0', 'jumpit-v2.0.0-r2', 'jumpit-v2.0.0-r3', 'jumpit-v2.0.0-r4', 'jumpit-v2.0.0-r5', 'jumpit-v2.0.0-r6', 'jumpit-v2.0.0-r7', 'jumpit-v2.0.0-r8', 'jumpit-v2.0.0-r9', 'jumpit-v2.0.0-r10'], [
+  const activation = activateWith(['jumpit-v1.8.0', 'jumpit-v1.9.0', 'jumpit-v2.0.0', 'jumpit-v2.0.0-r2', 'jumpit-v2.0.0-r3', 'jumpit-v2.0.0-r4', 'jumpit-v2.0.0-r5', 'jumpit-v2.0.0-r6', 'jumpit-v2.0.0-r7', 'jumpit-v2.0.0-r8', 'jumpit-v2.0.0-r9', 'jumpit-v2.0.0-r10', 'jumpit-v2.0.0-r11'], [
     'https://example.test/jumpit/',
   ])
   await activation.done
-  assert.deepEqual(activation.deleted, ['jumpit-v1.8.0', 'jumpit-v1.9.0', 'jumpit-v2.0.0', 'jumpit-v2.0.0-r2', 'jumpit-v2.0.0-r3', 'jumpit-v2.0.0-r4', 'jumpit-v2.0.0-r5', 'jumpit-v2.0.0-r6', 'jumpit-v2.0.0-r7', 'jumpit-v2.0.0-r8', 'jumpit-v2.0.0-r9'])
+  assert.deepEqual(activation.deleted, ['jumpit-v1.8.0', 'jumpit-v1.9.0', 'jumpit-v2.0.0', 'jumpit-v2.0.0-r2', 'jumpit-v2.0.0-r3', 'jumpit-v2.0.0-r4', 'jumpit-v2.0.0-r5', 'jumpit-v2.0.0-r6', 'jumpit-v2.0.0-r7', 'jumpit-v2.0.0-r8', 'jumpit-v2.0.0-r9', 'jumpit-v2.0.0-r10'])
   assert.equal(activation.claims(), 1)
   assert.equal(activation.matches(), 0)
   assert.deepEqual(activation.navigated, [])

@@ -15,7 +15,7 @@
 //      worker, so it cannot replace a known-good offline version with half a game.
 //
 // bump CACHE whenever a cached shell file changes, including within a release candidate.
-const CACHE = 'jumpit-v2.0.0-r10'
+const CACHE = 'jumpit-v2.0.0-r11'
 const SHELL = [
   './',
   './index.html',
