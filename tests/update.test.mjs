@@ -73,8 +73,9 @@ test('a replacement controller and the banner can trigger only one reload', asyn
     banner.hidden = true
     wireUpdate(banner)
     await registerWorker()
-    await document.emit('visibilitychange')
     assert.equal(updates(), 1)
+    await document.emit('visibilitychange')
+    assert.equal(updates(), 2)
     await serviceWorker.emit('controllerchange')
     await serviceWorker.emit('controllerchange')
     await banner.emit('click')

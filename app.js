@@ -1,12 +1,12 @@
 import { currentSeed, isDaily, shareSeed } from './seed.js'
 import { createAudio } from './audio.js'
 import { challengeWon, dailyChallenge } from './daily.js'
-import { createGame } from './game.js'
+import { createGame } from './game.js?v=4'
 import { wireInstall } from './install.js'
 import { LEVELS, REGIONS } from './levels.js'
 import { createRelease } from './release.js'
 import { createSaveStore } from './save.js'
-import { wireUpdate, registerWorker } from './update.js'
+import { wireUpdate, registerWorker } from './update.js?v=4'
 import { VERSION } from './version.js'
 
 const $ = id => document.getElementById(id)
@@ -17,11 +17,11 @@ const overlay = $('game-overlay')
 const HOW_TO_PLAY = Object.freeze({
   title: 'How to play',
   steps: [
-    'Move along the garden trail.',
-    'Jump over gaps and onto safe paths.',
+    'Hold an arrow to run.',
+    'Tap anywhere to jump.',
     'Gather lantern seeds and reach the bell.',
   ],
-  copy: 'Hold a direction to run. Tap or hold JUMP for a short or high leap. Reach the golden bell.',
+  copy: 'Hold an arrow to run. Tap or hold anywhere for a short or high leap.',
 })
 const release = createRelease(LEVELS, 20)
 const releaseLevels = release.levels
@@ -47,6 +47,11 @@ let queuedNext = null
 let lastCompleted = null
 let activeChallenge = null
 let overlayOpen = false
+let orientationBlocked = false
+let pendingPlay = null
+let pendingAudio = null
+let pendingNeedsResume = false
+let gameStarted = false
 
 function fillHowto({ title, steps, copy }) {
   howto.querySelector('h2').textContent = title
@@ -116,8 +121,8 @@ const game = createGame($('stage'), state => {
     : ''
   const overlayVisible = state.paused || state.finished
   overlay.hidden = !overlayVisible
-  $('game-bar').inert = overlayVisible
-  $('controls').inert = overlayVisible
+  $('game-bar').inert = overlayVisible && !orientationBlocked
+  $('controls').inert = overlayVisible || orientationBlocked
   overlay.classList.toggle('campaign-ending', campaignFinished)
   $('ending-art').hidden = !campaignFinished
   $('overlay-kicker').textContent = challengeFinished
@@ -151,7 +156,7 @@ const game = createGame($('stage'), state => {
     queueMicrotask(() => {
       const next = !challengeFinished && state.finished && release.next(state.levelId) ? $('next-trail') : null
       const target = campaignFinished ? $('ending-home') : state.paused ? $('resume') : next || $('restart')
-      target.focus({ preventScroll: true })
+      target.focus()
     })
   } else if (!overlayVisible) {
     overlayOpen = false
@@ -181,29 +186,35 @@ const game = createGame($('stage'), state => {
 })
 
 const controlBindings = [['move-left', 'left'], ['move-right', 'right'], ['jump', 'jump']]
-const activeInputs = new Set()
+const activeInputs = new Map()
 const releaseTimers = new Map()
 
-function pressInput(action, button) {
-  clearTimeout(releaseTimers.get(action))
-  releaseTimers.delete(action)
-  if (activeInputs.has(action)) return
-  activeInputs.add(action)
+function pressInput(action, button, source) {
+  clearTimeout(releaseTimers.get(source))
+  releaseTimers.delete(source)
+  const sources = activeInputs.get(action) || new Set()
+  if (sources.has(source)) return
+  const first = sources.size === 0
+  sources.add(source)
+  activeInputs.set(action, sources)
   button.setAttribute('data-held', '')
-  game.setInput(action, true)
+  if (first) game.setInput(action, true, `touch:${action}`)
 }
 
-function releaseInput(action, button) {
-  clearTimeout(releaseTimers.get(action))
-  releaseTimers.delete(action)
-  if (!activeInputs.delete(action) && !button.hasAttribute('data-held')) return
+function releaseInput(action, button, source) {
+  clearTimeout(releaseTimers.get(source))
+  releaseTimers.delete(source)
+  const sources = activeInputs.get(action)
+  if (!sources?.delete(source)) return
+  if (sources.size) return
+  activeInputs.delete(action)
   button.removeAttribute('data-held')
-  game.setInput(action, false)
+  game.setInput(action, false, `touch:${action}`)
 }
 
 function releaseAllInputs() {
+  for (const timer of releaseTimers.values()) clearTimeout(timer)
   for (const [id, action] of controlBindings) {
-    clearTimeout(releaseTimers.get(action))
     $(id).removeAttribute('data-held')
     game.setInput(action, false)
   }
@@ -212,10 +223,59 @@ function releaseAllInputs() {
   game.clearInput()
 }
 
+function beginPendingPlay() {
+  if (!pendingPlay || orientationBlocked) return false
+  const next = pendingPlay
+  const startPaused = pendingNeedsResume
+  pendingPlay = null
+  pendingNeedsResume = false
+  gameStarted = true
+  game.start(next.levelId, { foundHiddenLights: store.get().hiddenLights })
+  if (startPaused) game.pause()
+  void Promise.resolve(pendingAudio).then(ready => { if (ready) audio.cue('start') })
+  pendingAudio = null
+  $('pause').focus({ preventScroll: true })
+  return true
+}
+
+function syncOrientation() {
+  const blocked = !gameScreen.hidden && innerHeight > innerWidth
+  const newlyBlocked = blocked && !orientationBlocked
+  orientationBlocked = blocked
+  gameScreen.classList.toggle('orientation-blocked', blocked)
+  $('rotate-device').hidden = !blocked
+  $('pause').disabled = blocked
+  $('controls').inert = blocked || !overlay.hidden
+  $('game-bar').inert = !blocked && !overlay.hidden
+
+  if (blocked) {
+    releaseAllInputs()
+    if (newlyBlocked && gameStarted) game.pause()
+    $('back').focus({ preventScroll: true })
+    return
+  }
+
+  if (!beginPendingPlay()) requestAnimationFrame(() => game.resize())
+  if (!overlay.hidden) {
+    const target = !$('resume').hidden
+      ? $('resume')
+      : overlay.classList.contains('campaign-ending')
+        ? $('ending-home')
+        : !$('next-trail').hidden ? $('next-trail') : $('restart')
+    requestAnimationFrame(() => target.focus())
+  }
+}
+
 function pauseForInterruption() {
   releaseAllInputs()
   void audio.suspend()
-  if (!gameScreen.hidden) game.pause()
+  if (gameScreen.hidden) return
+  if (pendingPlay) {
+    pendingNeedsResume = true
+    pendingAudio = null
+    return
+  }
+  game.pause()
 }
 
 function show(screen) {
@@ -227,14 +287,21 @@ function playLevel(levelId = store.get().selectedLevel, challenge = null) {
     ? release.find(challenge.levelId)?.id
     : release.playable(levelId, store.get().unlocked)
   if (!levelId) return
-  void audio.startFromGesture().then(ready => { if (ready) audio.cue('start') })
+  const level = release.find(levelId)
+  pendingAudio = audio.startFromGesture()
   activeChallenge = challenge
   if (!challenge) store.selectLevel(levelId)
   queuedNext = null
   lastCompleted = null
+  pendingPlay = { levelId }
+  pendingNeedsResume = false
+  gameStarted = false
+  $('level-name').textContent = level.name.toUpperCase()
+  $('seed-count').textContent = `◆ 0/${level.objects.filter(([, kind]) => kind === 'seed').length}`
+  $('pause').textContent = 'Ⅱ'
+  $('pause').setAttribute('aria-label', 'pause game')
   show(gameScreen)
-  game.start(levelId, { foundHiddenLights: store.get().hiddenLights })
-  $('pause').focus({ preventScroll: true })
+  syncOrientation()
 }
 
 function openTab(name) {
@@ -366,15 +433,20 @@ function renderMenu(nextState = store.get()) {
   $('sound-toggle').textContent = save.muted ? 'SOUND OFF' : 'SOUND ON'
 }
 
-window.addEventListener('resize', () => game.resize())
+window.addEventListener('resize', syncOrientation)
 $('version').textContent = `v${VERSION}`
 $('play').addEventListener('click', () => playLevel())
 $('daily-play')?.addEventListener('click', () => playLevel(featuredChallenge.levelId, featuredChallenge))
 $('back').addEventListener('click', () => {
   releaseAllInputs()
   game.stop()
+  pendingPlay = null
+  pendingAudio = null
+  pendingNeedsResume = false
+  gameStarted = false
   activeChallenge = null
   show(menu)
+  syncOrientation()
   renderMenu()
   $('play').focus({ preventScroll: true })
 })
@@ -397,8 +469,13 @@ $('next-trail').addEventListener('click', () => playLevel(queuedNext))
 $('ending-home').addEventListener('click', () => {
   releaseAllInputs()
   game.stop()
+  pendingPlay = null
+  pendingAudio = null
+  pendingNeedsResume = false
+  gameStarted = false
   activeChallenge = null
   show(menu)
+  syncOrientation()
   openTab('play')
   renderMenu()
   $('play').focus({ preventScroll: true })
@@ -408,25 +485,42 @@ for (const [id, action] of controlBindings) {
   const button = $(id)
   const release = event => {
     event.preventDefault()
-    releaseInput(action, button)
+    releaseInput(action, button, `${id}:pointer:${event.pointerId}`)
   }
   button.addEventListener('pointerdown', event => {
     event.preventDefault()
     try { button.setPointerCapture?.(event.pointerId) } catch {}
-    pressInput(action, button)
+    pressInput(action, button, `${id}:pointer:${event.pointerId}`)
   })
   button.addEventListener('pointerup', release)
   button.addEventListener('pointercancel', release)
   button.addEventListener('lostpointercapture', release)
   button.addEventListener('click', event => {
     if (event.detail !== 0) return
-    pressInput(action, button)
-    releaseTimers.set(action, setTimeout(() => releaseInput(action, button), 120))
+    const source = `${id}:activation`
+    pressInput(action, button, source)
+    releaseTimers.set(source, setTimeout(() => releaseInput(action, button, source), 120))
   })
   for (const type of ['keydown', 'keyup']) button.addEventListener(type, event => {
     if (event.key === ' ' || event.key === 'Enter') event.stopPropagation()
   })
 }
+
+const stage = $('stage-shell')
+const jumpControl = $('jump')
+const stageSource = pointerId => `stage:pointer:${pointerId}`
+const releaseStageJump = event => releaseInput('jump', jumpControl, stageSource(event.pointerId))
+stage.addEventListener('pointerdown', event => {
+  if (event.button > 0 || event.target.closest?.('button') || !gameStarted || orientationBlocked || !overlay.hidden) return
+  event.preventDefault()
+  try { stage.setPointerCapture?.(event.pointerId) } catch {}
+  pressInput('jump', jumpControl, stageSource(event.pointerId))
+})
+stage.addEventListener('pointerup', releaseStageJump)
+stage.addEventListener('pointercancel', releaseStageJump)
+stage.addEventListener('lostpointercapture', releaseStageJump)
+window.addEventListener('pointerup', releaseStageJump)
+window.addEventListener('pointercancel', releaseStageJump)
 
 for (const button of document.querySelectorAll('.nav-item')) button.addEventListener('click', () => {
   audio.cue('tap')

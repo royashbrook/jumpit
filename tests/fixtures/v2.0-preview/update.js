@@ -69,7 +69,6 @@ export function registerWorker(path = 'sw.js') {
 
   const start = () => serviceWorker.register(path).then(registration => {
     const refresh = () => registration.update().catch(() => {})
-    void refresh()
     setInterval(refresh, EVERY)
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) void refresh()

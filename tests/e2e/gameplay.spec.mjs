@@ -1,6 +1,8 @@
 import { expect, test } from 'playwright/test'
 
-const pointer = (page, selector, type) => page.dispatchEvent(selector, type, { pointerId: 7, pointerType: 'touch', isPrimary: true, buttons: type === 'pointerdown' ? 1 : 0 })
+const pointer = (page, selector, type, pointerId = 7, isPrimary = true) => page.dispatchEvent(selector, type, {
+  pointerId, pointerType: 'touch', isPrimary, buttons: type === 'pointerdown' ? 1 : 0,
+})
 
 async function launchTrail(page) {
   const play = page.getByRole('button', { name: 'PLAY THE TRAIL' })
@@ -173,7 +175,7 @@ test('the first visible action pays off inside five seconds with a real seed', a
 })
 
 test('identical reward messages visibly retrigger their status animation', async ({ page }) => {
-  await page.route('**/game.js', route => route.fulfill({ contentType: 'text/javascript', body: shellFeedbackGameStub }))
+  await page.route('**/game.js*', route => route.fulfill({ contentType: 'text/javascript', body: shellFeedbackGameStub }))
   await page.goto('/')
   await launchTrail(page)
   await page.locator('#game-status').evaluate(element => {
@@ -194,7 +196,7 @@ test('identical reward messages visibly retrigger their status animation', async
 })
 
 test('a clear names place progress and the trail or place it just opened', async ({ page }) => {
-  await page.route('**/game.js', route => route.fulfill({ contentType: 'text/javascript', body: shellFeedbackGameStub }))
+  await page.route('**/game.js*', route => route.fulfill({ contentType: 'text/javascript', body: shellFeedbackGameStub }))
   await page.addInitScript(() => localStorage.setItem('jumpit-save-v1', JSON.stringify({
     version: 2,
     completed: ['garden-1', 'garden-2', 'garden-3'],
@@ -216,7 +218,7 @@ test('a clear names place progress and the trail or place it just opened', async
 })
 
 test('a hidden light stamps once, survives reload, and only then reveals Home progress', async ({ page }) => {
-  await page.route('**/game.js', route => route.fulfill({ contentType: 'text/javascript', body: hiddenLightGameStub }))
+  await page.route('**/game.js*', route => route.fulfill({ contentType: 'text/javascript', body: hiddenLightGameStub }))
   await page.addInitScript(() => {
     if (localStorage.getItem('jumpit-save-v1')) return
     localStorage.setItem('jumpit-save-v1', JSON.stringify({
@@ -260,7 +262,7 @@ test('a hidden light stamps once, survives reload, and only then reveals Home pr
 })
 
 test('a Hidden Light found in a challenge keeps its stamp', async ({ page }) => {
-  await page.route('**/game.js', route => route.fulfill({ contentType: 'text/javascript', body: hiddenLightGameStub }))
+  await page.route('**/game.js*', route => route.fulfill({ contentType: 'text/javascript', body: hiddenLightGameStub }))
   await page.goto('/')
   await page.getByRole('button', { name: 'MORE' }).click()
   await page.locator('#daily-play').click()
@@ -271,38 +273,64 @@ test('a Hidden Light found in a challenge keeps its stamp', async ({ page }) => 
   ])
 })
 
-test('ArrowRight moves from the focused PAUSE button without a blur workaround', async ({ page }) => {
+test('a held move control survives an overlapping ArrowRight release', async ({ page }) => {
   await page.goto('/')
   await launchTrail(page)
   await expect(page.getByRole('button', { name: 'pause game' })).toBeFocused()
+  await pointer(page, '#move-right', 'pointerdown', 8)
   await page.keyboard.down('ArrowRight')
-  await page.waitForTimeout(1_200)
   await page.keyboard.up('ArrowRight')
-  await expect(page.locator('#seed-count')).toContainText('1/3')
+  await expect(page.locator('#move-right')).toHaveAttribute('data-held', '')
+  await expect(page.locator('#seed-count')).toContainText('1/3', { timeout: 2_500 })
+  await pointer(page, '#move-right', 'pointerup', 8)
+  await expect(page.locator('#move-right')).not.toHaveAttribute('data-held', '')
 })
 
-test('run and jump can overlap on touch without sticking either control', async ({ page }) => {
+test('run and a trail tap can overlap without sticking either control', async ({ page }) => {
   await page.goto('/')
   await launchTrail(page)
-  await pointer(page, '#move-right', 'pointerdown')
+  await pointer(page, '#move-right', 'pointerdown', 7)
   await page.waitForTimeout(300)
-  await pointer(page, '#jump', 'pointerdown')
+  await pointer(page, '#stage-shell', 'pointerdown', 8, false)
   await page.waitForTimeout(120)
-  await pointer(page, '#jump', 'pointerup')
+  await pointer(page, '#stage-shell', 'pointerup', 8, false)
+  await expect(page.locator('#move-right')).toHaveAttribute('data-held', '')
   await page.waitForTimeout(380)
-  await pointer(page, '#move-right', 'pointerup')
+  await pointer(page, '#move-right', 'pointerup', 7)
   await expect(page.locator('#move-right')).not.toHaveAttribute('data-held', '')
   await expect(page.locator('#jump')).not.toHaveAttribute('data-held', '')
   await expect(page.locator('#stage')).toBeVisible()
 })
 
-test('each pointer, keyboard, and screen-reader control action fires exactly once', async ({ page }) => {
-  await page.route('**/game.js', route => route.fulfill({ contentType: 'text/javascript', body: inputGameStub }))
+test('trail taps, controls, keyboard, and assistive activation fire exactly once', async ({ page }) => {
+  await page.route('**/game.js*', route => route.fulfill({ contentType: 'text/javascript', body: inputGameStub }))
   await page.goto('/')
   await launchTrail(page)
   const read = () => page.evaluate(() => JSON.parse(document.documentElement.dataset.inputEvents || '[]'))
   const clear = () => page.evaluate(() => { document.documentElement.dataset.inputEvents = '[]' })
 
+  await clear()
+  await pointer(page, '#stage-shell', 'pointerdown', 20)
+  await pointer(page, '#stage-shell', 'pointerup', 20)
+  expect(await read()).toEqual(['jump:true', 'jump:false'])
+
+  await clear()
+  await pointer(page, '#stage-shell', 'pointerdown', 21)
+  await pointer(page, '#stage-shell', 'pointerdown', 22, false)
+  expect(await read()).toEqual(['jump:true'])
+  await pointer(page, '#stage-shell', 'pointerup', 21)
+  expect(await read()).toEqual(['jump:true'])
+  await expect(page.locator('#jump')).toHaveAttribute('data-held', '')
+  await pointer(page, '#stage-shell', 'pointerup', 22, false)
+  expect(await read()).toEqual(['jump:true', 'jump:false'])
+  await expect(page.locator('#jump')).not.toHaveAttribute('data-held', '')
+
+  await clear()
+  await pointer(page, '#jump', 'pointerdown', 23)
+  await pointer(page, '#jump', 'pointerup', 23)
+  expect(await read()).toEqual(['jump:true', 'jump:false'])
+
+  await clear()
   await page.locator('#jump').focus()
   await page.locator('#jump').press('Space')
   await page.waitForTimeout(150)
@@ -316,10 +344,61 @@ test('each pointer, keyboard, and screen-reader control action fires exactly onc
   await clear()
   await page.locator('#move-left').click()
   expect(await read()).toEqual(['left:true', 'left:false'])
+
+  await page.getByRole('button', { name: 'pause game' }).click()
+  await expect(page.getByRole('heading', { name: 'PAUSED' })).toBeVisible()
+  await clear()
+  await pointer(page, '#game-overlay', 'pointerdown', 24)
+  await pointer(page, '#game-overlay', 'pointerup', 24)
+  expect(await read()).toEqual([])
+})
+
+test('browser hit-testing gives open world taps to the trail and chrome taps to chrome', async ({ page }) => {
+  await page.setViewportSize({ width: 812, height: 375 })
+  await page.route('**/game.js*', route => route.fulfill({ contentType: 'text/javascript', body: inputGameStub }))
+  await page.goto('/')
+  await launchTrail(page)
+  const read = () => page.evaluate(() => JSON.parse(document.documentElement.dataset.inputEvents || '[]'))
+  const clear = () => page.evaluate(() => { document.documentElement.dataset.inputEvents = '[]' })
+  const hits = await page.evaluate(() => {
+    const center = selector => {
+      const rect = document.querySelector(selector).getBoundingClientRect()
+      const point = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+      return { ...point, hit: document.elementFromPoint(point.x, point.y)?.closest('button')?.id || null }
+    }
+    const world = { x: innerWidth / 2, y: innerHeight * .75 }
+    return {
+      world: { ...world, hit: document.elementFromPoint(world.x, world.y)?.id || null },
+      back: center('#back'),
+      pause: center('#pause'),
+      left: center('#move-left'),
+      right: center('#move-right'),
+      jump: center('#jump'),
+    }
+  })
+  expect(hits.world.hit).toBe('stage')
+  expect([hits.back.hit, hits.pause.hit]).toEqual(['back', 'pause'])
+  expect([hits.left.hit, hits.right.hit, hits.jump.hit]).toEqual(['move-left', 'move-right', 'jump'])
+
+  await clear()
+  await page.mouse.click(hits.world.x, hits.world.y)
+  expect(await read()).toEqual(['jump:true', 'jump:false'])
+
+  await page.mouse.click(hits.pause.x, hits.pause.y)
+  await expect(page.getByRole('heading', { name: 'PAUSED' })).toBeVisible()
+  const overlay = await page.evaluate(() => {
+    const point = { x: innerWidth / 2, y: innerHeight / 2 }
+    const hit = document.elementFromPoint(point.x, point.y)
+    return { ...point, wins: Boolean(hit?.closest('#game-overlay')) }
+  })
+  expect(overlay.wins).toBe(true)
+  await clear()
+  await page.mouse.click(overlay.x, overlay.y)
+  expect(await read()).toEqual([])
 })
 
 test('beating the guardian gives the campaign a focused mobile ending with replay and home', async ({ page }) => {
-  await page.route('**/game.js', route => route.fulfill({ contentType: 'text/javascript', body: endingGameStub }))
+  await page.route('**/game.js*', route => route.fulfill({ contentType: 'text/javascript', body: endingGameStub }))
   await page.addInitScript(completed => {
     localStorage.setItem('jumpit-save-v1', JSON.stringify({
       version: 2,
@@ -377,7 +456,7 @@ test('beating the guardian gives the campaign a focused mobile ending with repla
 })
 
 test('the ungated ending reflects partial or complete hidden light discovery', async ({ page }) => {
-  await page.route('**/game.js', route => route.fulfill({ contentType: 'text/javascript', body: endingGameStub }))
+  await page.route('**/game.js*', route => route.fulfill({ contentType: 'text/javascript', body: endingGameStub }))
   await page.addInitScript(({ completed, lights }) => {
     if (localStorage.getItem('jumpit-save-v1')) return
     localStorage.setItem('jumpit-save-v1', JSON.stringify({

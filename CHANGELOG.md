@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.0.0: pending human gates
+
+- Stabilized the twenty-trail campaign across five grounded places with full progression,
+  original art and sound, optional Hidden Lights, and a three-hit final guardian.
+- Made play landscape-first with a clear portrait rotate gate, an edge-to-edge world,
+  a wider direction-aware camera, compact corner arrows, and tap-anywhere jumping.
+- Proved the exact shipped v1.9 installed client and same-version preview cache upgrade
+  once into the coherent v2 shell,
+  while a failed v2.1 precache leaves the active offline shell untouched.
+- Prepared v2 for the protected permanent-origin and Pages workflows. Its deploy, exact
+  byte-parity receipt, and tag wait for physical iPhone install/update/offline, physical
+  Android install/offline, and the 4-of-5 cold-kid gate.
+
 ## 1.9.0: 2026-08-26
 
 - Added one optional, reachable Hidden Light to each place. Discoveries persist from

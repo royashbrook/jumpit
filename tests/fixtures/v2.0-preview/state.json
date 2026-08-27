@@ -1,0 +1,12 @@
+{
+  "sourceCommit": "c95dca03e70e8d14bd154fbce2530eb441b1c509",
+  "version": "2.0.0",
+  "cache": "jumpit-v2.0.0",
+  "blobs": {
+    "index.html": "402290a7888ce4861c9a5785c60d2fd2387f6fdf",
+    "app.css": "7402e91de12a9d051e59622e9d99f14bfe93b91d",
+    "app.js": "eb02537d30852b2ed28d65250eb119e5c129e220",
+    "sw.js": "8c5ed7906916992030404b6cee0db6d354b28b7a",
+    "update.js": "6b325b24741f7e9becef5cb138a0f50f55d256da"
+  }
+}

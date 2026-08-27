@@ -1,14 +1,20 @@
 # Jumpit
 
-Jumpit is an original mobile-first storybook platform game for kids. Run, jump,
-find lantern seeds, and carry light through five grounded places.
+Jumpit is an original mobile-first storybook platform game for kids. Hold a corner arrow
+to run, tap anywhere to jump, find lantern seeds, and carry light through
+five grounded places. Home works upright; play turns landscape and fills the screen so
+the next jump stays visible.
 
-Version 1.9 opens all 20 trails across Garden Walk, Rooftop Rain, Workshop Loft,
-Lantern Market, and Beacon Keep. Its short First Light opening leads into five optional
-Hidden Lights, one in each place, without turning discovery into a gate or an up-front
-checklist. The seven canvas images ship as selectively loaded WebPs, while the exact v1.8
-installed client upgrades into one coherent v1.9 cache. One shared fixed-step transition
-powers live play, deterministic trail replays, and five separate discovery replays.
+The v2.0 release candidate completes all 20 trails across Garden Walk, Rooftop Rain,
+Workshop Loft, Lantern Market, and Beacon Keep. Its short First Light opening leads
+into five optional Hidden Lights, one in each place, without turning discovery into
+a gate or an up-front checklist. The seven canvas images ship as selectively loaded WebPs.
+The exact v1.9 installed client upgrades into one coherent v2.0 cache, and preview builds
+replace older same-version shells. One shared
+fixed-step transition powers live play, deterministic trail replays, and five separate
+discovery replays.
+
+Play the current v1.9 release at https://jumpit.royashbrook.com/.
 
 The gameplay borrows genre verbs, not somebody else's identity. Jumpit contains
 no Nintendo characters, names, art, music, sounds, trade dress, or copied maps.

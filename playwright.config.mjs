@@ -18,8 +18,8 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
-    { name: 'chromium-air', use: { browserName: 'chromium', viewport: { width: 420, height: 912 }, hasTouch: true, isMobile: true } },
-    { name: 'webkit-phone', use: { browserName: 'webkit', viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true } },
+    { name: 'chromium-air', use: { browserName: 'chromium', viewport: { width: 912, height: 420 }, hasTouch: true, isMobile: true } },
+    { name: 'webkit-phone', use: { browserName: 'webkit', viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true } },
   ],
   webServer: {
     command: `node tools/serve.mjs ${releaseRoot} 4320`,

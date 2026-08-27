@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { recordHiddenLightReplay, recordReplay } from '../engine/solvability.js'
-import { LEVELS } from '../levels.js'
+import { LEVELS, TILE } from '../levels.js'
 
 class FakeImage {
   static instances = []
@@ -25,13 +25,20 @@ globalThis.window = { addEventListener() {} }
 globalThis.requestAnimationFrame = () => 1
 globalThis.cancelAnimationFrame = () => {}
 
-const { ART_SOURCES, artKeysForLevel, createGame } = await import('../game.js')
+const {
+  ART_SOURCES,
+  artKeysForLevel,
+  cameraScale,
+  createGame,
+  verticalCameraTarget,
+} = await import('../game.js')
 
-function canvasHarness() {
+function canvasHarness(width = 390, height = 720) {
   const draws = []
   const arcs = []
   const translates = []
   const hiddenLights = []
+  let bounds = { width, height }
   const gradient = { addColorStop() {} }
   const context = new Proxy({}, {
     get(target, key) {
@@ -54,11 +61,12 @@ function canvasHarness() {
     arcs,
     translates,
     hiddenLights,
+    setBounds(nextWidth, nextHeight) { bounds = { width: nextWidth, height: nextHeight } },
     canvas: {
       width: 0,
       height: 0,
       getContext: () => context,
-      getBoundingClientRect: () => ({ width: 390, height: 720 }),
+      getBoundingClientRect: () => bounds,
     },
   }
 }
@@ -95,6 +103,82 @@ test('all four later places render their own generated atlas rows', () => {
   const keepAtlas = keep.draws.find(args => args[0].src?.endsWith('final-atlas.webp'))
   assert.ok(keepAtlas)
   assert.equal(keepAtlas[2], 512)
+})
+
+test('a landscape Keep render crops vertically and survives a wider resize', () => {
+  const harness = canvasHarness(844, 320)
+  const game = createGame(harness.canvas)
+  game.start('keep-2')
+  game.resize()
+  assert.equal(harness.canvas.width, 844)
+  assert.equal(harness.canvas.height, 320)
+  assert.ok(harness.translates[0][1] < 0)
+
+  const nextTransform = harness.translates.length
+  harness.setBounds(912, 350)
+  game.resize()
+  assert.equal(harness.canvas.width, 912)
+  assert.equal(harness.canvas.height, 350)
+  assert.ok(harness.translates[nextTransform][1] < 0)
+  game.stop()
+})
+
+test('the landscape Keep camera follows a climb and resets to its lit checkpoint after a fall', () => {
+  const originalRequest = globalThis.requestAnimationFrame
+  const originalCancel = globalThis.cancelAnimationFrame
+  let pending = null
+  let nextId = 0
+  let time = 1
+  globalThis.requestAnimationFrame = callback => { pending = callback; return ++nextId }
+  globalThis.cancelAnimationFrame = () => {}
+
+  try {
+    const width = 844
+    const height = 320
+    const harness = canvasHarness(width, height)
+    const states = []
+    const game = createGame(harness.canvas, state => states.push(state))
+    const level = LEVELS.find(item => item.id === 'keep-2')
+    const replay = recordReplay(level)
+    const checkpointFrame = replay.eventFrames.checkpoint[0]
+    const fallFrame = replay.eventFrames.fall.find(frame => frame > checkpointFrame)
+    const cameraY = []
+    const tick = () => {
+      const firstTranslate = harness.translates.length
+      const callback = pending
+      assert.equal(typeof callback, 'function')
+      pending = null
+      callback(time)
+      time += 1000 / 60
+      cameraY.push(harness.translates[firstTranslate][1])
+    }
+
+    game.start(level.id)
+    tick()
+    for (const encoded of replay.inputs.slice(0, fallFrame)) {
+      game.setInput('left', Boolean(encoded & 1))
+      game.setInput('right', Boolean(encoded & 2))
+      game.setInput('jump', Boolean(encoded & 4))
+      tick()
+    }
+
+    const checkpoint = level.objects.find(([, kind]) => kind === 'checkpoint')
+    const viewHeight = height / cameraScale(width, height)
+    const expectedCheckpointY = -verticalCameraTarget({
+      playerY: (checkpoint[3] + 1) * TILE - 42,
+      playerHeight: 42,
+      viewHeight,
+    })
+    const climbedY = Math.max(...cameraY.slice(checkpointFrame, fallFrame))
+    assert.ok(climbedY > cameraY[0] + TILE * 2)
+    assert.equal(states.some(state => state.message === 'LANTERN LIT · CHECKPOINT!'), true)
+    assert.equal(states.at(-1).message, 'BACK TO THE LANTERN')
+    assert.ok(Math.abs(cameraY[fallFrame] - expectedCheckpointY) < 1e-9)
+    game.stop()
+  } finally {
+    globalThis.requestAnimationFrame = originalRequest
+    globalThis.cancelAnimationFrame = originalCancel
+  }
 })
 
 test('each place loads only its required WebP set and tears the previous place down', () => {
