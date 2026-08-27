@@ -22,6 +22,7 @@ const MAX_VIEW_WIDTH = 28 * TILE
 const BACKGROUND_PAN_MARGIN = .08
 const FIXED_STEP = 1000 / 60
 const RESPAWN_FRAMES = 42
+const COACH_FRAMES = 120
 const PLAYER_FRAMES = { idle: 0, run: 1, jump: 4, fall: 5 }
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value))
 
@@ -73,21 +74,21 @@ export function artKeysForLevel(level) {
   return keys
 }
 
-export function coachMessage({ moved, jumped, glowing, x }) {
-  if (!moved) return 'SLIDE YOUR LEFT THUMB TO RUN'
-  if (!jumped) return 'TAP THE RIGHT SIDE TO JUMP'
+export function coachMessage({ moved, jumped, glowing, x, frame = 0 }) {
+  if (frame < COACH_FRAMES && !moved) return 'SLIDE TO RUN'
+  if (frame < COACH_FRAMES && !jumped) return 'TAP RIGHT TO JUMP'
   if (glowing && x < 620) return 'GLOW BUMPS CREATURES'
   return ''
 }
 
-export function playHint({ finished, moved, jumped, glowing, x, y, finishX, finishY }) {
+export function playHint({ finished, moved, jumped, glowing, x, y, finishX, finishY, frame = 0 }) {
   if (finished) return { kind: 'none', text: '' }
-  const coach = coachMessage({ moved, jumped, glowing, x })
+  const coach = coachMessage({ moved, jumped, glowing, x, frame })
   if (coach) return { kind: 'coach', text: coach }
   if (Math.abs(finishX - x) < TILE * 2 && Math.abs(finishY - y) > TILE) {
     return { kind: 'guide', text: finishY > y ? 'BELL ↓' : 'BELL ↑' }
   }
-  return { kind: 'guide', text: finishX < x ? '← BELL' : 'BELL →' }
+  return { kind: 'none', text: '' }
 }
 
 export function impactFeedback(type, reducedMotion = false) {
@@ -335,12 +336,19 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     context.translate(shake, 0)
     context.fillStyle = soil
     context.fillRect(rect.x, rect.y, rect.w, rect.h)
+    context.fillStyle = 'rgb(18 31 25 / .14)'
+    context.fillRect(rect.x, rect.y + 12, rect.w, Math.min(4, Math.max(0, rect.h - 12)))
+    context.fillRect(rect.x + rect.w - 4, rect.y + 12, 4, Math.max(0, rect.h - 12))
     context.fillStyle = moss
     context.fillRect(rect.x, rect.y, rect.w, Math.min(9, rect.h))
+    context.fillStyle = 'rgb(255 255 224 / .24)'
+    context.fillRect(rect.x, rect.y, rect.w, Math.min(2, rect.h))
     context.fillStyle = line
     context.fillRect(rect.x, rect.y + Math.min(9, rect.h), rect.w, 3)
-    context.fillStyle = 'rgb(255 255 255 / .16)'
-    for (let x = rect.x + 12; x < rect.x + rect.w; x += 28) context.fillRect(x, rect.y + 2, 9, 2)
+    for (let x = rect.x + 10; x < rect.x + rect.w; x += 22) {
+      context.fillStyle = 'rgb(255 255 224 / .24)'
+      context.fillRect(x, rect.y + 2, 10, 2)
+    }
     if (rect.kind === 'belt') {
       context.fillStyle = '#E9F4D6'
       for (let x = rect.x + 18; x < rect.x + rect.w - 8; x += 34) {
@@ -365,10 +373,10 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       for (let y = rect.y + 22; y < rect.y + rect.h; y += 22) {
         const offset = (Math.floor(y / 22) % 2) * 13
         for (let x = rect.x + 9 + offset; x < rect.x + rect.w - 5; x += 29) {
-          context.fillStyle = (x + y) % 3 ? '#5C4437' : '#89644A'
-          context.fillRect(x, y, 9, 5)
-          context.fillStyle = 'rgb(255 255 255 / .08)'
-          context.fillRect(x + 1, y, 6, 1)
+          context.fillStyle = (x + y) % 3 ? 'rgb(20 26 23 / .2)' : 'rgb(255 239 196 / .14)'
+          context.fillRect(x, y, 12, 7)
+          context.fillStyle = 'rgb(255 255 255 / .1)'
+          context.fillRect(x + 2, y + 1, 6, 1)
         }
       }
     }
@@ -660,6 +668,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       y: player.y,
       finishX: world.finish.x,
       finishY: world.finish.y,
+      frame,
     })
     if (!hint.text) return
     const bubbleWidth = hint.kind === 'guide' ? 94 : Math.min(250, width - 32)

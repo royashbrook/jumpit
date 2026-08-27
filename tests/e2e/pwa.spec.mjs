@@ -20,8 +20,9 @@ const currentCache = workerSource.match(/const CACHE\s*=\s*['"]([^'"]+)/)?.[1]
 const nextVersion = '2.1.0'
 const CURRENT_URLS = Object.freeze({
   css: './app.css?v=10',
-  app: './app.js?v=13',
-  game: './game.js?v=11',
+  app: './app.js?v=14',
+  audio: './audio.js?v=2',
+  game: './game.js?v=12',
   levels: './levels.js?v=2',
   save: './save.js?v=2',
   physics: './engine/physics.js?v=2',
@@ -29,7 +30,7 @@ const CURRENT_URLS = Object.freeze({
   update: './update.js?v=4',
 })
 const REQUIRED_SHELL = [
-  './', './index.html', CURRENT_URLS.css, CURRENT_URLS.app, './audio.js', './daily.js',
+  './', './index.html', CURRENT_URLS.css, CURRENT_URLS.app, CURRENT_URLS.audio, './daily.js',
   CURRENT_URLS.game, CURRENT_URLS.levels, './release.js', CURRENT_URLS.save, CURRENT_URLS.physics,
   CURRENT_URLS.simulation, './version.js', './seed.js', './install.js', CURRENT_URLS.update, './manifest.json',
   './icon-180.png', './icon-192.png', './icon-512.png', './icon-maskable-512.png',

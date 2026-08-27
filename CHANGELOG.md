@@ -18,6 +18,11 @@
   lane, and made the guide point up or down when a nearby bell is on another tier.
 - Added a short WHOOPS respawn beat that holds the miss, clears held input, and hides
   the checkpoint camera cut before returning control.
+- Shortened the opening touch coach to two seconds and removed the persistent
+  horizontal bell guide while keeping the wrong-level finish cue.
+- Added an original looping woodland-adventure score that follows play, pause, mute,
+  background suspension, and Home.
+- Gave walkable terrain a brighter edge, deeper lip, and palette-aware face texture.
 - Compacted release JavaScript during packaging to preserve the fixed download budget.
 - Proved the exact shipped v1.9 installed client and same-version preview cache upgrade
   once into the coherent v2 shell,

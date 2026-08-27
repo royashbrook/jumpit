@@ -37,6 +37,7 @@ const {
 function canvasHarness(width = 390, height = 720) {
   const draws = []
   const imageDraws = []
+  const fills = []
   const arcs = []
   const translates = []
   const hiddenLights = []
@@ -51,6 +52,7 @@ function canvasHarness(width = 390, height = 720) {
         draws.push(args)
         imageDraws.push({ args, translate: translates.at(-1) })
       }
+      if (key === 'fillRect') return (...args) => fills.push({ args, fillStyle: target.fillStyle })
       if (key === 'arc') return (...args) => arcs.push({ args, strokeStyle: target.strokeStyle, lineWidth: target.lineWidth })
       if (key === 'translate') return (...args) => translates.push(args)
       if (key === 'moveTo') return (...args) => moves.push(args)
@@ -70,6 +72,7 @@ function canvasHarness(width = 390, height = 720) {
   return {
     draws,
     imageDraws,
+    fills,
     arcs,
     translates,
     hiddenLights,
@@ -103,7 +106,67 @@ test('the courier meets shelf tops and the bell stands on its authored finish la
     'transparent shoe padding should sit below the collision feet')
   assert.equal(harness.moves.some(([x, y]) => x === finishX + 4 && y === floor), true)
   assert.equal(harness.lines.some(([x, y]) => x === finishX + 4 && y === floor - 70), true)
+  assert.equal(harness.fills.some(({ args, fillStyle }) =>
+    args[2] === 12 && args[3] === 7 && fillStyle === 'rgb(20 26 23 / .2)'), true,
+  'terrain faces should carry palette-neutral depth texture')
+  const [, , terrainX, terrainY, terrainWidth] = level.terrain[0]
+  assert.equal(harness.fills.some(({ args, fillStyle }) =>
+    args[0] === terrainX * TILE && args[1] === terrainY * TILE &&
+    args[2] === terrainWidth * TILE && args[3] === 2 &&
+    fillStyle === 'rgb(255 255 224 / .24)'), true,
+  'walkable edges should carry a light surface bevel')
+  assert.equal(harness.fills.some(({ args, fillStyle }) =>
+    args[0] === terrainX * TILE && args[1] === terrainY * TILE + 12 &&
+    args[2] === terrainWidth * TILE && args[3] === 4 &&
+    fillStyle === 'rgb(18 31 25 / .14)'), true,
+  'terrain faces should carry a full-width depth lip')
   game.stop()
+})
+
+test('the runtime coach clears and the wrong-level bell cue reaches the canvas', () => {
+  const originalRequest = globalThis.requestAnimationFrame
+  const originalCancel = globalThis.cancelAnimationFrame
+  let pending = null
+  let nextId = 0
+  let time = 1
+  globalThis.requestAnimationFrame = callback => { pending = callback; return ++nextId }
+  globalThis.cancelAnimationFrame = () => {}
+
+  try {
+    const harness = canvasHarness(844, 320)
+    const game = createGame(harness.canvas)
+    const tick = () => {
+      const firstText = harness.texts.length
+      const callback = pending
+      assert.equal(typeof callback, 'function')
+      pending = null
+      callback(time)
+      time += 1000 / 60
+      return harness.texts.slice(firstText).map(({ args }) => args[0])
+    }
+
+    game.start('garden-1')
+    assert.equal(tick().includes('SLIDE TO RUN'), true)
+    let labels = []
+    for (let frame = 0; frame < 125; frame += 1) labels = tick()
+    assert.equal(labels.includes('SLIDE TO RUN'), false)
+
+    game.restart()
+    tick()
+    const replay = recordReplay(LEVELS[0])
+    const bellLabels = []
+    for (const encoded of replay.inputs.slice(0, 205)) {
+      game.setInput('left', Boolean(encoded & 1))
+      game.setInput('right', Boolean(encoded & 2))
+      game.setInput('jump', Boolean(encoded & 4))
+      bellLabels.push(...tick())
+    }
+    assert.equal(bellLabels.includes('BELL ↓'), true)
+    game.stop()
+  } finally {
+    globalThis.requestAnimationFrame = originalRequest
+    globalThis.cancelAnimationFrame = originalCancel
+  }
 })
 
 test('all four later places render their own generated atlas rows', () => {

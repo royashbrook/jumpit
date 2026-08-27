@@ -5,6 +5,7 @@ import { LEVELS } from '../../levels.js'
 const lifecycleAudioStub = `
 export function createAudio() {
   const mark = value => { document.documentElement.dataset.audioState = value }
+  const markMusic = value => { document.documentElement.dataset.musicState = value ? 'playing' : 'paused' }
   return {
     startFromGesture() { mark('running'); return Promise.resolve(true) },
     suspend() { mark('suspended'); return Promise.resolve(true) },
@@ -14,7 +15,30 @@ export function createAudio() {
       document.documentElement.dataset.audioCues = JSON.stringify(cues)
       return true
     },
+    setMusicPlaying(value) { markMusic(value); return value },
     setMuted(value) { return value }, isMuted() { return false }, stop() {},
+  }
+}
+`
+
+const lifecycleGameStub = `
+export function createGame(_canvas, onState = () => {}) {
+  let finished = false
+  let paused = false
+  const report = message => onState({
+    levelId: 'garden-1', levelName: 'Dewdrop Dash', regionName: 'Garden Walk',
+    seeds: 0, maxSeeds: 3, paused, finished, message,
+  })
+  const start = () => { finished = false; paused = false; report('') }
+  return {
+    start, restart: start, stop() {}, resize() {}, clearInput() {},
+    setInput(action, value) {
+      if (action !== 'right' || !value || finished) return
+      finished = true
+      report('TRAIL CLEARED!')
+    },
+    togglePause() { paused = !paused; report(paused ? 'PAUSED' : 'GO!'); return paused },
+    pause() { paused = true; report('PAUSED'); return paused },
   }
 }
 `
@@ -166,10 +190,11 @@ test('the iOS install hint cannot overwrite the normal gameplay help', async ({ 
 })
 
 test('blur, pagehide, and hidden visibility pause, release input, and wait for explicit audio resume', async ({ page }) => {
-  await page.route('**/audio.js', route => route.fulfill({ contentType: 'text/javascript', body: lifecycleAudioStub }))
+  await page.route('**/audio.js*', route => route.fulfill({ contentType: 'text/javascript', body: lifecycleAudioStub }))
   await page.goto('/')
   await page.getByRole('button', { name: 'PLAY THE TRAIL' }).dispatchEvent('click')
   await expect(page.locator('html')).toHaveAttribute('data-audio-state', 'running')
+  await expect(page.locator('html')).toHaveAttribute('data-music-state', 'playing')
 
   const interrupt = async eventName => {
     for (const selector of ['#move-left', '#move-right', '#jump']) {
@@ -183,6 +208,7 @@ test('blur, pagehide, and hidden visibility pause, release input, and wait for e
     await expect(page.getByRole('heading', { name: 'PAUSED' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'KEEP GOING' })).toBeFocused()
     await expect(page.locator('html')).toHaveAttribute('data-audio-state', 'suspended')
+    await expect(page.locator('html')).toHaveAttribute('data-music-state', 'paused')
     for (const selector of ['#move-left', '#move-right', '#jump']) await expect(page.locator(selector)).not.toHaveAttribute('data-held', '')
     await expect(page.locator('#game-bar')).toHaveAttribute('inert', '')
     await expect(page.locator('#controls')).toHaveAttribute('inert', '')
@@ -196,6 +222,7 @@ test('blur, pagehide, and hidden visibility pause, release input, and wait for e
   await expect(page.locator('html')).toHaveAttribute('data-audio-state', 'suspended')
   await page.getByRole('button', { name: 'KEEP GOING' }).click()
   await expect(page.locator('html')).toHaveAttribute('data-audio-state', 'running')
+  await expect(page.locator('html')).toHaveAttribute('data-music-state', 'playing')
   await expect(page.getByRole('button', { name: 'pause game' })).toBeFocused()
 
   await interrupt('pagehide')
@@ -237,8 +264,27 @@ test('blur, pagehide, and hidden visibility pause, release input, and wait for e
   expect(pauseCues).not.toContain('jump')
 })
 
+test('music stops at Home and when the trail finishes', async ({ page }) => {
+  await page.route('**/audio.js*', route => route.fulfill({ contentType: 'text/javascript', body: lifecycleAudioStub }))
+  await page.route('**/game.js*', route => route.fulfill({ contentType: 'text/javascript', body: lifecycleGameStub }))
+  await page.goto('/')
+  await page.getByRole('button', { name: 'PLAY THE TRAIL' }).dispatchEvent('click')
+  await expect(page.locator('html')).toHaveAttribute('data-music-state', 'playing')
+
+  await page.getByRole('button', { name: 'MENU' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-music-state', 'paused')
+  await page.getByRole('button', { name: 'PLAY THE TRAIL' }).dispatchEvent('click')
+  await expect(page.locator('html')).toHaveAttribute('data-music-state', 'playing')
+
+  await page.dispatchEvent('#move-right', 'pointerdown', {
+    pointerId: 17, pointerType: 'touch', isPrimary: true, buttons: 1,
+  })
+  await expect(page.getByRole('heading', { name: 'TRAIL CLEARED!' })).toBeVisible()
+  await expect(page.locator('html')).toHaveAttribute('data-music-state', 'paused')
+})
+
 test('a right-side jump on the interruption frame cannot fire after explicit resume', async ({ page }) => {
-  await page.route('**/audio.js', route => route.fulfill({ contentType: 'text/javascript', body: lifecycleAudioStub }))
+  await page.route('**/audio.js*', route => route.fulfill({ contentType: 'text/javascript', body: lifecycleAudioStub }))
   await page.goto('/')
   await page.getByRole('button', { name: 'PLAY THE TRAIL' }).dispatchEvent('click')
   await page.evaluate(() => {
