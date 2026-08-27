@@ -1,14 +1,14 @@
 // Versioned offline shell: network-first navigation and update probes, atomic
 // installation, and immutable active caches. Bump CACHE with any shell change.
-const CACHE = 'jumpit-v2.0.0-r14'
+const CACHE = 'jumpit-v2.0.0-r15'
 const SHELL = [
   './',
   './index.html',
   './app.css?v=10',
-  './app.js?v=12',
+  './app.js?v=13',
   './audio.js',
   './daily.js',
-  './game.js?v=10',
+  './game.js?v=11',
   './levels.js?v=2',
   './release.js',
   './save.js?v=2',

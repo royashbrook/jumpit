@@ -174,6 +174,21 @@ test('the first visible action pays off inside five seconds with a real seed', a
   await expect(page.locator('#stage')).toBeVisible()
 })
 
+test('a miss gets a readable respawn beat and clears held movement', async ({ page }) => {
+  await page.goto('/')
+  await launchTrail(page)
+  const controls = page.locator('#controls')
+  const right = page.locator('#move-right')
+  await pointer(page, '#move-right', 'pointerdown')
+  await expect(controls).toHaveAttribute('inert', '', { timeout: 10_000 })
+  await expect(page.locator('#game-status')).toHaveText(/OOPS|TRY THAT JUMP AGAIN/)
+  await expect(right).not.toHaveAttribute('data-held', '')
+  await expect(controls).not.toHaveAttribute('inert', '', { timeout: 1_500 })
+  await pointer(page, '#move-right', 'pointerdown')
+  await expect(right).toHaveAttribute('data-held', '')
+  await pointer(page, '#move-right', 'pointerup')
+})
+
 test('identical reward messages visibly retrigger their status animation', async ({ page }) => {
   await page.route('**/game.js*', route => route.fulfill({ contentType: 'text/javascript', body: shellFeedbackGameStub }))
   await page.goto('/')

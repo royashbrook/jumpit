@@ -36,16 +36,26 @@ const {
 
 function canvasHarness(width = 390, height = 720) {
   const draws = []
+  const imageDraws = []
   const arcs = []
   const translates = []
   const hiddenLights = []
+  const moves = []
+  const lines = []
+  const texts = []
   let bounds = { width, height }
   const gradient = { addColorStop() {} }
   const context = new Proxy({}, {
     get(target, key) {
-      if (key === 'drawImage') return (...args) => draws.push(args)
+      if (key === 'drawImage') return (...args) => {
+        draws.push(args)
+        imageDraws.push({ args, translate: translates.at(-1) })
+      }
       if (key === 'arc') return (...args) => arcs.push({ args, strokeStyle: target.strokeStyle, lineWidth: target.lineWidth })
       if (key === 'translate') return (...args) => translates.push(args)
+      if (key === 'moveTo') return (...args) => moves.push(args)
+      if (key === 'lineTo') return (...args) => lines.push(args)
+      if (key === 'fillText') return (...args) => texts.push({ args, globalAlpha: target.globalAlpha })
       if (key === 'roundRect') return (...args) => {
         if (args[0] === -10 && args[1] === -42 && args[2] === 20 && args[3] === 25 && args[4] === 7) {
           hiddenLights.push({ fillStyle: target.fillStyle })
@@ -59,9 +69,13 @@ function canvasHarness(width = 390, height = 720) {
   })
   return {
     draws,
+    imageDraws,
     arcs,
     translates,
     hiddenLights,
+    moves,
+    lines,
+    texts,
     setBounds(nextWidth, nextHeight) { bounds = { width: nextWidth, height: nextHeight } },
     canvas: {
       width: 0,
@@ -71,6 +85,26 @@ function canvasHarness(width = 390, height = 720) {
     },
   }
 }
+
+test('the courier meets shelf tops and the bell stands on its authored finish lane', () => {
+  const harness = canvasHarness(844, 320)
+  const game = createGame(harness.canvas)
+  const level = LEVELS.find(item => item.id === 'garden-1')
+  game.start(level.id)
+  game.resize()
+
+  const courier = harness.imageDraws.find(({ args }) => args[0].src?.endsWith('courier-sheet.webp'))
+  assert.ok(courier)
+
+  const finishX = level.finish[1] * TILE
+  const floor = (level.finish[2] + 1) * TILE
+  assert.equal(courier.translate[1], floor, 'the sprite anchor should remain on the physics floor')
+  assert.equal(courier.translate[1] + courier.args[6] + courier.args[8], floor + 9,
+    'transparent shoe padding should sit below the collision feet')
+  assert.equal(harness.moves.some(([x, y]) => x === finishX + 4 && y === floor), true)
+  assert.equal(harness.lines.some(([x, y]) => x === finishX + 4 && y === floor - 70), true)
+  game.stop()
+})
 
 test('all four later places render their own generated atlas rows', () => {
   const rain = canvasHarness()
@@ -228,6 +262,7 @@ test('the landscape Keep camera follows a climb and resets to its lit checkpoint
     game.setInput('jump', false)
     game.setInput('right', true)
     let fallFrame = -1
+    const deathTextStart = harness.texts.length
     for (let frame = 0; frame < 240 && fallFrame < 0; frame += 1) {
       tick()
       if (states.at(-1).message === 'BACK TO THE LANTERN') fallFrame = cameraX.length - 1
@@ -252,8 +287,27 @@ test('the landscape Keep camera follows a climb and resets to its lit checkpoint
     assert.ok(climbedY > cameraY[0] + TILE * 2)
     assert.equal(states.some(state => state.message === 'LANTERN LIT · CHECKPOINT!'), true)
     assert.equal(states.at(-1).message, 'BACK TO THE LANTERN')
-    assert.ok(Math.abs(cameraX[fallFrame] - expectedCheckpointX) < 1e-9)
-    assert.ok(Math.abs(cameraY[fallFrame] - expectedCheckpointY) < 1e-9)
+    assert.equal(states.at(-1).respawning, true)
+    assert.equal(harness.texts.slice(deathTextStart).some(({ args }) => args[0] === 'WHOOPS!'), true)
+    assert.ok(Math.abs(cameraX[fallFrame] - expectedCheckpointX) > TILE)
+
+    game.setInput('right', true)
+    game.setInput('jump', true)
+    for (let frame = 0; frame < 20; frame += 1) tick()
+    assert.equal(harness.texts.slice(deathTextStart)
+      .some(({ args, globalAlpha }) => args[0] === 'WHOOPS!' && globalAlpha > .5), true)
+    assert.ok(cameraX.slice(fallFrame, fallFrame + 21).every(value => value === cameraX[fallFrame]))
+    assert.ok(cameraY.slice(fallFrame, fallFrame + 21).every(value => value === cameraY[fallFrame]))
+
+    tick()
+    assert.ok(Math.abs(cameraX.at(-1) - expectedCheckpointX) < 1e-9)
+    assert.ok(Math.abs(cameraY.at(-1) - expectedCheckpointY) < 1e-9)
+    for (let frame = 21; frame < 42; frame += 1) tick()
+    assert.equal(states.at(-1).respawning, false)
+    assert.equal(states.at(-1).message, '')
+    const settledX = cameraX.at(-1)
+    tick()
+    assert.ok(Math.abs(cameraX.at(-1) - settledX) < 1e-9, 'held input leaked through respawn')
     game.stop()
   } finally {
     globalThis.requestAnimationFrame = originalRequest

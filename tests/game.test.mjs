@@ -159,18 +159,36 @@ test('coaching is one short action at a time and then gets out of the way', () =
   assert.equal(coachMessage({ moved: true, jumped: false, glowing: false, x: 190 }), 'TAP THE RIGHT SIDE TO JUMP')
   assert.equal(coachMessage({ moved: true, jumped: true, glowing: true, x: 400 }), 'GLOW BUMPS CREATURES')
   assert.equal(coachMessage({ moved: true, jumped: true, glowing: false, x: 700 }), '')
-  assert.deepEqual(playHint({ finished: false, moved: true, jumped: true, glowing: false, x: 700, finishX: 1_000 }), {
+  assert.deepEqual(playHint({ finished: false, moved: true, jumped: true, glowing: false, x: 700, y: 400, finishX: 1_000, finishY: 400 }), {
     kind: 'guide',
     text: 'BELL →',
   })
-  assert.deepEqual(playHint({ finished: false, moved: true, jumped: true, glowing: false, x: 1_100, finishX: 1_000 }), {
+  assert.deepEqual(playHint({ finished: false, moved: true, jumped: true, glowing: false, x: 1_100, y: 400, finishX: 1_000, finishY: 400 }), {
     kind: 'guide',
     text: '← BELL',
   })
-  assert.deepEqual(playHint({ finished: true, moved: true, jumped: true, glowing: false, x: 700, finishX: 1_000 }), {
+  assert.deepEqual(playHint({ finished: true, moved: true, jumped: true, glowing: false, x: 700, y: 400, finishX: 1_000, finishY: 400 }), {
     kind: 'none',
     text: '',
   })
+})
+
+test('the bell guide points to the finish lane instead of an upper dead end', () => {
+  for (const id of ['garden-2', 'rooftop-1', 'workshop-1', 'market-1']) {
+    const world = makeWorld(LEVELS.find(level => level.id === id))
+    const upper = { x: world.finish.x, y: world.finish.y - TILE * 2 - 42, w: 28, h: 42 }
+    const supported = { ...upper, y: world.finish.y + TILE - 42 }
+    assert.equal(finishOutcome(world, upper), '', `${id} upper shelf must not clear`)
+    assert.equal(finishOutcome(world, supported), 'finished', `${id} finish lane must clear`)
+    assert.equal(playHint({
+      finished: false, moved: true, jumped: true, glowing: false,
+      x: upper.x, y: upper.y, finishX: world.finish.x, finishY: world.finish.y,
+    }).text, 'BELL ↓', id)
+  }
+  assert.equal(playHint({
+    finished: false, moved: true, jumped: true, glowing: false,
+    x: 1_000, y: 440, finishX: 1_000, finishY: 256,
+  }).text, 'BELL ↑')
 })
 
 test('the landscape camera keeps the courier large and eases its look through a reversal', () => {
@@ -223,6 +241,8 @@ test('overlay keyboard actions cannot preload a jump while paused or finished', 
   assert.equal(keyInputMode({ type: 'keydown', running: true, paused: true, finished: false }), 'ignore')
   assert.equal(keyInputMode({ type: 'keydown', running: true, paused: false, finished: true }), 'ignore')
   assert.equal(keyInputMode({ type: 'keyup', running: true, paused: true, finished: false }), 'release')
+  assert.equal(keyInputMode({ type: 'keydown', running: true, paused: false, finished: false, respawning: true }), 'ignore')
+  assert.equal(keyInputMode({ type: 'keyup', running: true, paused: false, finished: false, respawning: true }), 'release')
   assert.equal(keyInputMode({ type: 'keydown', running: true, paused: false, finished: false }), 'control')
   let selector = ''
   const button = { closest(value) { selector = value; return {} } }

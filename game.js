@@ -21,6 +21,7 @@ const WORLD_HEIGHT = 18 * TILE
 const MAX_VIEW_WIDTH = 28 * TILE
 const BACKGROUND_PAN_MARGIN = .08
 const FIXED_STEP = 1000 / 60
+const RESPAWN_FRAMES = 42
 const PLAYER_FRAMES = { idle: 0, run: 1, jump: 4, fall: 5 }
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value))
 
@@ -79,10 +80,13 @@ export function coachMessage({ moved, jumped, glowing, x }) {
   return ''
 }
 
-export function playHint({ finished, moved, jumped, glowing, x, finishX }) {
+export function playHint({ finished, moved, jumped, glowing, x, y, finishX, finishY }) {
   if (finished) return { kind: 'none', text: '' }
   const coach = coachMessage({ moved, jumped, glowing, x })
   if (coach) return { kind: 'coach', text: coach }
+  if (Math.abs(finishX - x) < TILE * 2 && Math.abs(finishY - y) > TILE) {
+    return { kind: 'guide', text: finishY > y ? 'BELL ↓' : 'BELL ↑' }
+  }
   return { kind: 'guide', text: finishX < x ? '← BELL' : 'BELL →' }
 }
 
@@ -95,9 +99,9 @@ export function impactFeedback(type, reducedMotion = false) {
   }
 }
 
-export function keyInputMode({ type, running, paused, finished }) {
+export function keyInputMode({ type, running, paused, finished, respawning = false }) {
   if (!running) return 'ignore'
-  if (paused || finished) return type === 'keyup' ? 'release' : 'ignore'
+  if (paused || finished || respawning) return type === 'keyup' ? 'release' : 'ignore'
   return 'control'
 }
 
@@ -140,6 +144,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
   const particles = []
   let impact = null
   let cameraKick = 0
+  let respawn = null
   let simulation = createSimulation(LEVELS[0])
   let world = simulation.world
   let player = simulation.player
@@ -195,6 +200,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       maxSeeds: world.seeds.length,
       paused,
       finished,
+      respawning: Boolean(respawn),
       message,
       hiddenLightId,
       ...guardianState(world),
@@ -228,13 +234,27 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     particles.length = 0
     impact = null
     cameraKick = 0
+    respawn = null
   }
 
   function update() {
     if (paused) return
     if (finished) return advanceFeedback()
+    if (respawn) {
+      respawn.life -= 1
+      if (respawn.life === RESPAWN_FRAMES / 2) {
+        respawn.player = null
+        cameraReady = false
+      }
+      if (respawn.life <= 0) {
+        respawn = null
+        report('')
+      }
+      return advanceFeedback()
+    }
     const inputDirection = Number(input.right) - Number(input.left)
     if (inputDirection) cameraDirection += (inputDirection - cameraDirection) * .12
+    const previousPlayer = { ...player }
     const events = stepSimulation(simulation, input)
     input.jumpPressed = false
     syncSimulation()
@@ -259,19 +279,9 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
         cameraKick = Math.max(cameraKick, feedback.kick)
       }
       if (event.type === 'hurt' || event.type === 'fall') {
+        respawn = { life: RESPAWN_FRAMES, player: previousPlayer }
+        clearInput()
         cameraDirection = 0
-        camera = cameraTarget({
-          playerX: player.x,
-          direction: cameraDirection,
-          viewWidth: cameraViewWidth,
-          worldWidth: world.width,
-          reducedMotion,
-        })
-        cameraY = verticalCameraTarget({
-          playerY: player.y,
-          playerHeight: player.h,
-          viewHeight: cameraViewHeight,
-        })
       }
       if (event.cue) onCue(event.cue)
       if (event.message) report(event.message, event)
@@ -543,7 +553,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
 
   function drawBell() {
     const { x, y } = world.finish
-    const floor = (y + 1) * TILE
+    const floor = y + TILE
     const guardian = guardianState(world)
     const locked = guardian.guardianMax > 0 && !guardian.guardianDefeated
     context.strokeStyle = '#49382D'
@@ -574,22 +584,29 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     }
   }
 
-  function drawPlayer() {
-    const pose = PLAYER_FRAMES[player.pose] ?? 0
-    const animationFrame = player.pose === 'run' ? (Math.floor(frame / 7) % 3) + 1 : pose
+  function drawPlayer(subject = player, deathProgress = 0) {
+    const pose = PLAYER_FRAMES[subject.pose] ?? 0
+    const animationFrame = subject.pose === 'run' ? (Math.floor(frame / 7) % 3) + 1 : pose
     const sourceWidth = courier.naturalWidth / 4
     const sourceHeight = courier.naturalHeight / 2
     const sourceX = (animationFrame % 4) * sourceWidth
     const sourceY = Math.floor(animationFrame / 4) * sourceHeight
     const width = 62
     const height = 82
-    const x = player.x + player.w / 2
-    const y = player.y + player.h
+    const x = subject.x + subject.w / 2
+    const y = subject.y + subject.h
 
     context.save()
     context.translate(x, y)
-    context.scale(player.facing, 1)
-    if (player.glowing) {
+    context.scale(subject.facing, 1)
+    if (deathProgress) {
+      context.globalAlpha = 1 - deathProgress * .78
+      if (!reducedMotion) {
+        context.translate(0, -Math.sin(deathProgress * Math.PI) * 12)
+        context.rotate(deathProgress * .2)
+      }
+    }
+    if (subject.glowing) {
       context.shadowColor = '#D4FF9D'
       context.shadowBlur = 18
       context.fillStyle = 'rgb(213 255 165 / .28)'
@@ -598,7 +615,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       context.fill()
     }
     if (courier.complete && courier.naturalWidth) {
-      context.drawImage(courier, sourceX, sourceY, sourceWidth, sourceHeight, -width / 2, -height, width, height)
+      context.drawImage(courier, sourceX, sourceY, sourceWidth, sourceHeight, -width / 2, -height + 9, width, height)
     } else {
       context.fillStyle = '#365A40'
       context.fillRect(-12, -38, 24, 38)
@@ -640,7 +657,9 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       jumped,
       glowing: player.glowing,
       x: player.x,
+      y: player.y,
       finishX: world.finish.x,
+      finishY: world.finish.y,
     })
     if (!hint.text) return
     const bubbleWidth = hint.kind === 'guide' ? 94 : Math.min(250, width - 32)
@@ -661,6 +680,26 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     context.fillText(hint.text, bubbleX + bubbleWidth / 2, height - 65)
   }
 
+  function drawRespawn(width, height) {
+    if (!respawn) return
+    const progress = 1 - respawn.life / RESPAWN_FRAMES
+    const curtain = 1 - Math.abs(progress * 2 - 1)
+    const ratio = Math.min(devicePixelRatio || 1, 2)
+    context.setTransform(ratio, 0, 0, ratio, 0, 0)
+    context.fillStyle = `rgb(23 61 58 / ${.12 + curtain * .72})`
+    context.fillRect(0, 0, width, height)
+    context.globalAlpha = clamp(Math.min(progress, 1 - progress) * 6, 0, 1)
+    context.strokeStyle = '#173D3A'
+    context.lineWidth = 6
+    context.fillStyle = '#FFFDF2'
+    context.font = '900 28px ui-rounded, system-ui, sans-serif'
+    context.textAlign = 'center'
+    context.textBaseline = 'middle'
+    context.strokeText('WHOOPS!', width / 2, height / 2)
+    context.fillText('WHOOPS!', width / 2, height / 2)
+    context.globalAlpha = 1
+  }
+
   function paint() {
     const bounds = canvas.getBoundingClientRect()
     const ratio = Math.min(devicePixelRatio || 1, 2)
@@ -676,21 +715,24 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     const viewHeight = height / scale
     const maxCamera = Math.max(0, world.width - viewWidth)
     const maxCameraY = Math.max(0, WORLD_HEIGHT - viewHeight)
+    const displayPlayer = respawn?.player || player
     const target = cameraTarget({
-      playerX: player.x,
+      playerX: displayPlayer.x,
       direction: cameraDirection,
       viewWidth,
       worldWidth: world.width,
       reducedMotion,
     })
     const targetY = verticalCameraTarget({
-      playerY: player.y,
-      playerHeight: player.h,
+      playerY: displayPlayer.y,
+      playerHeight: displayPlayer.h,
       viewHeight,
     })
     cameraViewWidth = viewWidth
     cameraViewHeight = viewHeight
-    if (reducedMotion || !cameraReady) {
+    if (respawn?.player && cameraReady) {
+      // The respawn veil covers the camera cut.
+    } else if (reducedMotion || !cameraReady) {
       camera = target
       cameraY = targetY
       cameraReady = true
@@ -721,9 +763,11 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     drawEnemies()
     drawParticles()
     drawImpact()
-    drawPlayer()
+    const deathProgress = respawn?.player ? (RESPAWN_FRAMES - respawn.life) / (RESPAWN_FRAMES / 2) : 0
+    drawPlayer(displayPlayer, deathProgress)
     context.restore()
-    drawHint(width, height)
+    if (!respawn) drawHint(width, height)
+    drawRespawn(width, height)
   }
 
   function loop(time) {
@@ -742,6 +786,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
   function setInput(action, pressed, source = 'direct') {
     const sources = inputSources[action]
     if (!sources) return
+    if (respawn && pressed) return
     const wasPressed = sources.size > 0
     if (pressed) sources.add(source)
     else sources.delete(source)
@@ -768,7 +813,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       if (event.type === 'keyup') setInput(action, false, source)
       return
     }
-    const mode = keyInputMode({ type: event.type, running, paused, finished })
+    const mode = keyInputMode({ type: event.type, running, paused, finished, respawning: Boolean(respawn) })
     if (mode === 'ignore') return
     if (mode === 'release') return setInput(action, false, source)
     event.preventDefault()

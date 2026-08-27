@@ -4,6 +4,7 @@ import { readdir, readFile, stat } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
+import { compactJavaScript } from '../tools/compact-js.mjs'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 
@@ -41,4 +42,13 @@ test('the production build is an exact allowlist without test controls', async (
   let bytes = 0
   for (const file of files) bytes += (await stat(join(root, 'build', file))).size
   assert.ok(bytes <= 3_600_000, `production build is ${bytes} bytes`)
+})
+
+test('release compaction preserves inline and nested multiline template values', async () => {
+  const source = 'const inline = `  same  `\nconst nested = `first ${`inner\n  second`}`\nexport { inline, nested }\n'
+  const compacted = await compactJavaScript(source, 'fixture.js')
+  const encoded = Buffer.from(compacted).toString('base64')
+  const fixture = await import(`data:text/javascript;base64,${encoded}`)
+  assert.equal(fixture.inline, '  same  ')
+  assert.equal(fixture.nested, 'first inner\n  second')
 })

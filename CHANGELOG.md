@@ -14,6 +14,11 @@
   six-pixel one-way ledge forgiveness for visually earned corner landings.
 - Moved the Bramble Bank checkpoint off its collapsing bank and reject future
   checkpoints on terrain that disappears.
+- Aligned the courier's shoes to every shelf, restored the finish bell to its authored
+  lane, and made the guide point up or down when a nearby bell is on another tier.
+- Added a short WHOOPS respawn beat that holds the miss, clears held input, and hides
+  the checkpoint camera cut before returning control.
+- Compacted release JavaScript during packaging to preserve the fixed download budget.
 - Proved the exact shipped v1.9 installed client and same-version preview cache upgrade
   once into the coherent v2 shell,
   while a failed v2.1 precache leaves the active offline shell untouched.

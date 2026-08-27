@@ -1,5 +1,6 @@
-import { cp, mkdir, rm } from 'node:fs/promises'
+import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
+import { compactJavaScript } from './compact-js.mjs'
 
 const files = [
   'index.html', 'app.css', 'app.js', 'audio.js', 'daily.js', 'game.js', 'install.js',
@@ -17,7 +18,11 @@ const files = [
 
 await rm('build', { recursive: true, force: true })
 for (const file of files) {
-  await mkdir(dirname(`build/${file}`), { recursive: true })
-  await cp(file, `build/${file}`)
+  const target = `build/${file}`
+  await mkdir(dirname(target), { recursive: true })
+  if (file.endsWith('.js')) {
+    const source = await readFile(file, 'utf8')
+    await writeFile(target, await compactJavaScript(source, file))
+  } else await cp(file, target)
 }
 console.log(`built ${files.length} release files in build/`)
