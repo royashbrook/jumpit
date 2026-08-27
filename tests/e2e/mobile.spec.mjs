@@ -147,9 +147,10 @@ test('discovered Hidden Lights fit Home at two-times text without becoming a men
     'g03-hidden-light', 'r03-hidden-light', 'w02-hidden-light',
     'm03-hidden-light', 'k01-hidden-light',
   ]
-  await page.route('**/app.css*', async route => {
-    const response = await route.fetch()
-    await route.fulfill({ response, body: `${await response.text()}\nhtml { font-size: 200%; }\n` })
+  await page.addInitScript(() => {
+    document.addEventListener('DOMContentLoaded', () => {
+      document.documentElement.style.fontSize = '200%'
+    }, { once: true })
   })
   await page.goto('/')
   await page.evaluate(light => localStorage.setItem('jumpit-save-v1', JSON.stringify({
