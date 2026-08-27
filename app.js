@@ -1,7 +1,7 @@
 import { currentSeed, isDaily, shareSeed } from './seed.js'
-import { createAudio } from './audio.js'
+import { createAudio } from './audio.js?v=2'
 import { challengeWon, dailyChallenge } from './daily.js'
-import { createGame } from './game.js?v=11'
+import { createGame } from './game.js?v=12'
 import { wireInstall } from './install.js'
 import { LEVELS, REGIONS } from './levels.js?v=2'
 import { createRelease } from './release.js'
@@ -101,6 +101,7 @@ const audio = createAudio({
 })
 
 const game = createGame($('stage'), state => {
+  audio.setMusicPlaying(!state.paused && !state.finished)
   if (state.hiddenLightId) store.findHiddenLight(state.hiddenLightId)
   const challengeFinished = Boolean(activeChallenge && state.finished)
   const campaignFinished = !activeChallenge && state.finished && state.levelId === 'keep-4'
@@ -311,6 +312,7 @@ function show(screen) {
 
 function goHome() {
   releaseAllInputs()
+  audio.setMusicPlaying(false)
   game.stop()
   pendingPlay = null
   pendingAudio = null
