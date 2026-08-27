@@ -28,8 +28,8 @@ export function cameraScale(width, height) {
   return Math.max(height / WORLD_HEIGHT, width / MAX_VIEW_WIDTH)
 }
 
-export function cameraTarget({ playerX, facing, viewWidth, worldWidth, reducedMotion = false }) {
-  const anchor = reducedMotion ? .5 : facing < 0 ? .7 : .3
+export function cameraTarget({ playerX, direction = 0, viewWidth, worldWidth, reducedMotion = false }) {
+  const anchor = reducedMotion ? .5 : .5 - clamp(direction, -1, 1) * .2
   return clamp(playerX - viewWidth * anchor, 0, Math.max(0, worldWidth - viewWidth))
 }
 
@@ -259,7 +259,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       if (event.type === 'hurt' || event.type === 'fall') {
         camera = cameraTarget({
           playerX: player.x,
-          facing: player.facing,
+          direction: player.vx / player.config.maxRun,
           viewWidth: cameraViewWidth,
           worldWidth: world.width,
           reducedMotion,
@@ -675,7 +675,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     const maxCameraY = Math.max(0, WORLD_HEIGHT - viewHeight)
     const target = cameraTarget({
       playerX: player.x,
-      facing: player.facing,
+      direction: player.vx / player.config.maxRun,
       viewWidth,
       worldWidth: world.width,
       reducedMotion,

@@ -1,7 +1,7 @@
 import { currentSeed, isDaily, shareSeed } from './seed.js'
 import { createAudio } from './audio.js'
 import { challengeWon, dailyChallenge } from './daily.js'
-import { createGame } from './game.js?v=4'
+import { createGame } from './game.js?v=5'
 import { wireInstall } from './install.js'
 import { LEVELS, REGIONS } from './levels.js'
 import { createRelease } from './release.js'
@@ -13,7 +13,10 @@ const $ = id => document.getElementById(id)
 const menu = $('menu')
 const gameScreen = $('game')
 const howto = $('howto')
+const about = $('about')
 const overlay = $('game-overlay')
+const rotateDevice = $('rotate-device')
+const updateButton = $('update')
 const HOW_TO_PLAY = Object.freeze({
   title: 'How to play',
   steps: [
@@ -121,7 +124,7 @@ const game = createGame($('stage'), state => {
     : ''
   const overlayVisible = state.paused || state.finished
   overlay.hidden = !overlayVisible
-  $('game-bar').inert = overlayVisible && !orientationBlocked
+  $('game-bar').inert = overlayVisible || orientationBlocked
   $('controls').inert = overlayVisible || orientationBlocked
   overlay.classList.toggle('campaign-ending', campaignFinished)
   $('ending-art').hidden = !campaignFinished
@@ -239,30 +242,40 @@ function beginPendingPlay() {
 }
 
 function syncOrientation() {
-  const blocked = !gameScreen.hidden && innerHeight > innerWidth
-  const newlyBlocked = blocked && !orientationBlocked
+  const blocked = innerHeight > innerWidth
+  const wasBlocked = orientationBlocked
+  const inGame = !gameScreen.hidden
   orientationBlocked = blocked
-  gameScreen.classList.toggle('orientation-blocked', blocked)
-  $('rotate-device').hidden = !blocked
-  $('pause').disabled = blocked
-  $('controls').inert = blocked || !overlay.hidden
-  $('game-bar').inert = !blocked && !overlay.hidden
+  document.body.classList.toggle('orientation-blocked', blocked)
+  $('rotate-home').hidden = !blocked || !inGame
+  menu.inert = blocked
+  gameScreen.inert = blocked
+  updateButton.inert = blocked
 
   if (blocked) {
+    for (const dialog of [howto, about]) if (dialog.open) dialog.close()
+    if (!rotateDevice.open) rotateDevice.showModal()
     releaseAllInputs()
-    if (newlyBlocked && gameStarted) game.pause()
-    $('back').focus({ preventScroll: true })
+    if (!wasBlocked && inGame && gameStarted) game.pause()
+    requestAnimationFrame(() => (inGame ? $('rotate-home') : $('rotate-title')).focus({ preventScroll: true }))
     return
   }
 
-  if (!beginPendingPlay()) requestAnimationFrame(() => game.resize())
-  if (!overlay.hidden) {
-    const target = !$('resume').hidden
-      ? $('resume')
-      : overlay.classList.contains('campaign-ending')
-        ? $('ending-home')
-        : !$('next-trail').hidden ? $('next-trail') : $('restart')
-    requestAnimationFrame(() => target.focus())
+  if (wasBlocked && about.open) about.close()
+  if (rotateDevice.open) rotateDevice.close()
+  if (inGame) {
+    if (!beginPendingPlay()) requestAnimationFrame(() => game.resize())
+    if (!overlay.hidden) {
+      const target = !$('resume').hidden
+        ? $('resume')
+        : overlay.classList.contains('campaign-ending')
+          ? $('ending-home')
+          : !$('next-trail').hidden ? $('next-trail') : $('restart')
+      requestAnimationFrame(() => target.focus())
+    }
+  } else if (wasBlocked) {
+    const panel = [...document.querySelectorAll('.tab-panel')].find(item => !item.hidden)
+    requestAnimationFrame(() => (panel?.querySelector('button:not(:disabled)') || $('play')).focus({ preventScroll: true }))
   }
 }
 
@@ -280,6 +293,21 @@ function pauseForInterruption() {
 
 function show(screen) {
   for (const element of [menu, gameScreen]) element.hidden = element !== screen
+}
+
+function goHome() {
+  releaseAllInputs()
+  game.stop()
+  pendingPlay = null
+  pendingAudio = null
+  pendingNeedsResume = false
+  gameStarted = false
+  activeChallenge = null
+  show(menu)
+  openTab('play')
+  renderMenu()
+  syncOrientation()
+  if (!orientationBlocked) $('play').focus({ preventScroll: true })
 }
 
 function playLevel(levelId = store.get().selectedLevel, challenge = null) {
@@ -437,18 +465,19 @@ window.addEventListener('resize', syncOrientation)
 $('version').textContent = `v${VERSION}`
 $('play').addEventListener('click', () => playLevel())
 $('daily-play')?.addEventListener('click', () => playLevel(featuredChallenge.levelId, featuredChallenge))
-$('back').addEventListener('click', () => {
-  releaseAllInputs()
-  game.stop()
-  pendingPlay = null
-  pendingAudio = null
-  pendingNeedsResume = false
-  gameStarted = false
-  activeChallenge = null
-  show(menu)
-  syncOrientation()
-  renderMenu()
-  $('play').focus({ preventScroll: true })
+$('back').addEventListener('click', goHome)
+$('rotate-home').addEventListener('click', goHome)
+$('rotate-device').addEventListener('cancel', event => event.preventDefault())
+$('rotate-device').addEventListener('keydown', event => {
+  if (event.key !== 'Tab') return
+  const targets = [...rotateDevice.querySelectorAll('button:not([hidden]):not(:disabled)')]
+  if (!targets.length) return
+  const current = targets.indexOf(document.activeElement)
+  const next = event.shiftKey
+    ? current <= 0 ? targets.length - 1 : current - 1
+    : current < 0 || current === targets.length - 1 ? 0 : current + 1
+  event.preventDefault()
+  targets[next].focus()
 })
 $('pause').addEventListener('click', () => {
   releaseAllInputs()
@@ -466,20 +495,7 @@ $('restart').addEventListener('click', () => {
   $('pause').focus({ preventScroll: true })
 })
 $('next-trail').addEventListener('click', () => playLevel(queuedNext))
-$('ending-home').addEventListener('click', () => {
-  releaseAllInputs()
-  game.stop()
-  pendingPlay = null
-  pendingAudio = null
-  pendingNeedsResume = false
-  gameStarted = false
-  activeChallenge = null
-  show(menu)
-  syncOrientation()
-  openTab('play')
-  renderMenu()
-  $('play').focus({ preventScroll: true })
-})
+$('ending-home').addEventListener('click', goHome)
 
 for (const [id, action] of controlBindings) {
   const button = $(id)
@@ -554,8 +570,9 @@ $('howto-open').addEventListener('click', () => {
   howto.showModal()
 })
 $('howto-close').addEventListener('click', () => howto.close())
-$('about-open').addEventListener('click', () => $('about').showModal())
-$('about-close').addEventListener('click', () => $('about').close())
+$('about-open').addEventListener('click', () => about.showModal())
+$('rotate-about').addEventListener('click', () => about.showModal())
+$('about-close').addEventListener('click', () => about.close())
 
 $('friends').addEventListener('click', async event => {
   const button = event.currentTarget
@@ -585,11 +602,12 @@ wireInstall($('install'), {
 
 renderMenu(save)
 if (directChallenge) openTab('more')
+syncOrientation()
 document.addEventListener('pointerdown', () => { void audio.startFromGesture() }, { once: true })
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) pauseForInterruption()
 })
 window.addEventListener('pagehide', pauseForInterruption)
 window.addEventListener('blur', pauseForInterruption)
-wireUpdate($('update'))
+wireUpdate(updateButton)
 registerWorker()

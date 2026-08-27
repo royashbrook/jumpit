@@ -29,6 +29,7 @@ const {
   ART_SOURCES,
   artKeysForLevel,
   cameraScale,
+  cameraTarget,
   createGame,
   verticalCameraTarget,
 } = await import('../game.js')
@@ -123,6 +124,56 @@ test('a landscape Keep render crops vertically and survives a wider resize', () 
   game.stop()
 })
 
+test('a running reversal turns the camera without snapping across the trail', () => {
+  const originalRequest = globalThis.requestAnimationFrame
+  const originalCancel = globalThis.cancelAnimationFrame
+  let pending = null
+  let nextId = 0
+  let time = 1
+  globalThis.requestAnimationFrame = callback => { pending = callback; return ++nextId }
+  globalThis.cancelAnimationFrame = () => {}
+
+  try {
+    const harness = canvasHarness(844, 320)
+    const game = createGame(harness.canvas)
+    const tick = () => {
+      const firstTranslate = harness.translates.length
+      const callback = pending
+      assert.equal(typeof callback, 'function')
+      pending = null
+      callback(time)
+      time += 1000 / 60
+      return harness.translates[firstTranslate][0]
+    }
+
+    game.start('garden-1')
+    tick()
+    const replay = recordReplay(LEVELS[0])
+    let beforeTurn = 0
+    for (const encoded of replay.inputs.slice(0, 120)) {
+      game.setInput('left', Boolean(encoded & 1))
+      game.setInput('right', Boolean(encoded & 2))
+      game.setInput('jump', Boolean(encoded & 4))
+      beforeTurn = tick()
+    }
+
+    game.setInput('jump', false)
+    game.setInput('right', false)
+    game.setInput('left', true)
+    assert.ok(beforeTurn < -280)
+    const firstTurn = tick()
+    assert.ok(Math.abs(firstTurn - beforeTurn) < 8)
+
+    const turnFrames = []
+    for (let frame = 0; frame < 30; frame += 1) turnFrames.push(tick())
+    assert.ok(turnFrames.some(value => value > firstTurn))
+    game.stop()
+  } finally {
+    globalThis.requestAnimationFrame = originalRequest
+    globalThis.cancelAnimationFrame = originalCancel
+  }
+})
+
 test('the landscape Keep camera follows a climb and resets to its lit checkpoint after a fall', () => {
   const originalRequest = globalThis.requestAnimationFrame
   const originalCancel = globalThis.cancelAnimationFrame
@@ -142,6 +193,7 @@ test('the landscape Keep camera follows a climb and resets to its lit checkpoint
     const replay = recordReplay(level)
     const checkpointFrame = replay.eventFrames.checkpoint[0]
     const fallFrame = replay.eventFrames.fall.find(frame => frame > checkpointFrame)
+    const cameraX = []
     const cameraY = []
     const tick = () => {
       const firstTranslate = harness.translates.length
@@ -150,6 +202,7 @@ test('the landscape Keep camera follows a climb and resets to its lit checkpoint
       pending = null
       callback(time)
       time += 1000 / 60
+      cameraX.push(harness.translates[firstTranslate][0])
       cameraY.push(harness.translates[firstTranslate][1])
     }
 
@@ -163,7 +216,14 @@ test('the landscape Keep camera follows a climb and resets to its lit checkpoint
     }
 
     const checkpoint = level.objects.find(([, kind]) => kind === 'checkpoint')
+    const viewWidth = width / cameraScale(width, height)
     const viewHeight = height / cameraScale(width, height)
+    const expectedCheckpointX = -cameraTarget({
+      playerX: checkpoint[2] * TILE + TILE / 2 - 14,
+      direction: 0,
+      viewWidth,
+      worldWidth: level.size[0] * TILE,
+    })
     const expectedCheckpointY = -verticalCameraTarget({
       playerY: (checkpoint[3] + 1) * TILE - 42,
       playerHeight: 42,
@@ -173,6 +233,7 @@ test('the landscape Keep camera follows a climb and resets to its lit checkpoint
     assert.ok(climbedY > cameraY[0] + TILE * 2)
     assert.equal(states.some(state => state.message === 'LANTERN LIT · CHECKPOINT!'), true)
     assert.equal(states.at(-1).message, 'BACK TO THE LANTERN')
+    assert.ok(Math.abs(cameraX[fallFrame] - expectedCheckpointX) < 1e-9)
     assert.ok(Math.abs(cameraY[fallFrame] - expectedCheckpointY) < 1e-9)
     game.stop()
   } finally {
