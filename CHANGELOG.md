@@ -5,7 +5,7 @@
 - Stabilized the twenty-trail campaign across five grounded places with full progression,
   original art and sound, optional Hidden Lights, and a three-hit final guardian.
 - Made play landscape-first with a clear portrait rotate gate, an edge-to-edge world,
-  a wider direction-aware camera, compact corner arrows, and tap-anywhere jumping.
+  a wider direction-aware camera, a transient left-side stick, and right-side jumping.
 - Proved the exact shipped v1.9 installed client and same-version preview cache upgrade
   once into the coherent v2 shell,
   while a failed v2.1 precache leaves the active offline shell untouched.

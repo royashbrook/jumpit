@@ -972,9 +972,7 @@ h1 {
 }
 
 .controls {
-  --control-size: clamp(68px, 20dvh, 82px);
-  --jump-width: clamp(108px, 31dvh, 132px);
-  --control-moat: clamp(16px, 5dvh, 20px);
+  --feedback-size: clamp(112px, 32dvh, 128px);
   position: absolute;
   inset: 0;
   z-index: 3;
@@ -983,64 +981,139 @@ h1 {
 
 .control-zone {
   position: absolute;
+  top: 0;
   bottom: 0;
-  display: flex;
-  gap: .5rem;
-  padding-top: var(--control-moat);
-  padding-bottom: max(var(--control-moat), env(safe-area-inset-bottom));
+  width: 50%;
+  overflow: hidden;
   pointer-events: auto;
   touch-action: none;
 }
 
 .direction-zone {
   left: 0;
-  padding-right: var(--control-moat);
-  padding-left: max(var(--control-moat), env(safe-area-inset-left));
 }
 
 .jump-zone {
   right: 0;
-  padding-right: max(var(--control-moat), env(safe-area-inset-right));
-  padding-left: var(--control-moat);
 }
 
 .control {
-  width: var(--control-size);
-  min-height: var(--control-size);
   padding: 0;
-  border: .12rem solid var(--line);
-  border-radius: calc(var(--radius) * .8);
-  background: var(--surface-raised);
-  box-shadow: var(--shadow);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
   color: var(--ink);
   font: inherit;
   font-weight: 900;
-  opacity: 1;
-  pointer-events: auto;
   touch-action: none;
 }
 
+.move-stick,
+.jump-feedback {
+  position: absolute;
+  left: var(--stick-x, 50%);
+  top: var(--stick-y, 72%);
+  width: var(--feedback-size);
+  height: var(--feedback-size);
+  translate: -50% -50%;
+  border: .18rem solid rgb(from var(--line) r g b / .48);
+  border-radius: 50%;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.move-stick {
+  transition: opacity .1s ease;
+}
+
+.move-stick::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 46%;
+  height: 46%;
+  translate: calc(-50% + var(--stick-dx, 0px)) -50%;
+  border: .18rem solid rgb(from var(--line) r g b / .58);
+  border-radius: 50%;
+  background: transparent;
+  content: '';
+}
+
+.direction-zone[data-active] .move-stick {
+  opacity: .48;
+}
+
 .control.direction {
-  font-size: 1.45rem;
+  position: absolute;
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  width: 64px;
+  min-height: 64px;
+  border: .16rem solid var(--line);
+  border-radius: 50%;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-pressed);
+  font-size: 1.3rem;
+  opacity: 0;
+  pointer-events: none;
 }
 
-.control.jump {
-  width: var(--jump-width);
-  background: var(--accent);
-  color: var(--ink-on-accent);
-  font-size: .82rem;
+#move-left {
+  left: max(1rem, env(safe-area-inset-left));
 }
 
-.control[data-held] {
+#move-right {
+  left: max(5.75rem, calc(env(safe-area-inset-left) + 5.75rem));
+}
+
+.control.direction:focus {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.control.direction[data-held] {
   transform: translateY(.2rem) scale(.98);
   box-shadow: var(--shadow-pressed);
   filter: brightness(.92);
 }
 
+.control.jump {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  min-height: 100%;
+  color: transparent;
+  pointer-events: auto;
+}
+
+.jump-feedback {
+  left: var(--touch-x, 50%);
+  top: var(--touch-y, 72%);
+  display: grid;
+  place-items: center;
+  color: rgb(from var(--line) r g b / .7);
+  font-size: .76rem;
+  transition: opacity .1s ease, scale .1s ease;
+}
+
+.control.jump[data-held] .jump-feedback,
+.control.jump:focus-visible .jump-feedback {
+  opacity: .48;
+}
+
+.control.jump[data-held] .jump-feedback {
+  scale: .94;
+}
+
 .control:disabled {
-  background: var(--surface-sunk);
-  box-shadow: none;
-  color: var(--ink-dim);
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .move-stick,
+  .jump-feedback {
+    transition: none;
+  }
 }
 
 dialog {

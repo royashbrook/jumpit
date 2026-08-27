@@ -186,11 +186,11 @@ test('identical reward messages visibly retrigger their status animation', async
     })
   })
 
-  await page.locator('#move-right').click()
+  await page.locator('#move-right').evaluate(button => button.click())
   await expect.poll(() => page.locator('html').getAttribute('data-status-starts')).toBe('1')
   await expect(page.locator('#game-status')).toHaveText('LANTERN SEED!')
   await page.waitForTimeout(160)
-  await page.locator('#move-right').click()
+  await page.locator('#move-right').evaluate(button => button.click())
   await expect.poll(() => page.locator('html').getAttribute('data-status-starts')).toBe('2')
   await expect(page.locator('#game-status')).toHaveText('LANTERN SEED!')
 })
@@ -209,7 +209,7 @@ test('a clear names place progress and the trail or place it just opened', async
   })))
   await page.goto('/')
   await launchTrail(page)
-  await page.locator('#move-right').click()
+  await page.locator('#move-right').evaluate(button => button.click())
 
   await expect(page.getByRole('dialog')).toBeVisible()
   await expect(page.locator('#overlay-copy')).toHaveText('GARDEN WALK: 4 OF 4 TRAILS LIT. ROOFTOP RAIN IS NOW OPEN.')
@@ -286,14 +286,14 @@ test('a held move control survives an overlapping ArrowRight release', async ({ 
   await expect(page.locator('#move-right')).not.toHaveAttribute('data-held', '')
 })
 
-test('run and a trail tap can overlap without sticking either control', async ({ page }) => {
+test('run and a right-side jump can overlap without sticking either control', async ({ page }) => {
   await page.goto('/')
   await launchTrail(page)
   await pointer(page, '#move-right', 'pointerdown', 7)
   await page.waitForTimeout(300)
-  await pointer(page, '#stage-shell', 'pointerdown', 8, false)
+  await pointer(page, '#jump', 'pointerdown', 8, false)
   await page.waitForTimeout(120)
-  await pointer(page, '#stage-shell', 'pointerup', 8, false)
+  await pointer(page, '#jump', 'pointerup', 8, false)
   await expect(page.locator('#move-right')).toHaveAttribute('data-held', '')
   await page.waitForTimeout(380)
   await pointer(page, '#move-right', 'pointerup', 7)
@@ -302,7 +302,7 @@ test('run and a trail tap can overlap without sticking either control', async ({
   await expect(page.locator('#stage')).toBeVisible()
 })
 
-test('trail taps, controls, keyboard, and assistive activation fire exactly once', async ({ page }) => {
+test('gesture zones, keyboard, and assistive activation fire exactly once', async ({ page }) => {
   await page.route('**/game.js*', route => route.fulfill({ contentType: 'text/javascript', body: inputGameStub }))
   await page.goto('/')
   await launchTrail(page)
@@ -310,18 +310,18 @@ test('trail taps, controls, keyboard, and assistive activation fire exactly once
   const clear = () => page.evaluate(() => { document.documentElement.dataset.inputEvents = '[]' })
 
   await clear()
-  await pointer(page, '#stage-shell', 'pointerdown', 20)
-  await pointer(page, '#stage-shell', 'pointerup', 20)
+  await pointer(page, '#jump', 'pointerdown', 20)
+  await pointer(page, '#jump', 'pointerup', 20)
   expect(await read()).toEqual(['jump:true', 'jump:false'])
 
   await clear()
-  await pointer(page, '#stage-shell', 'pointerdown', 21)
-  await pointer(page, '#stage-shell', 'pointerdown', 22, false)
+  await pointer(page, '#jump', 'pointerdown', 21)
+  await pointer(page, '#jump', 'pointerdown', 22, false)
   expect(await read()).toEqual(['jump:true'])
-  await pointer(page, '#stage-shell', 'pointerup', 21)
+  await pointer(page, '#jump', 'pointerup', 21)
   expect(await read()).toEqual(['jump:true'])
   await expect(page.locator('#jump')).toHaveAttribute('data-held', '')
-  await pointer(page, '#stage-shell', 'pointerup', 22, false)
+  await pointer(page, '#jump', 'pointerup', 22, false)
   expect(await read()).toEqual(['jump:true', 'jump:false'])
   await expect(page.locator('#jump')).not.toHaveAttribute('data-held', '')
 
@@ -342,7 +342,8 @@ test('trail taps, controls, keyboard, and assistive activation fire exactly once
   expect(await read()).toEqual(['right:true', 'right:false'])
 
   await clear()
-  await page.locator('#move-left').click()
+  await page.locator('#move-left').evaluate(button => button.click())
+  await page.waitForTimeout(150)
   expect(await read()).toEqual(['left:true', 'left:false'])
 
   await page.getByRole('button', { name: 'pause game' }).click()
@@ -353,7 +354,7 @@ test('trail taps, controls, keyboard, and assistive activation fire exactly once
   expect(await read()).toEqual([])
 })
 
-test('browser hit-testing gives open world taps to the trail and chrome taps to chrome', async ({ page }) => {
+test('browser hit-testing splits play between two half-screen zones while chrome stays on top', async ({ page }) => {
   await page.setViewportSize({ width: 812, height: 375 })
   await page.route('**/game.js*', route => route.fulfill({ contentType: 'text/javascript', body: inputGameStub }))
   await page.goto('/')
@@ -367,65 +368,62 @@ test('browser hit-testing gives open world taps to the trail and chrome taps to 
       const point = { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 }
       return { ...point, hit: document.elementFromPoint(point.x, point.y)?.closest('button')?.id || null }
     }
-    const safe = point => ({ ...point, hit: document.elementFromPoint(point.x, point.y)?.id || null })
-    const left = rect('#move-left')
-    const right = rect('#move-right')
-    const jump = rect('#jump')
     const directionZone = rect('#direction-zone')
     const jumpZone = rect('#jump-zone')
-    const world = { x: innerWidth / 2, y: innerHeight * .75 }
+    const hit = point => {
+      const element = document.elementFromPoint(point.x, point.y)
+      return { ...point, hit: element?.id || null, zone: element?.closest('.control-zone')?.id || null }
+    }
     return {
-      world: { ...world, hit: document.elementFromPoint(world.x, world.y)?.id || null },
+      width: innerWidth,
+      height: innerHeight,
       back: center('#back'),
       pause: center('#pause'),
-      left: center('#move-left'),
-      right: center('#move-right'),
-      jump: center('#jump'),
-      safeDirections: [
-        safe({ x: (left.right + right.left) / 2, y: left.top + left.height / 2 }),
-        safe({ x: left.left - 16, y: left.top + left.height / 2 }),
-        safe({ x: right.right + 16, y: right.top + right.height / 2 }),
-        safe({ x: left.left + left.width / 2, y: left.top - 16 }),
-      ],
-      safeJump: [
-        safe({ x: jump.left - 16, y: jump.top + jump.height / 2 }),
-        safe({ x: jump.right + 16, y: jump.top + jump.height / 2 }),
-        safe({ x: jump.left + jump.width / 2, y: jump.top - 16 }),
-      ],
-      outsideZones: [
-        safe({ x: directionZone.right + 24, y: right.top + right.height / 2 }),
-        safe({ x: jumpZone.left - 24, y: jump.top + jump.height / 2 }),
-      ],
+      directionZone: directionZone.toJSON(),
+      jumpZone: jumpZone.toJSON(),
+      left: [.12, .35, .49].map(x => hit({ x: innerWidth * x, y: innerHeight * .72 })),
+      right: [.51, .68, .9].map(x => hit({ x: innerWidth * x, y: innerHeight * .72 })),
     }
   })
-  expect(hits.world.hit).toBe('stage')
   expect([hits.back.hit, hits.pause.hit]).toEqual(['back', 'pause'])
-  expect([hits.left.hit, hits.right.hit, hits.jump.hit]).toEqual(['move-left', 'move-right', 'jump'])
-  expect(hits.safeDirections.map(point => point.hit)).toEqual(Array(4).fill('direction-zone'))
-  expect(hits.safeJump.map(point => point.hit)).toEqual(Array(3).fill('jump-zone'))
-  expect(hits.outsideZones.map(point => point.hit)).toEqual(['stage', 'stage'])
+  expect(hits.directionZone.left).toBeLessThanOrEqual(1)
+  expect(hits.directionZone.right).toBeCloseTo(hits.width / 2, 0)
+  expect(hits.jumpZone.left).toBeCloseTo(hits.width / 2, 0)
+  expect(hits.jumpZone.right).toBeGreaterThanOrEqual(hits.width - 1)
+  for (const zone of [hits.directionZone, hits.jumpZone]) {
+    expect(zone.top).toBeLessThanOrEqual(1)
+    expect(zone.bottom).toBeGreaterThanOrEqual(hits.height - 1)
+  }
+  expect(hits.left.map(point => point.zone)).toEqual(Array(3).fill('direction-zone'))
+  expect(hits.right.map(point => point.zone)).toEqual(Array(3).fill('jump-zone'))
 
-  await clear()
-  await page.mouse.click(hits.world.x, hits.world.y)
-  expect(await read()).toEqual(['jump:true', 'jump:false'])
-
-  for (const point of hits.safeDirections) {
+  for (const point of hits.left) {
     await clear()
     await page.touchscreen.tap(point.x, point.y)
-    expect((await read()).filter(event => event.startsWith('jump:'))).toEqual([])
+    expect(await read(), JSON.stringify(point)).toEqual([])
   }
 
-  for (const point of hits.safeJump) {
-    await clear()
-    await page.mouse.click(point.x, point.y)
-    expect(await read()).toEqual([])
-  }
-
-  for (const point of hits.outsideZones) {
+  for (const point of hits.right) {
     await clear()
     await page.touchscreen.tap(point.x, point.y)
     expect(await read()).toEqual(['jump:true', 'jump:false'])
   }
+
+  await clear()
+  await page.mouse.move(hits.width * .25, hits.height * .72)
+  await page.mouse.down()
+  await page.mouse.move(hits.width * .75, hits.height * .72)
+  expect(await read()).toEqual(['right:true'])
+  await page.mouse.up()
+  expect(await read()).toEqual(['right:true', 'right:false'])
+
+  await clear()
+  await page.mouse.move(hits.width * .75, hits.height * .72)
+  await page.mouse.down()
+  await page.mouse.move(hits.width * .25, hits.height * .72)
+  expect(await read()).toEqual(['jump:true'])
+  await page.mouse.up()
+  expect(await read()).toEqual(['jump:true', 'jump:false'])
 
   await page.mouse.click(hits.pause.x, hits.pause.y)
   await expect(page.getByRole('heading', { name: 'PAUSED' })).toBeVisible()
@@ -438,6 +436,61 @@ test('browser hit-testing gives open world taps to the trail and chrome taps to 
   await clear()
   await page.mouse.click(overlay.x, overlay.y)
   expect(await read()).toEqual([])
+})
+
+test('the left half is a drag stick and the right half is an independent jump zone', async ({ page }) => {
+  await page.setViewportSize({ width: 812, height: 375 })
+  await page.route('**/game.js*', route => route.fulfill({ contentType: 'text/javascript', body: inputGameStub }))
+  await page.goto('/')
+  await launchTrail(page)
+  const read = () => page.evaluate(() => JSON.parse(document.documentElement.dataset.inputEvents || '[]'))
+  const clear = () => page.evaluate(() => { document.documentElement.dataset.inputEvents = '[]' })
+  const point = (selector, x, y) => page.locator(selector).evaluate((element, offset) => {
+    const box = element.getBoundingClientRect()
+    return { x: box.left + box.width * offset.x, y: box.top + box.height * offset.y }
+  }, { x, y })
+  const fire = (selector, type, pointerId, position, isPrimary = true) => page.dispatchEvent(selector, type, {
+    pointerId, pointerType: 'touch', isPrimary, buttons: type === 'pointerup' ? 0 : 1,
+    clientX: position.x, clientY: position.y,
+  })
+
+  await expect(page.locator('#move-stick')).toHaveCSS('opacity', '0')
+  const origin = await point('#direction-zone', .45, .7)
+  await fire('#direction-zone', 'pointerdown', 31, origin)
+  await expect(page.locator('#direction-zone')).toHaveAttribute('data-active', '')
+  await expect(page.locator('#move-stick')).toHaveCSS('opacity', '0.48')
+  expect(await read()).toEqual([])
+
+  await fire('#direction-zone', 'pointermove', 31, { x: origin.x + 8, y: origin.y })
+  await expect(page.locator('#direction-zone')).not.toHaveAttribute('data-direction')
+  expect(await read()).toEqual([])
+  await fire('#direction-zone', 'pointermove', 31, { x: origin.x + 42, y: origin.y })
+  await expect(page.locator('#direction-zone')).toHaveAttribute('data-direction', 'right')
+  expect(await read()).toEqual(['right:true'])
+  await fire('#direction-zone', 'pointermove', 31, { x: origin.x + 6, y: origin.y })
+  expect(await read()).toEqual(['right:true', 'right:false'])
+  await fire('#direction-zone', 'pointermove', 31, { x: origin.x - 42, y: origin.y })
+  await expect(page.locator('#direction-zone')).toHaveAttribute('data-direction', 'left')
+  expect(await read()).toEqual(['right:true', 'right:false', 'left:true'])
+
+  const jump = await point('#jump-zone', .55, .45)
+  await fire('#jump', 'pointerdown', 32, jump, false)
+  await expect(page.locator('.jump-feedback')).toHaveCSS('opacity', '0.48')
+  expect(await read()).toEqual(['right:true', 'right:false', 'left:true', 'jump:true'])
+  await fire('#jump', 'pointerup', 32, jump, false)
+  await fire('#direction-zone', 'pointerup', 31, origin)
+  expect(await read()).toEqual(['right:true', 'right:false', 'left:true', 'jump:true', 'jump:false', 'left:false'])
+  await expect(page.locator('#direction-zone')).not.toHaveAttribute('data-active', '')
+  await expect(page.locator('#move-stick')).toHaveCSS('opacity', '0')
+
+  await clear()
+  await fire('#jump', 'pointerdown', 33, jump)
+  await page.evaluate(position => window.dispatchEvent(new PointerEvent('pointerup', {
+    pointerId: 33, pointerType: 'touch', isPrimary: true, buttons: 0,
+    clientX: position.x - innerWidth / 2, clientY: position.y,
+  })), jump)
+  expect(await read()).toEqual(['jump:true', 'jump:false'])
+  await expect(page.locator('#jump')).not.toHaveAttribute('data-held', '')
 })
 
 test('beating the guardian gives the campaign a focused mobile ending with replay and home', async ({ page }) => {
@@ -460,7 +513,7 @@ test('beating the guardian gives the campaign a focused mobile ending with repla
   await expect(page.locator('#guardian-status')).toHaveText('WARDEN 3/3 · BELL LOCKED')
   for (let hit = 0; hit < 3; hit += 1) await page.locator('#jump').click()
   await expect(page.locator('#guardian-status')).toHaveText('WARDEN CLEARED · BELL READY')
-  await page.locator('#move-right').click()
+  await page.locator('#move-right').evaluate(button => button.click())
 
   const ending = page.getByRole('dialog')
   await expect(ending).toBeVisible()
@@ -492,7 +545,7 @@ test('beating the guardian gives the campaign a focused mobile ending with repla
   await expect(page.getByRole('button', { name: 'pause game' })).toBeFocused()
   await expect(page.locator('#guardian-status')).toHaveText('WARDEN 3/3 · BELL LOCKED')
   for (let hit = 0; hit < 3; hit += 1) await page.locator('#jump').click()
-  await page.locator('#move-right').click()
+  await page.locator('#move-right').evaluate(button => button.click())
   await page.getByRole('button', { name: 'HOME' }).click()
   await expect(page.getByRole('heading', { name: 'You brought light home.' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'RUN THE KEEP AGAIN' })).toBeFocused()
@@ -517,7 +570,7 @@ test('the ungated ending reflects partial or complete hidden light discovery', a
   await page.goto('/')
   await launchTrail(page)
   for (let hit = 0; hit < 3; hit += 1) await page.locator('#jump').click()
-  await page.locator('#move-right').click()
+  await page.locator('#move-right').evaluate(button => button.click())
   await expect(page.locator('#overlay-copy')).toContainText('THE HIDDEN LIGHTS YOU FOUND TWINKLE TOO.')
   await expect(page.locator('.ending-light.found')).toHaveCount(2)
 
@@ -535,7 +588,7 @@ test('the ungated ending reflects partial or complete hidden light discovery', a
   await expect(replay).toBeEnabled()
   await replay.dispatchEvent('click')
   for (let hit = 0; hit < 3; hit += 1) await page.locator('#jump').click()
-  await page.locator('#move-right').click()
+  await page.locator('#move-right').evaluate(button => button.click())
   await expect(page.locator('#overlay-copy')).toContainText('EVERY HIDDEN LIGHT JOINS THE BEACON.')
   await expect(page.locator('.ending-light.found')).toHaveCount(5)
 })

@@ -1,7 +1,7 @@
 import { currentSeed, isDaily, shareSeed } from './seed.js'
 import { createAudio } from './audio.js'
 import { challengeWon, dailyChallenge } from './daily.js'
-import { createGame } from './game.js?v=6'
+import { createGame } from './game.js?v=7'
 import { wireInstall } from './install.js'
 import { LEVELS, REGIONS } from './levels.js'
 import { createRelease } from './release.js'
@@ -20,11 +20,11 @@ const updateButton = $('update')
 const HOW_TO_PLAY = Object.freeze({
   title: 'How to play',
   steps: [
-    'Hold an arrow to run.',
-    'Tap anywhere to jump.',
+    'Touch the left side, then slide to run.',
+    'Tap or hold the right side to jump.',
     'Gather lantern seeds and reach the bell.',
   ],
-  copy: 'Hold an arrow to run. Tap or hold anywhere for a short or high leap.',
+  copy: 'Slide your left thumb to run. Tap or hold your right thumb for a short or high leap.',
 })
 const release = createRelease(LEVELS, 20)
 const releaseLevels = release.levels
@@ -191,6 +191,11 @@ const game = createGame($('stage'), state => {
 const controlBindings = [['move-left', 'left'], ['move-right', 'right'], ['jump', 'jump']]
 const activeInputs = new Map()
 const releaseTimers = new Map()
+const directionZone = $('direction-zone')
+let stickPointer = null
+let stickSource = ''
+let stickOriginX = 0
+let stickAction = null
 
 function pressInput(action, button, source) {
   clearTimeout(releaseTimers.get(source))
@@ -223,6 +228,12 @@ function releaseAllInputs() {
   }
   releaseTimers.clear()
   activeInputs.clear()
+  stickPointer = null
+  stickSource = ''
+  stickAction = null
+  directionZone.removeAttribute('data-active')
+  directionZone.removeAttribute('data-direction')
+  directionZone.style.setProperty('--stick-dx', '0px')
   game.clearInput()
 }
 
@@ -500,17 +511,28 @@ $('ending-home').addEventListener('click', goHome)
 for (const [id, action] of controlBindings) {
   const button = $(id)
   const release = event => {
+    const source = `${id}:pointer:${event.pointerId}`
+    if (!activeInputs.get(action)?.has(source)) return
     event.preventDefault()
-    releaseInput(action, button, `${id}:pointer:${event.pointerId}`)
+    releaseInput(action, button, source)
   }
   button.addEventListener('pointerdown', event => {
     event.preventDefault()
+    if (action === 'jump') {
+      const bounds = button.getBoundingClientRect()
+      button.style.setProperty('--touch-x', `${event.clientX - bounds.left}px`)
+      button.style.setProperty('--touch-y', `${event.clientY - bounds.top}px`)
+    }
     try { button.setPointerCapture?.(event.pointerId) } catch {}
     pressInput(action, button, `${id}:pointer:${event.pointerId}`)
   })
   button.addEventListener('pointerup', release)
   button.addEventListener('pointercancel', release)
   button.addEventListener('lostpointercapture', release)
+  if (action === 'jump') {
+    window.addEventListener('pointerup', release)
+    window.addEventListener('pointercancel', release)
+  }
   button.addEventListener('click', event => {
     if (event.detail !== 0) return
     const source = `${id}:activation`
@@ -522,21 +544,58 @@ for (const [id, action] of controlBindings) {
   })
 }
 
-const stage = $('stage-shell')
-const jumpControl = $('jump')
-const stageSource = pointerId => `stage:pointer:${pointerId}`
-const releaseStageJump = event => releaseInput('jump', jumpControl, stageSource(event.pointerId))
-stage.addEventListener('pointerdown', event => {
-  if (event.button > 0 || event.target.closest?.('button') || !gameStarted || orientationBlocked || !overlay.hidden) return
+function setStickAction(action) {
+  if (action === stickAction) return
+  if (stickAction) releaseInput(stickAction, $(`move-${stickAction}`), stickSource)
+  stickAction = action
+  if (action) pressInput(action, $(`move-${action}`), stickSource)
+  if (action) directionZone.dataset.direction = action
+  else directionZone.removeAttribute('data-direction')
+}
+
+function moveStick(event) {
+  const dx = event.clientX - stickOriginX
+  const action = stickAction === 'right' && dx > 8 ? 'right'
+    : stickAction === 'left' && dx < -8 ? 'left'
+      : dx > 14 ? 'right' : dx < -14 ? 'left' : null
+  directionZone.style.setProperty('--stick-dx', `${Math.max(-42, Math.min(42, dx))}px`)
+  setStickAction(action)
+}
+
+function releaseStick(event) {
+  if (event.pointerId !== stickPointer) return
   event.preventDefault()
-  try { stage.setPointerCapture?.(event.pointerId) } catch {}
-  pressInput('jump', jumpControl, stageSource(event.pointerId))
+  setStickAction(null)
+  stickPointer = null
+  stickSource = ''
+  directionZone.removeAttribute('data-active')
+  directionZone.style.setProperty('--stick-dx', '0px')
+}
+
+directionZone.addEventListener('pointerdown', event => {
+  if (event.button > 0 || event.target.closest?.('button') || stickPointer !== null || !gameStarted || orientationBlocked || !overlay.hidden) return
+  event.preventDefault()
+  stickPointer = event.pointerId
+  stickSource = `stick:pointer:${event.pointerId}`
+  stickOriginX = event.clientX
+  const bounds = directionZone.getBoundingClientRect()
+  directionZone.style.setProperty('--stick-x', `${event.clientX - bounds.left}px`)
+  directionZone.style.setProperty('--stick-y', `${event.clientY - bounds.top}px`)
+  directionZone.style.setProperty('--stick-dx', '0px')
+  directionZone.setAttribute('data-active', '')
+  try { directionZone.setPointerCapture?.(event.pointerId) } catch {}
 })
-stage.addEventListener('pointerup', releaseStageJump)
-stage.addEventListener('pointercancel', releaseStageJump)
-stage.addEventListener('lostpointercapture', releaseStageJump)
-window.addEventListener('pointerup', releaseStageJump)
-window.addEventListener('pointercancel', releaseStageJump)
+directionZone.addEventListener('pointermove', event => {
+  if (event.pointerId !== stickPointer) return
+  event.preventDefault()
+  moveStick(event)
+})
+directionZone.addEventListener('pointerup', releaseStick)
+directionZone.addEventListener('pointercancel', releaseStick)
+directionZone.addEventListener('lostpointercapture', releaseStick)
+directionZone.addEventListener('click', event => event.preventDefault())
+window.addEventListener('pointerup', releaseStick)
+window.addEventListener('pointercancel', releaseStick)
 
 for (const button of document.querySelectorAll('.nav-item')) button.addEventListener('click', () => {
   audio.cue('tap')

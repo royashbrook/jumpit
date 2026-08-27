@@ -105,6 +105,8 @@ test('one landscape Play tap starts a full-screen iPhone Air trail', async ({ pa
     const left = document.querySelector('#move-left').getBoundingClientRect()
     const right = document.querySelector('#move-right').getBoundingClientRect()
     const jump = document.querySelector('#jump').getBoundingClientRect()
+    const stick = document.querySelector('#move-stick').getBoundingClientRect()
+    const jumpFeedback = document.querySelector('.jump-feedback').getBoundingClientRect()
     const directionZone = document.querySelector('#direction-zone').getBoundingClientRect()
     const jumpZone = document.querySelector('#jump-zone').getBoundingClientRect()
     const backgroundAlpha = selector => {
@@ -121,13 +123,14 @@ test('one landscape Play tap starts a full-screen iPhone Air trail', async ({ pa
       stage: stage.toJSON(),
       controls: controls.toJSON(),
       canvas: [canvas.width, canvas.height],
-      left: left.toJSON(),
-      right: right.toJSON(),
-      jump: jump.toJSON(),
+      left: left.toJSON(), right: right.toJSON(), jump: jump.toJSON(),
+      stick: stick.toJSON(), jumpFeedback: jumpFeedback.toJSON(),
       directionZone: directionZone.toJSON(),
       jumpZone: jumpZone.toJSON(),
-      controlAlpha: ['#move-left', '#move-right', '#jump'].map(backgroundAlpha),
-      controlOpacity: ['#move-left', '#move-right', '#jump']
+      visualAlpha: ['#move-stick', '.jump-feedback'].map(backgroundAlpha),
+      visualOpacity: ['#move-stick', '.jump-feedback']
+        .map(selector => Number(getComputedStyle(document.querySelector(selector)).opacity)),
+      directionOpacity: ['#move-left', '#move-right']
         .map(selector => Number(getComputedStyle(document.querySelector(selector)).opacity)),
     }
   })
@@ -143,23 +146,66 @@ test('one landscape Play tap starts a full-screen iPhone Air trail', async ({ pa
   expect(fit.bar.bottom).toBeLessThanOrEqual(fit.stage.bottom)
   expect(fit.stage.width / fit.stage.height).toBeGreaterThan(2)
   expect(fit.canvas[0] / fit.canvas[1]).toBeGreaterThan(2)
-  expect(fit.left.right).toBeLessThan(fit.width * .3)
-  expect(fit.right.right).toBeLessThan(fit.width * .35)
-  expect(fit.jump.left).toBeGreaterThan(fit.width * .7)
-  for (const control of [fit.left, fit.right]) expect(control.width).toBeGreaterThanOrEqual(72)
-  expect(fit.jump.width).toBeGreaterThanOrEqual(112)
-  for (const control of [fit.left, fit.right, fit.jump]) expect(control.height).toBeGreaterThanOrEqual(72)
-  expect(fit.controlAlpha).toEqual([1, 1, 1])
-  expect(fit.controlOpacity).toEqual([1, 1, 1])
-  expect(fit.left.left - fit.directionZone.left).toBeGreaterThanOrEqual(16)
-  expect(fit.directionZone.right - fit.right.right).toBeGreaterThanOrEqual(16)
-  expect(fit.left.top - fit.directionZone.top).toBeGreaterThanOrEqual(16)
-  expect(fit.jump.left - fit.jumpZone.left).toBeGreaterThanOrEqual(16)
-  expect(fit.jumpZone.right - fit.jump.right).toBeGreaterThanOrEqual(16)
-  expect(fit.jump.top - fit.jumpZone.top).toBeGreaterThanOrEqual(16)
-  const controlArea = [fit.left, fit.right, fit.jump]
-    .reduce((area, control) => area + control.width * control.height, 0)
-  expect(controlArea).toBeLessThan(fit.width * fit.height * .12)
+  expect(fit.directionZone.left).toBeLessThanOrEqual(1)
+  expect(fit.directionZone.right).toBeCloseTo(fit.width / 2, 0)
+  expect(fit.jumpZone.left).toBeCloseTo(fit.width / 2, 0)
+  expect(fit.jumpZone.right).toBeGreaterThanOrEqual(fit.width - 1)
+  for (const zone of [fit.directionZone, fit.jumpZone]) {
+    expect(zone.top).toBeLessThanOrEqual(1)
+    expect(zone.bottom).toBeGreaterThanOrEqual(fit.height - 1)
+  }
+  for (const control of [fit.left, fit.right]) {
+    expect(control.width).toBeGreaterThanOrEqual(64)
+    expect(control.height).toBeGreaterThanOrEqual(64)
+  }
+  expect(fit.jump.width).toBeGreaterThanOrEqual(fit.width / 2 - 1)
+  expect(fit.jump.height).toBeGreaterThanOrEqual(fit.height - 1)
+  for (const visual of [fit.stick, fit.jumpFeedback]) {
+    expect(visual.width).toBeGreaterThanOrEqual(112)
+    expect(visual.height).toBeGreaterThanOrEqual(112)
+  }
+  expect(fit.visualAlpha).toEqual([0, 0])
+  expect(fit.visualOpacity).toEqual([0, 0])
+  expect(fit.directionOpacity).toEqual([0, 0])
+  const visualArea = [fit.stick, fit.jumpFeedback]
+    .reduce((area, visual) => area + visual.width * visual.height, 0)
+  expect(visualArea).toBeLessThan(fit.width * fit.height * .12)
+
+  const directionTouch = { x: fit.width * .27, y: fit.height * .72 }
+  await page.dispatchEvent('#direction-zone', 'pointerdown', {
+    pointerId: 51, pointerType: 'touch', isPrimary: true, buttons: 1,
+    clientX: directionTouch.x, clientY: directionTouch.y,
+  })
+  await expect(page.locator('#move-stick')).toHaveCSS('opacity', '0.48')
+  const stickCenter = await page.locator('#move-stick').evaluate(element => {
+    const box = element.getBoundingClientRect()
+    return { x: box.left + box.width / 2, y: box.top + box.height / 2 }
+  })
+  expect(stickCenter.x).toBeCloseTo(directionTouch.x, 0)
+  expect(stickCenter.y).toBeCloseTo(directionTouch.y, 0)
+  await page.dispatchEvent('#direction-zone', 'pointerup', {
+    pointerId: 51, pointerType: 'touch', isPrimary: true, buttons: 0,
+    clientX: directionTouch.x, clientY: directionTouch.y,
+  })
+  await expect(page.locator('#move-stick')).toHaveCSS('opacity', '0')
+
+  const jumpTouch = { x: fit.width * .78, y: fit.height * .62 }
+  await page.dispatchEvent('#jump', 'pointerdown', {
+    pointerId: 52, pointerType: 'touch', isPrimary: true, buttons: 1,
+    clientX: jumpTouch.x, clientY: jumpTouch.y,
+  })
+  await expect(page.locator('.jump-feedback')).toHaveCSS('opacity', '0.48')
+  const jumpCenter = await page.locator('.jump-feedback').evaluate(element => {
+    const box = element.getBoundingClientRect()
+    return { x: box.left + box.width / 2, y: box.top + box.height / 2 }
+  })
+  expect(jumpCenter.x).toBeCloseTo(jumpTouch.x, 0)
+  expect(jumpCenter.y).toBeCloseTo(jumpTouch.y, 0)
+  await page.dispatchEvent('#jump', 'pointerup', {
+    pointerId: 52, pointerType: 'touch', isPrimary: true, buttons: 0,
+    clientX: jumpTouch.x, clientY: jumpTouch.y,
+  })
+  await expect(page.locator('.jump-feedback')).toHaveCSS('opacity', '0')
 })
 
 test('all four looks keep every text token pair at WCAG AA contrast', async ({ page }) => {
@@ -271,7 +317,7 @@ test('Trails expands reached places while future places stay compact and readabl
   await expect(page.getByRole('button', { name: 'Thunder Terrace locked' })).toBeDisabled()
 })
 
-test('game controls and pause remain readable without hiding the world', async ({ page }) => {
+test('gesture zones preserve large assistive controls and visible keyboard focus', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'PLAY THE TRAIL' }).click()
   await expect(page.locator('#stage')).toBeVisible()
@@ -281,6 +327,9 @@ test('game controls and pause remain readable without hiding the world', async (
     expect(box.width).toBeGreaterThanOrEqual(44)
     expect(box.height).toBeGreaterThanOrEqual(44)
   }
+  await page.getByRole('button', { name: 'move left' }).focus()
+  await expect(page.getByRole('button', { name: 'move left' })).toBeFocused()
+  await expect(page.locator('#move-left')).toHaveCSS('opacity', '1')
   await page.getByRole('button', { name: 'pause game' }).click()
   await expect(page.getByRole('heading', { name: 'PAUSED' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'KEEP GOING' })).toBeVisible()
@@ -292,7 +341,19 @@ test('turning upright clears movement and pauses until the player continues', as
   await page.setViewportSize({ width: 912, height: 420 })
   await page.goto('/')
   await page.getByRole('button', { name: 'PLAY THE TRAIL' }).click()
-  await page.locator('#move-right').dispatchEvent('pointerdown', { pointerId: 1 })
+  const origin = await page.locator('#direction-zone').evaluate(element => {
+    const box = element.getBoundingClientRect()
+    return { x: box.left + box.width * .4, y: box.top + box.height * .7 }
+  })
+  await page.dispatchEvent('#direction-zone', 'pointerdown', {
+    pointerId: 1, pointerType: 'touch', isPrimary: true, buttons: 1,
+    clientX: origin.x, clientY: origin.y,
+  })
+  await page.dispatchEvent('#direction-zone', 'pointermove', {
+    pointerId: 1, pointerType: 'touch', isPrimary: true, buttons: 1,
+    clientX: origin.x + 42, clientY: origin.y,
+  })
+  await expect(page.locator('#direction-zone')).toHaveAttribute('data-active', '')
   await expect(page.locator('#move-right')).toHaveAttribute('data-held', '')
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -301,6 +362,8 @@ test('turning upright clears movement and pauses until the player continues', as
   await expect(page.getByRole('button', { name: 'EXIT TO HOME' })).toBeFocused()
   await expect(page.locator('#update')).toHaveAttribute('inert', '')
   await expect(page.locator('#move-right')).not.toHaveAttribute('data-held', '')
+  await expect(page.locator('#direction-zone')).not.toHaveAttribute('data-active', '')
+  await expect(page.locator('#move-stick')).toHaveCSS('opacity', '0')
 
   await page.keyboard.press('Escape')
   await expect(page.locator('#rotate-device')).toHaveAttribute('open', '')
@@ -376,7 +439,8 @@ test('two-times text and phone safe-area insets keep menu and play inside the vi
     const bar = document.querySelector('#game-bar').getBoundingClientRect()
     const stage = document.querySelector('.stage-shell').getBoundingClientRect()
     const controls = document.querySelector('#controls').getBoundingClientRect()
-    const targets = [...document.querySelectorAll('#controls button, #game-bar button')].map(button => button.getBoundingClientRect().toJSON())
+    const targets = [...document.querySelectorAll('#controls .direction, #game-bar button')]
+      .map(button => button.getBoundingClientRect().toJSON())
     return {
       width: innerWidth, height: innerHeight,
       scrollWidth: document.documentElement.scrollWidth,

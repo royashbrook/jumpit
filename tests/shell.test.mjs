@@ -34,9 +34,9 @@ test('the manifest has a stable app identity and a separate maskable icon', asyn
 
 test('the worker keeps navigation network-first and the update probe uncached', async () => {
   const worker = await text('sw.js')
-  assert.match(worker, /const CACHE = 'jumpit-v2\.0\.0-r9'/)
-  assert.match(await text('index.html'), /app\.css\?v=9[\s\S]*app\.js\?v=8/)
-  assert.match(await text('app.js'), /game\.js\?v=6[\s\S]*update\.js\?v=4/)
+  assert.match(worker, /const CACHE = 'jumpit-v2\.0\.0-r10'/)
+  assert.match(await text('index.html'), /app\.css\?v=10[\s\S]*app\.js\?v=9/)
+  assert.match(await text('app.js'), /game\.js\?v=7[\s\S]*update\.js\?v=4/)
   assert.match(worker, /cache\.addAll\(SHELL\)/)
   assert.doesNotMatch(worker, /cache\.add\(url\)\.catch/)
   assert.match(worker, /request\.mode === 'navigate'/)
@@ -57,7 +57,7 @@ test('the worker removes only old Jumpit caches', async () => {
       location: { origin: 'https://example.test' },
     },
     caches: {
-      keys: async () => ['jumpit-v0.9.0', 'jumpit-v1.5.0', 'jumpit-v1.8.0', 'jumpit-v1.9.0', 'jumpit-v2.0.0', 'jumpit-v2.0.0-r2', 'jumpit-v2.0.0-r3', 'jumpit-v2.0.0-r4', 'jumpit-v2.0.0-r5', 'jumpit-v2.0.0-r6', 'jumpit-v2.0.0-r7', 'jumpit-v2.0.0-r8', 'jumpit-v2.0.0-r9', 'sibling-game-v4'],
+      keys: async () => ['jumpit-v0.9.0', 'jumpit-v1.5.0', 'jumpit-v1.8.0', 'jumpit-v1.9.0', 'jumpit-v2.0.0', 'jumpit-v2.0.0-r2', 'jumpit-v2.0.0-r3', 'jumpit-v2.0.0-r4', 'jumpit-v2.0.0-r5', 'jumpit-v2.0.0-r6', 'jumpit-v2.0.0-r7', 'jumpit-v2.0.0-r8', 'jumpit-v2.0.0-r9', 'jumpit-v2.0.0-r10', 'sibling-game-v4'],
       delete: async key => { deleted.push(key) },
     },
     URL,
@@ -66,5 +66,5 @@ test('the worker removes only old Jumpit caches', async () => {
   let done
   listeners.activate({ waitUntil: promise => { done = promise } })
   await done
-  assert.deepEqual(deleted, ['jumpit-v0.9.0', 'jumpit-v1.5.0', 'jumpit-v1.8.0', 'jumpit-v1.9.0', 'jumpit-v2.0.0', 'jumpit-v2.0.0-r2', 'jumpit-v2.0.0-r3', 'jumpit-v2.0.0-r4', 'jumpit-v2.0.0-r5', 'jumpit-v2.0.0-r6', 'jumpit-v2.0.0-r7', 'jumpit-v2.0.0-r8'])
+  assert.deepEqual(deleted, ['jumpit-v0.9.0', 'jumpit-v1.5.0', 'jumpit-v1.8.0', 'jumpit-v1.9.0', 'jumpit-v2.0.0', 'jumpit-v2.0.0-r2', 'jumpit-v2.0.0-r3', 'jumpit-v2.0.0-r4', 'jumpit-v2.0.0-r5', 'jumpit-v2.0.0-r6', 'jumpit-v2.0.0-r7', 'jumpit-v2.0.0-r8', 'jumpit-v2.0.0-r9'])
 })

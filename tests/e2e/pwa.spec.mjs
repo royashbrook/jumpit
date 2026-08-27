@@ -19,9 +19,9 @@ const currentVersion = versionSource.match(/VERSION\s*=\s*['"]([^'"]+)/)?.[1]
 const currentCache = workerSource.match(/const CACHE\s*=\s*['"]([^'"]+)/)?.[1]
 const nextVersion = '2.1.0'
 const CURRENT_URLS = Object.freeze({
-  css: './app.css?v=9',
-  app: './app.js?v=8',
-  game: './game.js?v=6',
+  css: './app.css?v=10',
+  app: './app.js?v=9',
+  game: './game.js?v=7',
   update: './update.js?v=4',
 })
 const REQUIRED_SHELL = [
