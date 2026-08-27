@@ -1,7 +1,7 @@
 import { currentSeed, isDaily, shareSeed } from './seed.js'
 import { createAudio } from './audio.js'
 import { challengeWon, dailyChallenge } from './daily.js'
-import { createGame } from './game.js?v=10'
+import { createGame } from './game.js?v=11'
 import { wireInstall } from './install.js'
 import { LEVELS, REGIONS } from './levels.js?v=2'
 import { createRelease } from './release.js'
@@ -51,6 +51,7 @@ let lastCompleted = null
 let activeChallenge = null
 let overlayOpen = false
 let orientationBlocked = false
+let respawning = false
 let pendingPlay = null
 let pendingAudio = null
 let pendingNeedsResume = false
@@ -123,9 +124,11 @@ const game = createGame($('stage'), state => {
       : `WARDEN ${state.guardianHealth}/${state.guardianMax} · BELL LOCKED`
     : ''
   const overlayVisible = state.paused || state.finished
+  if (state.respawning && !respawning) releaseAllInputs()
+  respawning = state.respawning
   overlay.hidden = !overlayVisible
   $('game-bar').inert = overlayVisible || orientationBlocked
-  $('controls').inert = overlayVisible || orientationBlocked
+  $('controls').inert = overlayVisible || orientationBlocked || respawning
   overlay.classList.toggle('campaign-ending', campaignFinished)
   $('ending-art').hidden = !campaignFinished
   $('overlay-kicker').textContent = challengeFinished

@@ -20,8 +20,8 @@ const currentCache = workerSource.match(/const CACHE\s*=\s*['"]([^'"]+)/)?.[1]
 const nextVersion = '2.1.0'
 const CURRENT_URLS = Object.freeze({
   css: './app.css?v=10',
-  app: './app.js?v=12',
-  game: './game.js?v=10',
+  app: './app.js?v=13',
+  game: './game.js?v=11',
   levels: './levels.js?v=2',
   save: './save.js?v=2',
   physics: './engine/physics.js?v=2',
@@ -190,7 +190,7 @@ async function startVersionServer(initial = '1.5.0') {
           ? previousWorkerSource
         : release === currentVersion
           ? workerSource
-          : workerSource.replace(`'${currentCache}'`, `'jumpit-v${release}'`)
+          : workerSource.replace(currentCache, `jumpit-v${release}`)
       response.writeHead(200, { ...headers, 'content-type': 'text/javascript' }).end(worker)
       return
     }
