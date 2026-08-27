@@ -1,5 +1,5 @@
-import { createBody, isStomp, stepPhysics } from './physics.js'
-import { TILE } from '../levels.js'
+import { createBody, isStomp, stepPhysics } from './physics.js?v=2'
+import { TILE } from '../levels.js?v=2'
 
 const WARDEN_HEALTH = 3
 
@@ -225,10 +225,10 @@ export function activateCheckpoint(world, player) {
 
 function resetPlayer(simulation) {
   const { player } = simulation
-  player.x = player.spawnX
-  player.y = player.spawnY
-  player.vx = 0
-  player.vy = 0
+  Object.assign(player, {
+    x: player.spawnX, y: player.spawnY, vx: 0, vy: 0,
+    onGround: false, coyote: 0, jumpBuffer: 0, justJumped: false, pose: 'idle',
+  })
   simulation.respawns += 1
 }
 

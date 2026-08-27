@@ -52,12 +52,17 @@ test('each place has one authored optional hidden light on a reachable side ledg
     .map(([id, kind, x, y]) => [entry.id, entry.region, id, kind, x, y]))
 
   assert.deepEqual(hiddenLights, [
-    ['garden-3', 'garden', 'g03-hidden-light', 'hidden-light', 7, 11],
-    ['rooftop-3', 'rooftop', 'r03-hidden-light', 'hidden-light', 31, 11],
-    ['workshop-2', 'workshop', 'w02-hidden-light', 'hidden-light', 8, 11],
-    ['market-3', 'market', 'm03-hidden-light', 'hidden-light', 26, 11],
-    ['keep-1', 'keep', 'k01-hidden-light', 'hidden-light', 8, 12],
+    ['garden-3', 'garden', 'g03-hidden-light', 'hidden-light', 61, 11],
+    ['rooftop-3', 'rooftop', 'r03-hidden-light', 'hidden-light', 71, 11],
+    ['workshop-2', 'workshop', 'w02-hidden-light', 'hidden-light', 65, 11],
+    ['market-3', 'market', 'm03-hidden-light', 'hidden-light', 68, 11],
+    ['keep-1', 'keep', 'k01-hidden-light', 'hidden-light', 17, 10],
   ])
+  assert.equal(new Set(hiddenLights.map(([, , , , x]) => x)).size, hiddenLights.length)
+  for (const [levelId, , , , x] of hiddenLights) {
+    const entry = LEVELS.find(level => level.id === levelId)
+    assert.ok(x - entry.spawn[0] >= 12, `${levelId} hides its light in the opening`)
+  }
   assert.deepEqual(
     REGIONS.map(region => hiddenLights.filter(([, itemRegion]) => itemRegion === region.id).length),
     [1, 1, 1, 1, 1],
@@ -76,9 +81,9 @@ test('First Light is a short run-jump-stomp lesson before the glow cloak', () =>
     ['g01-e', 'leaf', 25, 12, 5, 1],
   ])
   assert.deepEqual(first.objects, [
-    ['g01-seed-a', 'seed', 4, 14], ['g01-seed-b', 'seed', 10, 11],
+    ['g01-seed-a', 'seed', 3, 14], ['g01-seed-b', 'seed', 10, 11],
     ['g01-seed-c', 'seed', 27, 11], ['g01-check', 'checkpoint', 21, 14],
-    ['g01-moss-a', 'mossling', 9, 14],
+    ['g01-moss-a', 'mossling', 8, 14],
   ])
   assert.deepEqual(second.introduces, ['glow-cloak'])
   assert.deepEqual(
@@ -89,7 +94,7 @@ test('First Light is a short run-jump-stomp lesson before the glow cloak', () =>
 
 test('Beacon Keep climbs in readable tiers while sentries build one encounter at a time', () => {
   const keep = LEVELS.filter(level => level.region === 'keep')
-  assert.deepEqual(keep.map(level => level.size[0]), [72, 78, 84, 96])
+  assert.deepEqual(keep.map(level => level.size[0]), [128, 134, 140, 152])
   assert.deepEqual(
     keep.slice(0, 3).map(level => level.objects.filter(([, kind]) => kind === 'sentry').length),
     [1, 2, 3],
@@ -99,6 +104,47 @@ test('Beacon Keep climbs in readable tiers while sentries build one encounter at
     assert.ok(platformTiers.size >= 3, `${level.id} lost its fortress climb`)
     assert.ok(Math.min(...platformTiers) <= 9, `${level.id} lost its high route`)
   }
+})
+
+test('every post-tutorial trail carries at least four landscape camera widths', () => {
+  const legacySeedTotals = [3, 4, 4, 4, 4, 4, 5, 5, 4, 4, 5, 5, 4, 5, 5, 6, 6, 6, 7, 6]
+  assert.deepEqual(LEVELS.map(level => level.objects.filter(([, kind]) => kind === 'seed').length), legacySeedTotals)
+  assert.equal(LEVELS[0].size[0], 38)
+  for (const level of LEVELS.slice(1)) {
+    const origin = level.terrain.find(([id]) => id === `${level.id}-trail-a`)[2]
+    const movedSeeds = level.objects.filter(([, kind, x]) => kind === 'seed' && x >= origin)
+    assert.ok(level.size[0] >= 28 * 4, `${level.id} is only ${level.size[0] / 28} screens`)
+    assert.equal(movedSeeds.length, 2, `${level.id} did not carry two existing rewards into its new stanza`)
+    assert.equal(level.objects.some(([id]) => id.includes('-trail-seed-')), false, `${level.id} changed its saved seed maximum`)
+    assert.equal(level.objects.filter(([, kind]) => kind === 'checkpoint').length, 1, level.id)
+  }
+})
+
+test('long trails use varied movement stanzas with one forced stable checkpoint', () => {
+  const shapes = []
+  for (const level of LEVELS.slice(1)) {
+    const added = level.terrain.filter(([id]) => id.startsWith(`${level.id}-trail-`))
+    const origin = added[0][2]
+    const shape = JSON.stringify(added.map(([, , x, y, width, height]) => [x - origin, y, width, height]))
+    shapes.push(shape)
+
+    const checkpoint = level.objects.find(([, kind]) => kind === 'checkpoint')
+    const support = level.terrain.find(([, , x, y, width]) =>
+      checkpoint[2] >= x && checkpoint[2] < x + width && checkpoint[3] === y - 1)
+    assert.ok(support, `${level.id} checkpoint has no support`)
+    assert.equal(['crumble', 'lift', 'bridge'].includes(support[1]), false, `${level.id} checkpoint can move or disappear`)
+    const progress = checkpoint[2] / level.size[0]
+    if (level.id === 'keep-4') assert.ok(progress >= .82 && progress <= .85, `${level.id} checkpoint is at ${progress}`)
+    else assert.ok(progress >= .70 && progress <= .82, `${level.id} checkpoint is at ${progress}`)
+
+    const finishSupport = level.terrain.find(([, , x, y, width]) =>
+      level.finish[1] >= x && level.finish[1] < x + width && level.finish[2] === y - 1)
+    assert.equal(['crumble', 'lift', 'bridge'].includes(finishSupport?.[1]), false, `${level.id} bell can float or fall`)
+  }
+
+  const repeated = Object.values(Object.groupBy(shapes, shape => shape)).map(group => group.length)
+  assert.ok(new Set(shapes).size >= 6, 'the longer campaign collapsed to too few route shapes')
+  assert.ok(Math.max(...repeated) <= 4, 'one repeated route shape dominates the campaign')
 })
 
 test('the final checkpoint leads into one guarded, locked bell arena', () => {
@@ -146,12 +192,23 @@ test('validator catches embedded seeds and checkpoints', () => {
   }
 })
 
-test('validator rejects checkpoints on terrain that disappears', () => {
-  const campaign = copy()
-  const level = campaign.find(entry => entry.id === 'garden-4')
-  const checkpoint = level.objects.find(([, kind]) => kind === 'checkpoint')
-  checkpoint[2] = 42
-  assert.match(validateCampaign(campaign).join('\n'), /g04-check must have stable supporting terrain/)
+test('validator rejects checkpoints and bells on terrain that moves or disappears', () => {
+  for (const kind of ['crumble', 'lift', 'bridge']) {
+    const checkpointCampaign = copy()
+    const checkpointLevel = checkpointCampaign.find(entry => entry.id === 'garden-2')
+    const checkpoint = checkpointLevel.objects.find(([, objectKind]) => objectKind === 'checkpoint')
+    const checkpointSupport = checkpointLevel.terrain.find(([, , x, y, width]) =>
+      checkpoint[2] >= x && checkpoint[2] < x + width && checkpoint[3] === y - 1)
+    checkpointSupport[1] = kind
+    assert.match(validateCampaign(checkpointCampaign).join('\n'), /g02-check must have stable supporting terrain/)
+
+    const finishCampaign = copy()
+    const finishLevel = finishCampaign.find(entry => entry.id === 'garden-2')
+    const finishSupport = finishLevel.terrain.find(([, , x, y, width]) =>
+      finishLevel.finish[1] >= x && finishLevel.finish[1] < x + width && finishLevel.finish[2] === y - 1)
+    finishSupport[1] = kind
+    assert.match(validateCampaign(finishCampaign).join('\n'), /finish bell must have stable supporting terrain/)
+  }
 })
 
 test('validator keeps every hidden light unique, supported, and reachable', () => {

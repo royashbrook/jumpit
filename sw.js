@@ -1,34 +1,19 @@
-// offline shell with honest updates.
-//
-// this worker is the one piece of the template you should copy almost verbatim.
-// the rules it encodes were each paid for by a real bug in a shipped house game:
-//
-//   1. navigations go network FIRST. the obvious cache-first worker pins an
-//      installed client to the first shell it ever saw, and NO deploy can ever
-//      reach it again while online. offline falls back to the cached shell.
-//   2. the update probe is passed straight through. a cached answer there would
-//      hide every new deployment from the update banner, silently.
-//   3. only ok asset responses are cached, and the write is wrapped in waitUntil.
-//      navigations never rewrite the active version cache: a newer html response
-//      is not coherent until that newer worker atomically installs every asset.
-//   4. the complete shell installs atomically. one missing file rejects the new
-//      worker, so it cannot replace a known-good offline version with half a game.
-//
-// bump CACHE whenever a cached shell file changes, including within a release candidate.
-const CACHE = 'jumpit-v2.0.0-r12'
+// Versioned offline shell: network-first navigation and update probes, atomic
+// installation, and immutable active caches. Bump CACHE with any shell change.
+const CACHE = 'jumpit-v2.0.0-r14'
 const SHELL = [
   './',
   './index.html',
   './app.css?v=10',
-  './app.js?v=10',
+  './app.js?v=12',
   './audio.js',
   './daily.js',
-  './game.js?v=8',
-  './levels.js',
+  './game.js?v=10',
+  './levels.js?v=2',
   './release.js',
-  './save.js',
-  './engine/physics.js',
-  './engine/simulation.js',
+  './save.js?v=2',
+  './engine/physics.js?v=2',
+  './engine/simulation.js?v=2',
   './version.js',
   './seed.js',
   './install.js',

@@ -8,6 +8,10 @@
   a wider direction-aware camera, a transient left-side stick, and right-side jumping.
 - Kept the camera's look direction through a stop so releasing the stick no longer
   pulls the world backward, while reversals still ease across the trail.
+- Extended every post-tutorial trail by two landscape camera widths with recovery
+  ground, shelf routes, and rewards; the three-second opening lesson stays fast.
+- Replaced the hidden stationary shelf boost with one 106-pixel tap jump and added
+  six-pixel one-way ledge forgiveness for visually earned corner landings.
 - Moved the Bramble Bank checkpoint off its collapsing bank and reject future
   checkpoints on terrain that disappears.
 - Proved the exact shipped v1.9 installed client and same-version preview cache upgrade

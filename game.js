@@ -1,9 +1,9 @@
-import { LEVELS, REGIONS, TILE } from './levels.js'
+import { LEVELS, REGIONS, TILE } from './levels.js?v=2'
 import {
   createSimulation,
   guardianState,
   stepSimulation,
-} from './engine/simulation.js'
+} from './engine/simulation.js?v=2'
 
 export {
   activateCheckpoint,
@@ -15,7 +15,7 @@ export {
   finishOutcome,
   guardianState,
   strikeEnemy,
-} from './engine/simulation.js'
+} from './engine/simulation.js?v=2'
 
 const WORLD_HEIGHT = 18 * TILE
 const MAX_VIEW_WIDTH = 28 * TILE
@@ -118,7 +118,6 @@ export function clearInputState(input, player) {
   input.jumpHeld = false
   input.jumpPressed = false
   player.jumpBuffer = 0
-  player.jumpWasHeld = false
 }
 
 export function createGame(canvas, onState = () => {}, onCue = () => {}) {

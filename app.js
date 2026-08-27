@@ -1,11 +1,11 @@
 import { currentSeed, isDaily, shareSeed } from './seed.js'
 import { createAudio } from './audio.js'
 import { challengeWon, dailyChallenge } from './daily.js'
-import { createGame } from './game.js?v=8'
+import { createGame } from './game.js?v=10'
 import { wireInstall } from './install.js'
-import { LEVELS, REGIONS } from './levels.js'
+import { LEVELS, REGIONS } from './levels.js?v=2'
 import { createRelease } from './release.js'
-import { createSaveStore } from './save.js'
+import { createSaveStore } from './save.js?v=2'
 import { wireUpdate, registerWorker } from './update.js?v=4'
 import { VERSION } from './version.js'
 
@@ -21,10 +21,10 @@ const HOW_TO_PLAY = Object.freeze({
   title: 'How to play',
   steps: [
     'Touch the left side, then slide to run.',
-    'Tap or hold the right side to jump.',
+    'Tap the right side to jump.',
     'Gather lantern seeds and reach the bell.',
   ],
-  copy: 'Slide your left thumb to run. Tap or hold your right thumb for a short or high leap.',
+  copy: 'Slide left to run. Tap anywhere on the right side to jump.',
 })
 const release = createRelease(LEVELS, 20)
 const releaseLevels = release.levels
