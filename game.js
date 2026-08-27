@@ -149,6 +149,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
   let cameraViewWidth = 320
   let cameraViewHeight = WORLD_HEIGHT
   let cameraReady = false
+  let cameraDirection = 0
   let running = false
   let paused = false
   let finished = simulation.finished
@@ -233,6 +234,8 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
   function update() {
     if (paused) return
     if (finished) return advanceFeedback()
+    const inputDirection = Number(input.right) - Number(input.left)
+    if (inputDirection) cameraDirection += (inputDirection - cameraDirection) * .12
     const events = stepSimulation(simulation, input)
     input.jumpPressed = false
     syncSimulation()
@@ -257,9 +260,10 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
         cameraKick = Math.max(cameraKick, feedback.kick)
       }
       if (event.type === 'hurt' || event.type === 'fall') {
+        cameraDirection = 0
         camera = cameraTarget({
           playerX: player.x,
-          direction: player.vx / player.config.maxRun,
+          direction: cameraDirection,
           viewWidth: cameraViewWidth,
           worldWidth: world.width,
           reducedMotion,
@@ -675,7 +679,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     const maxCameraY = Math.max(0, WORLD_HEIGHT - viewHeight)
     const target = cameraTarget({
       playerX: player.x,
-      direction: player.vx / player.config.maxRun,
+      direction: cameraDirection,
       viewWidth,
       worldWidth: world.width,
       reducedMotion,
@@ -791,6 +795,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       camera = 0
       cameraY = 0
       cameraReady = false
+      cameraDirection = 0
       paused = false
       lastTime = 0
       accumulator = 0
