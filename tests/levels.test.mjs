@@ -146,6 +146,14 @@ test('validator catches embedded seeds and checkpoints', () => {
   }
 })
 
+test('validator rejects checkpoints on terrain that disappears', () => {
+  const campaign = copy()
+  const level = campaign.find(entry => entry.id === 'garden-4')
+  const checkpoint = level.objects.find(([, kind]) => kind === 'checkpoint')
+  checkpoint[2] = 42
+  assert.match(validateCampaign(campaign).join('\n'), /g04-check must have stable supporting terrain/)
+})
+
 test('validator keeps every hidden light unique, supported, and reachable', () => {
   const missing = copy()
   const missingGarden = missing.find(entry => entry.id === 'garden-3')
