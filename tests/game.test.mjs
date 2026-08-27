@@ -55,7 +55,7 @@ test('the first playable trail includes its toy-layer objects', () => {
 test('later Garden Walk trails carry their authored mechanics into runtime worlds', () => {
   const rise = makeWorld(LEVELS[2])
   const bramble = makeWorld(LEVELS[3])
-  assert.equal(rise.springs.length, 1)
+  assert.equal(rise.springs.length, 2)
   assert.ok(bramble.terrain.some(rect => rect.kind === 'crumble' && rect.active))
   assert.ok(bramble.enemies.length >= 2)
 })
@@ -235,7 +235,7 @@ test('overlay keyboard actions cannot preload a jump while paused or finished', 
 
 test('boundary input clearing cancels queued intent without weakening a quick tap', () => {
   const input = { left: true, right: true, jumpHeld: false, jumpPressed: false }
-  const player = { jumpBuffer: 6, jumpWasHeld: true, coyote: 4 }
+  const player = { jumpBuffer: 6, coyote: 4 }
   setInputState(input, 'jump', true)
   setInputState(input, 'jump', false)
   assert.equal(input.jumpPressed, true)
@@ -244,7 +244,6 @@ test('boundary input clearing cancels queued intent without weakening a quick ta
   clearInputState(input, player)
   assert.deepEqual(input, { left: false, right: false, jumpHeld: false, jumpPressed: false })
   assert.equal(player.jumpBuffer, 0)
-  assert.equal(player.jumpWasHeld, false)
   assert.equal(player.coyote, 4)
 })
 

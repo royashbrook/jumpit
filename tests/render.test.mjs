@@ -203,7 +203,6 @@ test('the landscape Keep camera follows a climb and resets to its lit checkpoint
     const level = LEVELS.find(item => item.id === 'keep-2')
     const replay = recordReplay(level)
     const checkpointFrame = replay.eventFrames.checkpoint[0]
-    const fallFrame = replay.eventFrames.fall.find(frame => frame > checkpointFrame)
     const cameraX = []
     const cameraY = []
     const tick = () => {
@@ -219,12 +218,21 @@ test('the landscape Keep camera follows a climb and resets to its lit checkpoint
 
     game.start(level.id)
     tick()
-    for (const encoded of replay.inputs.slice(0, fallFrame)) {
+    for (const encoded of replay.inputs.slice(0, checkpointFrame + 1)) {
       game.setInput('left', Boolean(encoded & 1))
       game.setInput('right', Boolean(encoded & 2))
       game.setInput('jump', Boolean(encoded & 4))
       tick()
     }
+    game.setInput('left', false)
+    game.setInput('jump', false)
+    game.setInput('right', true)
+    let fallFrame = -1
+    for (let frame = 0; frame < 240 && fallFrame < 0; frame += 1) {
+      tick()
+      if (states.at(-1).message === 'BACK TO THE LANTERN') fallFrame = cameraX.length - 1
+    }
+    assert.ok(fallFrame >= 0, 'the deliberate post-checkpoint miss never respawned')
 
     const checkpoint = level.objects.find(([, kind]) => kind === 'checkpoint')
     const viewWidth = width / cameraScale(width, height)
@@ -240,7 +248,7 @@ test('the landscape Keep camera follows a climb and resets to its lit checkpoint
       playerHeight: 42,
       viewHeight,
     })
-    const climbedY = Math.max(...cameraY.slice(checkpointFrame, fallFrame))
+    const climbedY = Math.max(...cameraY.slice(0, fallFrame))
     assert.ok(climbedY > cameraY[0] + TILE * 2)
     assert.equal(states.some(state => state.message === 'LANTERN LIT · CHECKPOINT!'), true)
     assert.equal(states.at(-1).message, 'BACK TO THE LANTERN')

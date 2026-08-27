@@ -15,7 +15,6 @@ function placePlayer(simulation, x, y, onGround = true) {
     onGround,
     coyote: onGround ? 6 : 0,
     jumpBuffer: 0,
-    jumpWasHeld: false,
   })
 }
 
@@ -24,7 +23,7 @@ test('the shared transition finds a hidden light once and keeps it found through
   const [hiddenLight] = simulation.world.hiddenLights
   assert.deepEqual(hiddenLight, {
     id: 'g03-hidden-light',
-    x: 7.5 * TILE,
+    x: 61.5 * TILE,
     y: 12 * TILE,
     found: false,
   })

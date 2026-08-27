@@ -1,7 +1,7 @@
 # Jumpit
 
 Jumpit is an original mobile-first storybook platform game for kids. Slide on the left
-side to run, tap or hold the right side to jump, find lantern seeds, and carry light through
+side to run, tap on the right side to jump, find lantern seeds, and carry light through
 five grounded places. Home works upright; play turns landscape and fills the screen so
 the next jump stays visible.
 

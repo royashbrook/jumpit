@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { recordHiddenLightReplay, recordReplay, replayLevel } from '../engine/solvability.js'
 import { createSimulation, stepSimulation } from '../engine/simulation.js'
-import { LEVELS } from '../levels.js'
+import { LEVELS, TILE } from '../levels.js'
 
 const level = id => LEVELS.find(item => item.id === id)
 const eventTypes = (simulation, input = {}) => stepSimulation(simulation, input).map(event => event.type)
@@ -16,7 +16,6 @@ function placePlayer(simulation, x, y, vy = 0, onGround = false) {
     onGround,
     coyote: onGround ? 6 : 0,
     jumpBuffer: 0,
-    jumpWasHeld: false,
   })
 }
 
@@ -32,12 +31,20 @@ test('all twenty trails finish by replaying inputs through the runtime transitio
       replayFrames: recorded.inputs.length,
       hash: replayed.hash,
       events: replayed.events,
+      respawns: replayed.respawns,
+      maxX: replayed.maxX,
     })
     assert.equal(replayed.hash, recorded.hash, `${entry.id} replay drifted`)
     assert.equal(replayed.frames, recorded.inputs.length, `${entry.id} did not consume its exact replay`)
     assert.equal(replayed.events.finish, 1, `${entry.id} did not ring its real finish bell once`)
+    assert.equal(replayed.events.checkpoint, 1, `${entry.id} did not light its real checkpoint once`)
+    assert.ok(replayed.eventFrames.checkpoint[0] < replayed.eventFrames.finish[0], `${entry.id} lit its checkpoint after finishing`)
     assert.equal(replayed.events['hidden-light'] || 0, 0, `${entry.id} forced its optional hidden light`)
     assert.ok(replayed.simulation.world.hiddenLights.every(item => !item.found), `${entry.id} auto-collected a hidden light`)
+    const checkpoint = entry.objects.find(([, kind]) => kind === 'checkpoint')
+    assert.equal(replayed.simulation.player.spawnX, (checkpoint[2] + .5) * TILE - replayed.simulation.player.w / 2)
+    assert.ok(replayed.maxX >= (entry.finish[1] - 2) * TILE, `${entry.id} never traversed its authored length`)
+    assert.ok(replayed.frames <= 2500, `${entry.id} took ${replayed.frames} frames`)
   }
 
   assert.deepEqual(receipts.filter(receipt => !receipt.finishable), [], JSON.stringify(receipts, null, 2))
@@ -53,6 +60,7 @@ test('five deterministic discovery replays find one hidden light and still ring 
     const replayed = replayLevel(entry, recorded.inputs)
     assert.equal(recorded.finishable, true, `${entry.id} discovery run did not finish`)
     assert.equal(recorded.events['hidden-light'], 1, `${entry.id} did not find exactly one hidden light`)
+    assert.ok(recorded.eventFrames['hidden-light'][0] >= 90, `${entry.id} gave away its hidden light in the opening`)
     assert.equal(recorded.events.finish, 1, `${entry.id} discovery run did not ring the bell`)
     assert.equal(recorded.simulation.world.hiddenLights.length, 1, `${entry.id} has the wrong hidden-light count`)
     assert.equal(recorded.simulation.world.hiddenLights[0].found, true, `${entry.id} did not retain discovery state`)
@@ -85,9 +93,73 @@ test('First Light pays off fast and Windward Tower stays forgiving', () => {
 
   const tower = recordReplay(level('keep-3'))
   assert.equal(tower.eventFrames.finish?.[0], tower.frames)
-  assert.ok(tower.frames <= 600, `tower bell arrived on frame ${tower.frames}`)
+  assert.ok(tower.frames >= 900 && tower.frames <= 1500, `tower bell arrived on frame ${tower.frames}`)
   assert.ok(tower.respawns <= 1, `tower needed ${tower.respawns} respawns`)
   assert.equal(level('keep-3').objects.filter(([, kind]) => kind === 'sentry').length, 3)
+})
+
+test('Bramble Bank teaches crumble once before its late stable checkpoint', () => {
+  const bramble = recordReplay(level('garden-4'))
+  assert.equal(bramble.finishable, true)
+  assert.equal(bramble.events.crumble, 1)
+  assert.equal(bramble.respawns, 1)
+  const crumbleFrame = bramble.eventFrames.crumble[0]
+  const fallFrame = bramble.eventFrames.fall[0]
+  const checkpointFrame = bramble.eventFrames.checkpoint[0]
+  assert.ok(crumbleFrame < fallFrame && fallFrame < checkpointFrame && checkpointFrame < bramble.frames)
+})
+
+test('a buffered checkpoint fall respawns without a ghost jump', () => {
+  const simulation = createSimulation(level('garden-1'))
+  const { player, world } = simulation
+  placePlayer(simulation, world.checkpoint.x - player.w / 2, world.checkpoint.y - player.h, 0, true)
+  assert.ok(eventTypes(simulation).includes('checkpoint'))
+
+  placePlayer(simulation, 0, world.height + 100)
+  Object.assign(player, { vx: 3, vy: 4 })
+  assert.ok(eventTypes(simulation, { jumpPressed: true }).includes('fall'))
+  assert.deepEqual({
+    x: player.x,
+    y: player.y,
+    vx: player.vx,
+    vy: player.vy,
+    onGround: player.onGround,
+    coyote: player.coyote,
+    jumpBuffer: player.jumpBuffer,
+    justJumped: player.justJumped,
+    pose: player.pose,
+  }, {
+    x: player.spawnX,
+    y: player.spawnY,
+    vx: 0,
+    vy: 0,
+    onGround: false,
+    coyote: 0,
+    jumpBuffer: 0,
+    justJumped: false,
+    pose: 'idle',
+  })
+
+  for (let frame = 0; frame < 4; frame += 1) {
+    eventTypes(simulation)
+    assert.equal(player.justJumped, false)
+    assert.ok(player.vy >= 0)
+  }
+  assert.equal(player.onGround, true)
+
+  const [enemy] = world.enemies
+  const attackY = enemy.y + enemy.h - player.h
+  placePlayer(simulation, enemy.x, attackY, 0, true)
+  assert.ok(eventTypes(simulation).includes('hurt'))
+  assert.equal(player.onGround, false)
+  assert.equal(player.coyote, 0)
+
+  placePlayer(simulation, enemy.x, attackY, 0, true)
+  const jumpingHurt = eventTypes(simulation, { jumpPressed: true })
+  assert.ok(jumpingHurt.includes('jump'))
+  assert.ok(jumpingHurt.includes('hurt'))
+  assert.equal(player.justJumped, false)
+  assert.equal(player.pose, 'idle')
 })
 
 test('one fixed step owns crumble, switch, lamp, fan, lift, checkpoint, and enemy rules', () => {

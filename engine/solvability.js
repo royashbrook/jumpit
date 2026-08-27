@@ -1,17 +1,15 @@
 import { createSimulation, stepSimulation } from './simulation.js'
 
-const INPUT = Object.freeze({ left: 1, right: 2, jumpHeld: 4, jumpPressed: 8 })
+const INPUT = Object.freeze({ left: 1, right: 2, jumpPressed: 4 })
 
 const encodeInput = input =>
   (input.left ? INPUT.left : 0) |
   (input.right ? INPUT.right : 0) |
-  (input.jumpHeld ? INPUT.jumpHeld : 0) |
   (input.jumpPressed ? INPUT.jumpPressed : 0)
 
 const decodeInput = value => ({
   left: Boolean(value & INPUT.left),
   right: Boolean(value & INPUT.right),
-  jumpHeld: Boolean(value & INPUT.jumpHeld),
   jumpPressed: Boolean(value & INPUT.jumpPressed),
 })
 
@@ -36,7 +34,7 @@ function dangerAhead(simulation, direction) {
 
 function nextInput(simulation, memory, seekHiddenLight = false) {
   const { player, world } = simulation
-  const crumbleUnderfoot = world.terrain.find(rect =>
+  const crumbleUnderfoot = world.level.introduces.includes('crumble-banks') && world.terrain.find(rect =>
     rect.kind === 'crumble' && rect.active && player.onGround &&
     Math.abs(player.y + player.h - rect.y) < 3 &&
     player.x + player.w > rect.x && player.x < rect.x + rect.w)
@@ -61,17 +59,13 @@ function nextInput(simulation, memory, seekHiddenLight = false) {
   )
 
   if (shouldJump) {
-    memory.jumpFrames = 13
     memory.jumps += 1
   }
-  const input = {
+  return {
     left: direction < 0,
     right: direction > 0,
     jumpPressed: shouldJump,
-    jumpHeld: memory.jumpFrames > 0,
   }
-  memory.jumpFrames = Math.max(0, memory.jumpFrames - 1)
-  return input
 }
 
 function stateVector(simulation, events) {
@@ -81,7 +75,7 @@ function stateVector(simulation, events) {
     Number(simulation.finished),
     simulation.respawns,
     player.x, player.y, player.vx, player.vy, Number(player.onGround), player.coyote,
-    player.jumpBuffer, Number(player.jumpWasHeld), Number(player.glowing), player.spawnX, player.spawnY,
+    player.jumpBuffer, Number(player.glowing), player.spawnX, player.spawnY,
     ...world.terrain.flatMap(rect => [rect.id, rect.y, Number(rect.active), rect.timer]),
     ...world.seeds.flatMap(seed => [seed.id, Number(seed.found)]),
     ...world.hiddenLights.flatMap(hiddenLight => [hiddenLight.id, Number(hiddenLight.found)]),
@@ -135,7 +129,7 @@ function runReplay(level, inputs) {
 
 function record(level, maxFrames, seekHiddenLight) {
   const simulation = createSimulation(level)
-  const memory = { jumpFrames: 0, jumps: 0, sawCrumble: false }
+  const memory = { jumps: 0, sawCrumble: false }
   const inputs = []
   for (let frame = 0; frame < maxFrames && !simulation.finished; frame += 1) {
     const input = nextInput(simulation, memory, seekHiddenLight)

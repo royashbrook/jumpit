@@ -16,7 +16,121 @@ export const CAMPAIGN_ORDER = Object.freeze([
   'keep-1', 'keep-2', 'keep-3', 'keep-4',
 ])
 
-const level = (id, order, region, name, width, spawn, finish, introduces, terrain, objects) => ({
+const TRAIL_EXTENSION = 56
+
+const TRAIL_FAMILY = Object.freeze({
+  hops: Object.freeze({
+    terrain: [
+      [0, 15, 8, 3], [11, 15, 4, 3], [18, 15, 12, 3], [33, 15, 7, 3], [43, 15, 13, 3],
+      [5, 12, 6, 1], [34, 12, 6, 1], [46, 12, 7, 1],
+    ],
+    finish: [52, 14],
+    rewards: [[35, 11], [49, 11]],
+  }),
+  launch: Object.freeze({
+    terrain: [
+      [0, 15, 9, 3], [12, 15, 3, 3], [18, 15, 12, 3], [33, 15, 8, 3],
+      [5, 12, 7, 1], [38, 12, 7, 1], [44, 9, 12, 1],
+    ],
+    finish: [52, 8],
+    rewards: [[40, 11], [50, 8]],
+  }),
+  motion: Object.freeze({
+    terrain: [
+      [0, 15, 7, 3], [12, 15, 3, 3], [18, 15, 12, 3], [33, 15, 6, 3], [43, 15, 13, 3],
+      [5, 12, 8, 1], [10, 9, 7, 1], [34, 12, 7, 1], [38, 9, 8, 1], [47, 11, 9, 1],
+    ],
+    finish: [52, 10],
+    rewards: [[36, 11], [51, 10]],
+  }),
+  perch: Object.freeze({
+    terrain: [
+      [0, 15, 6, 3], [9, 15, 6, 3], [18, 15, 12, 3], [33, 15, 5, 3], [41, 15, 5, 3], [49, 15, 7, 3],
+      [3, 12, 7, 1], [9, 10, 7, 1], [31, 12, 6, 1], [36, 10, 7, 1], [43, 12, 7, 1], [49, 9, 7, 1],
+    ],
+    finish: [52, 8],
+    rewards: [[34, 11], [51, 8]],
+  }),
+})
+
+const FAMILY_BY_LEVEL = Object.freeze({
+  'garden-2': 'hops', 'rooftop-1': 'hops', 'workshop-1': 'hops', 'market-1': 'hops',
+  'garden-3': 'launch', 'garden-4': 'launch', 'rooftop-2': 'launch', 'rooftop-4': 'launch', 'keep-3': 'launch',
+  'workshop-2': 'motion', 'workshop-3': 'motion', 'workshop-4': 'motion', 'market-3': 'motion', 'keep-2': 'motion',
+  'rooftop-3': 'perch', 'market-2': 'perch', 'market-4': 'perch', 'keep-1': 'perch', 'keep-4': 'perch',
+})
+
+function extendTrail(entry) {
+  if (entry.order === 1) return entry
+  const width = entry.size[0]
+  const finalKeep = entry.id === 'keep-4'
+  const highKeep = entry.region === 'keep' && entry.finish[2] < 14
+  const arena = finalKeep ? entry.terrain.find(([id]) => id === 'k04-arena') : null
+  const origin = arena?.[2] ?? width
+  const stableKind = entry.terrain.find(([, kind, , , , height]) => height > 1 && kind !== 'crumble')?.[1]
+  const shelfKind = entry.terrain.find(([, kind, , , , height]) => height === 1 && !['bridge', 'lift'].includes(kind))?.[1] || stableKind
+  const family = TRAIL_FAMILY[FAMILY_BY_LEVEL[entry.id]]
+  const suffix = index => `${entry.id}-trail-${String.fromCharCode(97 + index)}`
+  const highSteps = entry.finish[2] === 8
+    ? [[31, 12, 7, 1], [38, 10, 7, 1], [45, 9, 11, 1]]
+    : [[31, 12, 7, 1], [38, 10, 7, 1], [45, 8, 7, 1], [50, 7, 6, 1]]
+  const finalRoute = [
+    [0, 15, 6, 3], [9, 15, 6, 3], [18, 15, 12, 3], [33, 15, 8, 3], [44, 15, 12, 3],
+    [3, 12, 7, 1], [9, 10, 7, 1], [31, 12, 6, 1], [36, 10, 7, 1],
+  ]
+  const route = finalKeep
+    ? finalRoute
+    : highKeep
+      ? [...family.terrain.filter(([x]) => x < 31), ...highSteps]
+      : family.terrain
+  const extension = route.map(([x, y, span, height], index) => [
+    suffix(index), height === 1 ? shelfKind : stableKind, origin + x, y, span, height,
+  ])
+
+  let terrain = entry.terrain
+  if (finalKeep) {
+    terrain = terrain.map(tile => tile === arena
+      ? [tile[0], tile[1], tile[2] + TRAIL_EXTENSION, tile[3], tile[4], tile[5]]
+      : tile)
+  }
+
+  const rewards = finalKeep
+    ? [[35, 11], [50, 14]]
+    : highKeep
+      ? [[35, 11], [51, entry.finish[2]]]
+      : family.rewards
+  const seeds = entry.objects.filter(([, kind]) => kind === 'seed').slice(-2)
+  const rewardById = new Map(seeds.map((seed, index) => [seed[0], rewards[index]]))
+  const checkpoint = finalKeep ? [50, 14] : [24, 14]
+  let objects = entry.objects.map(object => {
+    if (object[1] === 'checkpoint') return [object[0], object[1], origin + checkpoint[0], checkpoint[1]]
+    if (finalKeep && object[1] === 'warden') return [object[0], object[1], object[2] + TRAIL_EXTENSION, object[3]]
+    const reward = rewardById.get(object[0])
+    return reward ? [object[0], object[1], origin + reward[0], reward[1]] : object
+  })
+  objects = [
+    ...objects,
+    ...(entry.objects.some(([, kind]) => kind === 'spring')
+      ? [[`${entry.id}-trail-spring`, 'spring', origin + 7, 14]]
+      : []),
+    ...(entry.objects.some(([, kind]) => kind === 'fan') && !highKeep
+      ? [[`${entry.id}-trail-fan`, 'fan', origin + 36, 14]]
+      : []),
+  ]
+
+  const finish = finalKeep
+    ? [entry.finish[0], entry.finish[1] + TRAIL_EXTENSION, entry.finish[2]]
+    : [entry.finish[0], origin + 52, highKeep ? entry.finish[2] : family.finish[1]]
+  return {
+    ...entry,
+    size: [width + TRAIL_EXTENSION, entry.size[1]],
+    finish,
+    terrain: [...terrain, ...extension],
+    objects,
+  }
+}
+
+const level = (id, order, region, name, width, spawn, finish, introduces, terrain, objects) => extendTrail({
   id, order, region, name, size: [width, 18], spawn, finish, introduces, terrain, objects,
 })
 
@@ -28,9 +142,9 @@ export const LEVELS = [
     ['g01-c', 'ground', 32, 15, 6, 3], ['g01-d', 'leaf', 7, 12, 5, 1],
     ['g01-e', 'leaf', 25, 12, 5, 1],
   ], [
-    ['g01-seed-a', 'seed', 4, 14], ['g01-seed-b', 'seed', 10, 11],
+    ['g01-seed-a', 'seed', 3, 14], ['g01-seed-b', 'seed', 10, 11],
     ['g01-seed-c', 'seed', 27, 11], ['g01-check', 'checkpoint', 21, 14],
-    ['g01-moss-a', 'mossling', 9, 14],
+    ['g01-moss-a', 'mossling', 8, 14],
   ]),
 
   level('garden-2', 2, 'garden', 'Clover Crossing', 62, [2, 14], ['g02-bell', 59, 14], ['glow-cloak'], [
@@ -50,17 +164,17 @@ export const LEVELS = [
     ['g03-c', 'ground', 28, 15, 9, 3], ['g03-d', 'ground', 40, 15, 10, 3],
     ['g03-e', 'ground', 53, 15, 13, 3], ['g03-f', 'leaf', 7, 12, 5, 1],
     ['g03-g', 'leaf', 22, 12, 6, 1], ['g03-h', 'leaf', 35, 12, 5, 1],
-    ['g03-i', 'leaf', 48, 12, 6, 1],
+    ['g03-i', 'leaf', 48, 12, 6, 1], ['g03-secret', 'leaf', 59, 12, 5, 1],
   ], [
     ['g03-seed-a', 'seed', 9, 11], ['g03-seed-b', 'seed', 24, 11],
     ['g03-seed-c', 'seed', 37, 11], ['g03-seed-d', 'seed', 51, 11],
     ['g03-check', 'checkpoint', 33, 14], ['g03-moss-a', 'mossling', 18, 14],
-    ['g03-moss-b', 'mossling', 45, 14], ['g03-spring', 'spring', 55, 14],
-    ['g03-hidden-light', 'hidden-light', 7, 11],
+    ['g03-moss-b', 'mossling', 45, 14], ['g03-spring', 'spring', 50, 14],
+    ['g03-hidden-light', 'hidden-light', 61, 11],
   ]),
 
   level('garden-4', 4, 'garden', 'Bramble Bank', 70, [2, 14], ['g04-bell', 67, 14], ['crumble-banks'], [
-    ['g04-a', 'ground', 0, 15, 12, 3], ['g04-b', 'crumble', 15, 15, 7, 3],
+    ['g04-a', 'ground', 0, 15, 12, 3], ['g04-b', 'crumble', 15, 15, 8, 3],
     ['g04-c', 'ground', 24, 15, 11, 3], ['g04-d', 'crumble', 38, 15, 8, 3],
     ['g04-e', 'ground', 49, 15, 8, 3], ['g04-f', 'ground', 60, 15, 10, 3],
     ['g04-g', 'leaf', 9, 12, 6, 1], ['g04-h', 'leaf', 31, 12, 7, 1],
@@ -103,13 +217,13 @@ export const LEVELS = [
     ['r03-e', 'roof', 49, 15, 8, 3], ['r03-f', 'roof', 60, 15, 12, 3],
     ['r03-g', 'awning', 8, 12, 6, 1], ['r03-h', 'awning', 19, 12, 7, 1],
     ['r03-i', 'awning', 31, 12, 7, 1], ['r03-j', 'awning', 44, 12, 7, 1],
-    ['r03-k', 'awning', 55, 12, 6, 1],
+    ['r03-k', 'awning', 55, 12, 6, 1], ['r03-secret', 'awning', 68, 12, 7, 1],
   ], [
     ['r03-seed-a', 'seed', 10, 11], ['r03-seed-b', 'seed', 22, 11],
     ['r03-seed-c', 'seed', 34, 11], ['r03-seed-d', 'seed', 47, 11],
     ['r03-seed-e', 'seed', 57, 11], ['r03-check', 'checkpoint', 42, 14],
     ['r03-drop-a', 'drizzlet', 17, 14], ['r03-drop-b', 'drizzlet', 52, 14],
-    ['r03-hidden-light', 'hidden-light', 31, 11],
+    ['r03-hidden-light', 'hidden-light', 71, 11],
   ]),
 
   level('rooftop-4', 8, 'rooftop', 'Thunder Terrace', 76, [2, 14], ['r04-bell', 73, 14], ['crosswinds'], [
@@ -145,12 +259,12 @@ export const LEVELS = [
     ['w02-c', 'wood', 28, 15, 8, 3], ['w02-d', 'belt', 39, 15, 13, 3],
     ['w02-e', 'wood', 55, 15, 15, 3], ['w02-f', 'wood', 8, 12, 6, 1],
     ['w02-g', 'wood', 23, 12, 6, 1], ['w02-h', 'wood', 34, 12, 6, 1],
-    ['w02-i', 'wood', 50, 12, 6, 1],
+    ['w02-i', 'wood', 50, 12, 6, 1], ['w02-secret', 'wood', 62, 12, 7, 1],
   ], [
     ['w02-seed-a', 'seed', 10, 11], ['w02-seed-b', 'seed', 25, 11],
     ['w02-seed-c', 'seed', 37, 11], ['w02-seed-d', 'seed', 52, 11],
     ['w02-check', 'checkpoint', 44, 14], ['w02-gear-a', 'gearling', 18, 14],
-    ['w02-gear-b', 'gearling', 46, 14], ['w02-hidden-light', 'hidden-light', 8, 11],
+    ['w02-gear-b', 'gearling', 46, 14], ['w02-hidden-light', 'hidden-light', 65, 11],
   ]),
 
   level('workshop-3', 11, 'workshop', 'Hoist House', 74, [2, 14], ['w03-bell', 71, 14], ['freight-lifts'], [
@@ -216,13 +330,13 @@ export const LEVELS = [
     ['m03-e', 'stall', 50, 15, 10, 3], ['m03-f', 'stall', 63, 15, 13, 3],
     ['m03-g', 'lift', 9, 12, 6, 1], ['m03-h', 'lantern', 20, 12, 7, 1],
     ['m03-i', 'lift', 33, 12, 6, 1], ['m03-j', 'lantern', 45, 12, 7, 1],
-    ['m03-k', 'lift', 58, 12, 6, 1],
+    ['m03-k', 'lift', 58, 12, 6, 1], ['m03-secret', 'lantern', 65, 12, 7, 1],
   ], [
     ['m03-seed-a', 'seed', 11, 11], ['m03-seed-b', 'seed', 23, 11],
     ['m03-seed-c', 'seed', 35, 11], ['m03-seed-d', 'seed', 48, 11],
     ['m03-seed-e', 'seed', 60, 11], ['m03-check', 'checkpoint', 43, 14],
     ['m03-moth-a', 'mothlight', 18, 14], ['m03-moth-b', 'mothlight', 54, 14],
-    ['m03-hidden-light', 'hidden-light', 26, 11],
+    ['m03-hidden-light', 'hidden-light', 68, 11],
   ]),
 
   level('market-4', 16, 'market', 'Last-Light Arcade', 80, [2, 14], ['m04-bell', 77, 14], ['shadow-gates'], [
@@ -239,8 +353,8 @@ export const LEVELS = [
     ['m04-seed-e', 'seed', 61, 11], ['m04-seed-f', 'seed', 71, 11],
     ['m04-check', 'checkpoint', 45, 14], ['m04-moth-a', 'mothlight', 19, 14],
     ['m04-moth-b', 'mothlight', 55, 14], ['m04-gate-a', 'gate', 31, 14],
-    ['m04-gate-b', 'gate', 68, 14], ['m04-lamp-a', 'lamp', 28, 14],
-    ['m04-lamp-b', 'lamp', 65, 14],
+    ['m04-gate-b', 'gate', 68, 14], ['m04-lamp-a', 'lamp', 27, 11],
+    ['m04-lamp-b', 'lamp', 63, 11],
   ]),
 
   level('keep-1', 17, 'keep', 'Gatehouse Glow', 72, [2, 14], ['k01-bell', 64, 8], ['stone-sentries'], [
@@ -256,7 +370,7 @@ export const LEVELS = [
     ['k01-seed-c', 'seed', 21, 8], ['k01-seed-d', 'seed', 32, 12],
     ['k01-seed-e', 'seed', 55, 10], ['k01-seed-f', 'seed', 62, 8],
     ['k01-check', 'checkpoint', 46, 14], ['k01-sentry-a', 'sentry', 34, 14],
-    ['k01-hidden-light', 'hidden-light', 8, 12],
+    ['k01-hidden-light', 'hidden-light', 17, 10],
   ]),
 
   level('keep-2', 18, 'keep', 'Bellrope Gallery', 78, [2, 14], ['k02-bell', 75, 6], ['keep-lifts'], [
@@ -292,7 +406,7 @@ export const LEVELS = [
     ['k03-seed-a', 'seed', 9, 12], ['k03-seed-b', 'seed', 15, 10],
     ['k03-seed-c', 'seed', 21, 8], ['k03-seed-d', 'seed', 43, 12],
     ['k03-seed-e', 'seed', 56, 8], ['k03-seed-f', 'seed', 66, 12],
-    ['k03-seed-g', 'seed', 80, 6], ['k03-check', 'checkpoint', 43, 12],
+    ['k03-seed-g', 'seed', 80, 6], ['k03-check', 'checkpoint', 56, 8],
     ['k03-sentry-a', 'sentry', 17, 14], ['k03-sentry-b', 'sentry', 64, 12],
     ['k03-sentry-c', 'sentry', 76, 8], ['k03-fan-a', 'fan', 42, 14],
     ['k03-fan-b', 'fan', 72, 14],
@@ -332,6 +446,7 @@ const integer = value => Number.isInteger(value)
 const pointInBounds = ([x, y], [width, height]) => integer(x) && integer(y) && x >= 0 && y >= 0 && x < width && y < height
 const contains = (terrain, x, y) => x >= terrain[2] && x < terrain[2] + terrain[4] && y >= terrain[3] && y < terrain[3] + terrain[5]
 const supports = (terrain, x, y) => x >= terrain[2] && x < terrain[2] + terrain[4] && y === terrain[3] - 1
+const stableSupport = (terrain, x, y) => !['crumble', 'lift', 'bridge'].includes(terrain[1]) && supports(terrain, x, y)
 
 function jumpable(from, to) {
   const fromLeft = from[2]
@@ -478,12 +593,11 @@ export function validateCampaign(campaign = LEVELS) {
     if (spawnOk && !validTerrain.some(tile => supports(tile, entry.spawn[0], entry.spawn[1]))) {
       errors.push(`${where}: spawn has no supporting terrain`)
     }
-    if (finishOk && !validTerrain.some(tile => supports(tile, entry.finish[1], entry.finish[2]))) {
-      errors.push(`${where}: finish bell has no supporting terrain`)
+    if (finishOk && !validTerrain.some(tile => stableSupport(tile, entry.finish[1], entry.finish[2]))) {
+      errors.push(`${where}: finish bell must have stable supporting terrain`)
     }
     const checkpoint = validObjects.find(([, kind]) => kind === 'checkpoint')
-    if (checkpoint && !validTerrain.some(tile =>
-      tile[1] !== 'crumble' && supports(tile, checkpoint[2], checkpoint[3]))) {
+    if (checkpoint && !validTerrain.some(tile => stableSupport(tile, checkpoint[2], checkpoint[3]))) {
       errors.push(`${where}: ${checkpoint[0]} must have stable supporting terrain`)
     }
 

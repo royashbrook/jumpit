@@ -99,6 +99,31 @@ test('the exact v1.7 four-seed opening score migrates to the shorter First Light
   assert.ok(migrated.bestSeeds['garden-1'] <= LEVELS[0].objects.filter(([, kind]) => kind === 'seed').length)
 })
 
+test('longer trails preserve every previously perfect seed score', () => {
+  const legacyTotals = {
+    'garden-1': 3, 'garden-2': 4, 'garden-3': 4, 'garden-4': 4,
+    'rooftop-1': 4, 'rooftop-2': 4, 'rooftop-3': 5, 'rooftop-4': 5,
+    'workshop-1': 4, 'workshop-2': 4, 'workshop-3': 5, 'workshop-4': 5,
+    'market-1': 4, 'market-2': 5, 'market-3': 5, 'market-4': 6,
+    'keep-1': 6, 'keep-2': 6, 'keep-3': 7, 'keep-4': 6,
+  }
+  const ids = Object.keys(legacyTotals)
+  const storage = memoryStorage(JSON.stringify({
+    version: SAVE_VERSION,
+    completed: ids,
+    unlocked: ids,
+    bestSeeds: legacyTotals,
+    selectedLevel: 'keep-4',
+  }))
+  const loaded = loadSave(storage)
+
+  for (const level of LEVELS) {
+    const currentMaximum = level.objects.filter(([, kind]) => kind === 'seed').length
+    assert.equal(currentMaximum, legacyTotals[level.id], `${level.id} changed its seed maximum`)
+    assert.equal(loaded.bestSeeds[level.id], currentMaximum, `${level.id} lost its perfect score`)
+  }
+})
+
 test('hidden lights persist immediately, reject false stamps, and reset with progress', () => {
   const ids = LEVELS.flatMap(level => level.objects.filter(([, kind]) => kind === 'hidden-light').map(([id]) => id))
   assert.equal(ids.length, 5)

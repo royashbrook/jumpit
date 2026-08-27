@@ -46,28 +46,91 @@ test('coyote time allows a jump just after leaving a ledge', () => {
   assert.ok(body.vy < 0)
 })
 
-test('releasing jump early makes a shorter arc', () => {
-  const held = settle(createBody({ x: 10, y: 0 }))
-  const cut = settle(createBody({ x: 60, y: 0 }))
-  stepPhysics(held, { jumpPressed: true, jumpHeld: true }, floor)
-  stepPhysics(cut, { jumpPressed: true, jumpHeld: true }, floor)
-  stepPhysics(held, { jumpHeld: true }, floor)
-  stepPhysics(cut, { jumpHeld: false }, floor)
-  assert.ok(cut.vy > held.vy)
+test('a tap and a hold share one running jump that clears a three-tile shelf', () => {
+  const ground = { type: 'solid', x: -100, y: 196, w: 500, h: 40 }
+  const ledge = { type: 'oneway', x: 70, y: 100, w: 240, h: 16 }
+  const bodies = [true, false].map(() => settle(createBody({ x: 20, y: 120 }), [ground]))
+  for (const body of bodies) body.vx = body.config.maxRun
+
+  const rises = []
+  for (const [index, body] of bodies.entries()) {
+    stepPhysics(body, { right: true, jumpPressed: true, jumpHeld: index === 0 }, [ground, ledge])
+    let minimumFeet = body.y + body.h
+    let landed = false
+    for (let frame = 0; frame < 60; frame += 1) {
+      stepPhysics(body, { right: true, jumpHeld: index === 0 }, [ground, ledge])
+      minimumFeet = Math.min(minimumFeet, body.y + body.h)
+      landed ||= body.onGround && body.y + body.h === ledge.y
+    }
+    rises.push(196 - minimumFeet)
+    assert.equal(landed, true)
+  }
+  assert.ok(rises.every(rise => rise >= 105 && rise <= 107), rises.join(', '))
+  assert.ok(Math.abs(rises[0] - rises[1]) < 1e-9)
 })
 
-test('the default jump lands on a floating ledge three tiles above the ground', () => {
-  const ground = { type: 'solid', x: -100, y: 196, w: 500, h: 40 }
+test('a visible one-way shelf edge catches the courier without magnetic landings', () => {
   const ledge = { type: 'oneway', x: 0, y: 100, w: 100, h: 16 }
-  const body = settle(createBody({ x: 20, y: 120 }), [ground])
-  stepPhysics(body, { right: true, jumpPressed: true, jumpHeld: true }, [ground, ledge])
-
-  let landed = false
-  for (let frame = 0; frame < 60; frame += 1) {
-    stepPhysics(body, { jumpHeld: true }, [ground, ledge])
-    landed ||= body.onGround && body.y + body.h === ledge.y
+  const fallingAt = (x, direction) => {
+    const body = createBody({ x, y: 53 })
+    Object.assign(body, { vx: body.config.maxRun * direction, vy: 5 })
+    return body
   }
-  assert.equal(landed, true)
+
+  for (const attempt of [
+    { x: 100, snapX: 99, direction: 1, input: { right: true } },
+    { x: -28, snapX: -27, direction: -1, input: { left: true } },
+  ]) {
+    const caught = fallingAt(attempt.x, attempt.direction)
+    stepPhysics(caught, attempt.input, [ledge])
+    assert.equal(caught.x, attempt.snapX)
+    assert.equal(caught.y + caught.h, ledge.y)
+    assert.equal(caught.vy, 0)
+    assert.equal(caught.vx, 0)
+    assert.equal(caught.onGround, true)
+
+    const inward = attempt.direction > 0 ? { left: true } : { right: true }
+    stepPhysics(caught, inward, [ledge])
+    assert.equal(caught.onGround, true)
+    assert.ok((caught.x - attempt.snapX) * attempt.direction < 0)
+    for (let frame = 0; frame < 12; frame += 1) stepPhysics(caught, {}, [ledge])
+    assert.equal(caught.onGround, true)
+
+    const leaving = fallingAt(attempt.x, attempt.direction)
+    stepPhysics(leaving, attempt.input, [ledge])
+    stepPhysics(leaving, attempt.input, [ledge])
+    assert.equal(leaving.onGround, true)
+    stepPhysics(leaving, attempt.input, [ledge])
+    assert.equal(leaving.onGround, false)
+    let outwardX = leaving.x
+    for (let frame = 0; frame < 12; frame += 1) {
+      stepPhysics(leaving, attempt.input, [ledge])
+      assert.equal(leaving.onGround, false)
+      assert.ok((leaving.x - outwardX) * attempt.direction > 0)
+      outwardX = leaving.x
+    }
+  }
+
+  for (const attempt of [
+    { x: 106, vx: -2, snapX: 99 },
+    { x: -34, vx: 2, snapX: -27 },
+  ]) {
+    const correcting = createBody({ x: attempt.x, y: 53 })
+    Object.assign(correcting, { vx: attempt.vx, vy: 5 })
+    stepPhysics(correcting, {}, [ledge])
+    assert.equal(correcting.x, attempt.snapX)
+    assert.equal(correcting.vx, attempt.vx)
+    assert.equal(correcting.onGround, true)
+  }
+
+  for (const attempt of [
+    { x: 100.7, direction: 1, input: { right: true } },
+    { x: -28.7, direction: -1, input: { left: true } },
+  ]) {
+    const missed = fallingAt(attempt.x, attempt.direction)
+    stepPhysics(missed, attempt.input, [ledge])
+    assert.equal(missed.onGround, false)
+  }
 })
 
 test('stomps are distinct from side contact', () => {

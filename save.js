@@ -1,4 +1,4 @@
-import { LEVELS } from './levels.js'
+import { LEVELS } from './levels.js?v=2'
 
 export const SAVE_VERSION = 3
 export const SAVE_KEY = 'jumpit-save-v1'

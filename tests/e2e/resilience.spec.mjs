@@ -161,7 +161,7 @@ test('the iOS install hint cannot overwrite the normal gameplay help', async ({ 
   await page.getByRole('button', { name: 'HOW TO PLAY' }).click()
   await expect(page.getByRole('heading', { name: 'How to play' })).toBeVisible()
   await expect(page.getByText('Touch the left side, then slide to run.', { exact: true })).toBeVisible()
-  await expect(page.getByText('Tap or hold the right side to jump.', { exact: true })).toBeVisible()
+  await expect(page.getByText('Tap the right side to jump.', { exact: true })).toBeVisible()
   await context.close()
 })
 

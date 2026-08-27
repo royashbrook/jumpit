@@ -4,6 +4,9 @@
 Rooftop Rain, Workshop Loft, Lantern Market, and Beacon Keep. Coordinates are
 integer tile units and `TILE` is 32 CSS pixels at 1× scale.
 
+First Light stays a fast 38-tile tutorial. Every later trail adds a 56-tile,
+movement-first stanza with recovery ground, shelf routes, and two rewards.
+
 - `size`: `[width, height]`
 - `spawn`: `[x, y]`
 - `finish`: `[id, x, y]` (always the finish bell)

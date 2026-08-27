@@ -20,14 +20,18 @@ const currentCache = workerSource.match(/const CACHE\s*=\s*['"]([^'"]+)/)?.[1]
 const nextVersion = '2.1.0'
 const CURRENT_URLS = Object.freeze({
   css: './app.css?v=10',
-  app: './app.js?v=10',
-  game: './game.js?v=8',
+  app: './app.js?v=12',
+  game: './game.js?v=10',
+  levels: './levels.js?v=2',
+  save: './save.js?v=2',
+  physics: './engine/physics.js?v=2',
+  simulation: './engine/simulation.js?v=2',
   update: './update.js?v=4',
 })
 const REQUIRED_SHELL = [
   './', './index.html', CURRENT_URLS.css, CURRENT_URLS.app, './audio.js', './daily.js',
-  CURRENT_URLS.game, './levels.js', './release.js', './save.js', './engine/physics.js',
-  './engine/simulation.js', './version.js', './seed.js', './install.js', CURRENT_URLS.update, './manifest.json',
+  CURRENT_URLS.game, CURRENT_URLS.levels, './release.js', CURRENT_URLS.save, CURRENT_URLS.physics,
+  CURRENT_URLS.simulation, './version.js', './seed.js', './install.js', CURRENT_URLS.update, './manifest.json',
   './icon-180.png', './icon-192.png', './icon-512.png', './icon-maskable-512.png',
   './assets/backgrounds/garden-walk.webp', './assets/backgrounds/region-atlas.webp',
   './assets/backgrounds/final-atlas.webp', './assets/sprites/courier-sheet.webp',

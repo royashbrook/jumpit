@@ -8,8 +8,8 @@ const DEFAULTS = Object.freeze({
   maxRun: 5.4,
   gravity: 0.62,
   maxFall: 12.5,
-  jumpSpeed: 10.4,
-  ledgeJumpSpeed: 11.3,
+  jumpSpeed: 11.8,
+  landingGrace: 6,
   coyoteFrames: 6,
   bufferFrames: 8,
 })
@@ -33,7 +33,6 @@ export function createBody({ x = 0, y = 0, ...tuning } = {}) {
     onGround: false,
     coyote: 0,
     jumpBuffer: 0,
-    jumpWasHeld: false,
     pose: 'idle',
     config,
   }
@@ -52,7 +51,7 @@ function moveHorizontal(body, amount, terrain) {
   }
 }
 
-function moveVertical(body, amount, terrain) {
+function moveVertical(body, amount, terrain, direction) {
   const steps = Math.max(1, Math.ceil(Math.abs(amount) / 8))
   const step = amount / steps
   body.onGround = false
@@ -60,9 +59,20 @@ function moveVertical(body, amount, terrain) {
     const previousBottom = body.y + body.h
     body.y += step
     for (const rect of terrain) {
-      if (!overlap(body, rect)) continue
+      const catchesOneWayEdge = (!direction || body.coyote === 0) && rect.type === 'oneway' && step > 0 &&
+        previousBottom <= rect.y + 1 && body.y + body.h >= rect.y &&
+        body.x + body.w >= rect.x - body.config.landingGrace &&
+        body.x <= rect.x + rect.w + body.config.landingGrace
+      if (!overlap(body, rect) && !catchesOneWayEdge) continue
       if (rect.type === 'oneway' && (step < 0 || previousBottom > rect.y + 1)) continue
       if (step > 0) {
+        if (body.x >= rect.x + rect.w) {
+          body.x = rect.x + rect.w - 1
+          body.vx = Math.min(0, body.vx)
+        } else if (body.x + body.w <= rect.x) {
+          body.x = rect.x - body.w + 1
+          body.vx = Math.max(0, body.vx)
+        }
         body.y = rect.y - body.h
         body.vy = 0
         body.onGround = true
@@ -97,24 +107,17 @@ export function stepPhysics(body, input = {}, terrain = []) {
   else body.coyote = Math.max(0, body.coyote - 1)
 
   if (body.jumpBuffer > 0 && body.coyote > 0) {
-    const feet = body.y + body.h
-    // Match the authored three-tile ledges without pulling a running jump onto them.
-    const highLedge = Math.abs(body.vx) < 2 && terrain.some(rect => rect.type === 'oneway' &&
-      body.x + body.w > rect.x && body.x < rect.x + rect.w &&
-      feet - rect.y > 82 && feet - rect.y <= 96)
-    body.vy = -(highLedge ? config.ledgeJumpSpeed : config.jumpSpeed)
+    body.vy = -config.jumpSpeed
     body.onGround = false
     body.coyote = 0
     body.jumpBuffer = 0
     body.justJumped = true
   }
 
-  if (!input.jumpHeld && body.jumpWasHeld && body.vy < -3) body.vy *= 0.52
-  body.jumpWasHeld = Boolean(input.jumpHeld)
   body.vy = Math.min(config.maxFall, body.vy + config.gravity)
 
   moveHorizontal(body, body.vx, terrain)
-  moveVertical(body, body.vy, terrain)
+  moveVertical(body, body.vy, terrain, direction)
 
   body.pose = !body.onGround
     ? body.vy < 0 ? 'jump' : 'fall'
