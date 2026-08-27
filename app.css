@@ -946,23 +946,46 @@ h1 {
 }
 
 .controls {
-  --control-size: clamp(48px, 13dvh, 58px);
+  --control-size: clamp(60px, 17dvh, 72px);
+  --jump-width: clamp(92px, 25dvh, 108px);
+  --control-moat: clamp(16px, 5dvh, 20px);
   position: absolute;
   inset: 0;
   z-index: 3;
   pointer-events: none;
 }
 
-.control {
+.control-zone {
   position: absolute;
-  bottom: max(.5rem, env(safe-area-inset-bottom));
+  bottom: 0;
+  display: flex;
+  gap: .5rem;
+  padding-top: var(--control-moat);
+  padding-bottom: max(var(--control-moat), env(safe-area-inset-bottom));
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.direction-zone {
+  left: 0;
+  padding-right: var(--control-moat);
+  padding-left: max(var(--control-moat), env(safe-area-inset-left));
+}
+
+.jump-zone {
+  right: 0;
+  padding-right: max(var(--control-moat), env(safe-area-inset-right));
+  padding-left: var(--control-moat);
+}
+
+.control {
   width: var(--control-size);
   min-height: var(--control-size);
   padding: 0;
-  border: .12rem solid rgb(from var(--line) r g b / .82);
+  border: .12rem solid var(--line);
   border-radius: calc(var(--radius) * .8);
-  background: rgb(from var(--surface-raised) r g b / .93);
-  box-shadow: var(--shadow-pressed);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow);
   color: var(--ink);
   font: inherit;
   font-weight: 900;
@@ -971,23 +994,14 @@ h1 {
 }
 
 .control.direction {
-  font-size: 1.2rem;
-}
-
-.control#move-left {
-  left: max(.5rem, env(safe-area-inset-left));
-}
-
-.control#move-right {
-  left: calc(max(.5rem, env(safe-area-inset-left)) + var(--control-size) + .4rem);
+  font-size: 1.45rem;
 }
 
 .control.jump {
-  right: max(.5rem, env(safe-area-inset-right));
-  width: clamp(64px, 18dvh, 84px);
+  width: var(--jump-width);
   background: var(--accent);
   color: var(--ink-on-accent);
-  font-size: .72rem;
+  font-size: .82rem;
 }
 
 .control[data-held] {

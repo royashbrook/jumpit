@@ -64,6 +64,12 @@ test('portrait Play waits for rotation, then fills an iPhone Air landscape', asy
     const left = document.querySelector('#move-left').getBoundingClientRect()
     const right = document.querySelector('#move-right').getBoundingClientRect()
     const jump = document.querySelector('#jump').getBoundingClientRect()
+    const directionZone = document.querySelector('#direction-zone').getBoundingClientRect()
+    const jumpZone = document.querySelector('#jump-zone').getBoundingClientRect()
+    const backgroundAlpha = selector => {
+      const channels = getComputedStyle(document.querySelector(selector)).backgroundColor.match(/[\d.]+/g)?.map(Number) || []
+      return channels.length > 3 ? channels.at(-1) : 1
+    }
     return {
       width: innerWidth,
       height: innerHeight,
@@ -77,6 +83,11 @@ test('portrait Play waits for rotation, then fills an iPhone Air landscape', asy
       left: left.toJSON(),
       right: right.toJSON(),
       jump: jump.toJSON(),
+      directionZone: directionZone.toJSON(),
+      jumpZone: jumpZone.toJSON(),
+      controlAlpha: ['#move-left', '#move-right', '#jump'].map(backgroundAlpha),
+      controlOpacity: ['#move-left', '#move-right', '#jump']
+        .map(selector => Number(getComputedStyle(document.querySelector(selector)).opacity)),
     }
   })
   expect(fit.scrollWidth).toBeLessThanOrEqual(fit.width)
@@ -94,10 +105,17 @@ test('portrait Play waits for rotation, then fills an iPhone Air landscape', asy
   expect(fit.left.right).toBeLessThan(fit.width * .3)
   expect(fit.right.right).toBeLessThan(fit.width * .35)
   expect(fit.jump.left).toBeGreaterThan(fit.width * .7)
-  for (const control of [fit.left, fit.right, fit.jump]) {
-    expect(control.width).toBeGreaterThanOrEqual(44)
-    expect(control.height).toBeGreaterThanOrEqual(44)
-  }
+  for (const control of [fit.left, fit.right]) expect(control.width).toBeGreaterThanOrEqual(63)
+  expect(fit.jump.width).toBeGreaterThanOrEqual(93)
+  for (const control of [fit.left, fit.right, fit.jump]) expect(control.height).toBeGreaterThanOrEqual(63)
+  expect(fit.controlAlpha).toEqual([1, 1, 1])
+  expect(fit.controlOpacity).toEqual([1, 1, 1])
+  expect(fit.left.left - fit.directionZone.left).toBeGreaterThanOrEqual(16)
+  expect(fit.directionZone.right - fit.right.right).toBeGreaterThanOrEqual(16)
+  expect(fit.left.top - fit.directionZone.top).toBeGreaterThanOrEqual(16)
+  expect(fit.jump.left - fit.jumpZone.left).toBeGreaterThanOrEqual(16)
+  expect(fit.jumpZone.right - fit.jump.right).toBeGreaterThanOrEqual(16)
+  expect(fit.jump.top - fit.jumpZone.top).toBeGreaterThanOrEqual(16)
   const controlArea = [fit.left, fit.right, fit.jump]
     .reduce((area, control) => area + control.width * control.height, 0)
   expect(controlArea).toBeLessThan(fit.width * fit.height * .12)

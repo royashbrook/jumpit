@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="stylesheet" href="app.css?v=4">
+  <link rel="stylesheet" href="app.css?v=5">
 </head>
 <body>
   <main id="menu" class="screen menu-screen">
@@ -143,9 +143,13 @@
       </section>
     </div>
     <div id="controls" class="controls" aria-label="game controls">
-      <button id="move-left" class="control direction" aria-label="move left"><span aria-hidden="true">◀</span></button>
-      <button id="move-right" class="control direction" aria-label="move right"><span aria-hidden="true">▶</span></button>
-      <button id="jump" class="control jump" aria-label="jump">JUMP</button>
+      <div id="direction-zone" class="control-zone direction-zone" role="group" aria-label="movement">
+        <button id="move-left" class="control direction" aria-label="move left"><span aria-hidden="true">◀</span></button>
+        <button id="move-right" class="control direction" aria-label="move right"><span aria-hidden="true">▶</span></button>
+      </div>
+      <div id="jump-zone" class="control-zone jump-zone">
+        <button id="jump" class="control jump" aria-label="jump">JUMP</button>
+      </div>
     </div>
   </main>
 
