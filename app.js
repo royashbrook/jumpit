@@ -1,7 +1,7 @@
 import { currentSeed, isDaily, shareSeed } from './seed.js'
 import { createAudio } from './audio.js'
 import { challengeWon, dailyChallenge } from './daily.js'
-import { createGame } from './game.js?v=5'
+import { createGame } from './game.js?v=6'
 import { wireInstall } from './install.js'
 import { LEVELS, REGIONS } from './levels.js'
 import { createRelease } from './release.js'

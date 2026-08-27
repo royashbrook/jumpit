@@ -9,6 +9,7 @@ const DEFAULTS = Object.freeze({
   gravity: 0.62,
   maxFall: 12.5,
   jumpSpeed: 10.4,
+  ledgeJumpSpeed: 11.3,
   coyoteFrames: 6,
   bufferFrames: 8,
 })
@@ -96,7 +97,12 @@ export function stepPhysics(body, input = {}, terrain = []) {
   else body.coyote = Math.max(0, body.coyote - 1)
 
   if (body.jumpBuffer > 0 && body.coyote > 0) {
-    body.vy = -config.jumpSpeed
+    const feet = body.y + body.h
+    // Match the authored three-tile ledges without pulling a running jump onto them.
+    const highLedge = Math.abs(body.vx) < 2 && terrain.some(rect => rect.type === 'oneway' &&
+      body.x + body.w > rect.x && body.x < rect.x + rect.w &&
+      feet - rect.y > 82 && feet - rect.y <= 96)
+    body.vy = -(highLedge ? config.ledgeJumpSpeed : config.jumpSpeed)
     body.onGround = false
     body.coyote = 0
     body.jumpBuffer = 0

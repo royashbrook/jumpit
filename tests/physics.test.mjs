@@ -56,6 +56,20 @@ test('releasing jump early makes a shorter arc', () => {
   assert.ok(cut.vy > held.vy)
 })
 
+test('the default jump lands on a floating ledge three tiles above the ground', () => {
+  const ground = { type: 'solid', x: -100, y: 196, w: 500, h: 40 }
+  const ledge = { type: 'oneway', x: 0, y: 100, w: 100, h: 16 }
+  const body = settle(createBody({ x: 20, y: 120 }), [ground])
+  stepPhysics(body, { right: true, jumpPressed: true, jumpHeld: true }, [ground, ledge])
+
+  let landed = false
+  for (let frame = 0; frame < 60; frame += 1) {
+    stepPhysics(body, { jumpHeld: true }, [ground, ledge])
+    landed ||= body.onGround && body.y + body.h === ledge.y
+  }
+  assert.equal(landed, true)
+})
+
 test('stomps are distinct from side contact', () => {
   const target = { x: 40, y: 80, w: 30, h: 24 }
   assert.equal(isStomp({ x: 42, y: 35, w: 24, h: 42, vy: 5 }, target), true)
