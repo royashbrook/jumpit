@@ -73,8 +73,8 @@ export function artKeysForLevel(level) {
 }
 
 export function coachMessage({ moved, jumped, glowing, x }) {
-  if (!moved) return 'HOLD ▶ TO RUN'
-  if (!jumped) return 'STOP + HOLD JUMP FOR LEDGES'
+  if (!moved) return 'SLIDE YOUR LEFT THUMB TO RUN'
+  if (!jumped) return 'TAP THE RIGHT SIDE TO JUMP'
   if (glowing && x < 620) return 'GLOW BUMPS CREATURES'
   return ''
 }

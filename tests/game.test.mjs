@@ -155,8 +155,8 @@ test('the finish bell stays locked until the Beacon Warden is defeated', () => {
 })
 
 test('coaching is one short action at a time and then gets out of the way', () => {
-  assert.equal(coachMessage({ moved: false, jumped: false, glowing: false, x: 60 }), 'HOLD ▶ TO RUN')
-  assert.equal(coachMessage({ moved: true, jumped: false, glowing: false, x: 190 }), 'STOP + HOLD JUMP FOR LEDGES')
+  assert.equal(coachMessage({ moved: false, jumped: false, glowing: false, x: 60 }), 'SLIDE YOUR LEFT THUMB TO RUN')
+  assert.equal(coachMessage({ moved: true, jumped: false, glowing: false, x: 190 }), 'TAP THE RIGHT SIDE TO JUMP')
   assert.equal(coachMessage({ moved: true, jumped: true, glowing: true, x: 400 }), 'GLOW BUMPS CREATURES')
   assert.equal(coachMessage({ moved: true, jumped: true, glowing: false, x: 700 }), '')
   assert.deepEqual(playHint({ finished: false, moved: true, jumped: true, glowing: false, x: 700, finishX: 1_000 }), {

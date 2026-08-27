@@ -160,8 +160,8 @@ test('the iOS install hint cannot overwrite the normal gameplay help', async ({ 
 
   await page.getByRole('button', { name: 'HOW TO PLAY' }).click()
   await expect(page.getByRole('heading', { name: 'How to play' })).toBeVisible()
-  await expect(page.getByText('Hold an arrow to run.', { exact: true })).toBeVisible()
-  await expect(page.getByText('Tap anywhere to jump.', { exact: true })).toBeVisible()
+  await expect(page.getByText('Touch the left side, then slide to run.', { exact: true })).toBeVisible()
+  await expect(page.getByText('Tap or hold the right side to jump.', { exact: true })).toBeVisible()
   await context.close()
 })
 
@@ -237,13 +237,14 @@ test('blur, pagehide, and hidden visibility pause, release input, and wait for e
   expect(pauseCues).not.toContain('jump')
 })
 
-test('a trail tap on the interruption frame cannot fire after explicit resume', async ({ page }) => {
+test('a right-side jump on the interruption frame cannot fire after explicit resume', async ({ page }) => {
   await page.route('**/audio.js', route => route.fulfill({ contentType: 'text/javascript', body: lifecycleAudioStub }))
   await page.goto('/')
   await page.getByRole('button', { name: 'PLAY THE TRAIL' }).dispatchEvent('click')
   await page.evaluate(() => {
-    document.querySelector('#stage-shell').dispatchEvent(new PointerEvent('pointerdown', {
+    document.querySelector('#jump').dispatchEvent(new PointerEvent('pointerdown', {
       bubbles: true, pointerId: 11, pointerType: 'touch', isPrimary: true, buttons: 1,
+      clientX: innerWidth * .75, clientY: innerHeight * .7,
     }))
     window.dispatchEvent(new Event('blur'))
   })

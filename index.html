@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="stylesheet" href="app.css?v=9">
+  <link rel="stylesheet" href="app.css?v=10">
 </head>
 <body>
   <main id="menu" class="screen menu-screen">
@@ -119,7 +119,7 @@
       <button id="pause" class="chip pause" aria-label="pause game">Ⅱ</button>
     </header>
     <div id="stage-shell" class="stage-shell">
-      <canvas id="stage" aria-label="Jumpit game world. Tap anywhere to jump." aria-describedby="game-status"></canvas>
+      <canvas id="stage" aria-label="Jumpit game world. Slide on the left to move and tap the right to jump." aria-describedby="game-status"></canvas>
       <p id="game-status" class="game-status" role="status" aria-live="polite"></p>
       <p id="guardian-status" class="guardian-status" role="status" aria-live="polite" aria-atomic="true" hidden></p>
       <section id="game-overlay" class="game-overlay" role="dialog" aria-modal="true" aria-labelledby="overlay-title" aria-describedby="overlay-copy" hidden>
@@ -141,11 +141,12 @@
     </div>
     <div id="controls" class="controls" aria-label="game controls">
       <div id="direction-zone" class="control-zone direction-zone" role="group" aria-label="movement">
+        <span id="move-stick" class="move-stick" aria-hidden="true"></span>
         <button id="move-left" class="control direction" aria-label="move left"><span aria-hidden="true">◀</span></button>
         <button id="move-right" class="control direction" aria-label="move right"><span aria-hidden="true">▶</span></button>
       </div>
       <div id="jump-zone" class="control-zone jump-zone">
-        <button id="jump" class="control jump" aria-label="jump">JUMP</button>
+        <button id="jump" class="control jump" aria-label="jump"><span class="jump-feedback" aria-hidden="true">JUMP</span></button>
       </div>
     </div>
   </main>
@@ -161,11 +162,11 @@
   <dialog id="howto">
     <h2>How to play</h2>
     <ol>
-      <li>Hold an arrow to run.</li>
-      <li>Tap anywhere to jump.</li>
+      <li>Touch the left side, then slide to run.</li>
+      <li>Tap or hold the right side to jump.</li>
       <li>Gather lantern seeds and reach the bell.</li>
     </ol>
-    <p class="small">Hold an arrow to run. Tap or hold anywhere for a short or high leap.</p>
+    <p class="small">Slide your left thumb to run. Tap or hold your right thumb for a short or high leap.</p>
     <button id="howto-close" class="big">GOT IT</button>
   </dialog>
 
@@ -183,6 +184,6 @@
   </dialog>
 
   <button id="update" class="update" hidden>NEW VERSION, TAP TO LOAD</button>
-  <script type="module" src="app.js?v=8"></script>
+  <script type="module" src="app.js?v=9"></script>
 </body>
 </html>
