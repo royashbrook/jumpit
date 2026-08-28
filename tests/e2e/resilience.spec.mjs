@@ -29,7 +29,9 @@ export function createGame(_canvas, onState = () => {}, onCue = () => {}) {
     document.documentElement.dataset.lifecycleGameState = finished ? 'finished' : paused ? 'paused' : 'running'
     onState({
       levelId: 'garden-1', levelName: 'Dewdrop Dash', regionName: 'Garden Walk',
-      seeds: 0, maxSeeds: 3, paused, finished, message,
+      seeds: document.documentElement.dataset.perfectFinish === 'armed' ? 99 : 0,
+      maxSeeds: document.documentElement.dataset.perfectFinish === 'armed' ? 99 : 3,
+      paused, finished, message,
     })
   }
   const start = () => { finished = false; paused = false; report('') }
@@ -97,9 +99,10 @@ test('a v1.7 four-seed opening score never renders as an impossible 4/3', async 
     dailyWins: [],
   })))
   await page.goto('/')
-  await expect(page.locator('#continue-label')).toHaveText('DEWDROP DASH · 3/3 SEEDS')
+  await expect(page.locator('#continue-label')).toHaveText('DEWDROP DASH · 🔔 GOLD BELL')
+  await expect(page.locator('#gold-bell-count')).toHaveText('🔔 1 OF 20 GOLD BELLS')
   await page.getByRole('button', { name: 'TRAILS' }).click()
-  await expect(page.getByRole('button', { name: 'Play Dewdrop Dash' })).toContainText('◆ 3/3')
+  await expect(page.getByRole('button', { name: 'Play Dewdrop Dash, Gold Bell earned' })).toContainText('GOLD BELL EARNED')
   await expect(page.locator('body')).not.toContainText('4/3')
 })
 
@@ -131,6 +134,30 @@ test('a shared seed previews its deterministic challenge without touching campai
   await page.locator('#daily-play').click()
   await expect(page.locator('#level-name')).toHaveText(level.name.toUpperCase())
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('jumpit-save-v1')))).toEqual(baseline)
+})
+
+test('a perfect challenge earns its stamp without minting a campaign Gold Bell', async ({ page }) => {
+  await page.route('**/game.js*', route => route.fulfill({ contentType: 'text/javascript', body: lifecycleGameStub }))
+  await page.route('**/audio.js*', route => route.fulfill({ contentType: 'text/javascript', body: lifecycleAudioStub }))
+  await page.goto('/')
+  await page.getByRole('button', { name: 'MORE' }).click()
+  await page.locator('html').evaluate(element => {
+    element.dataset.finishOnRight = 'armed'
+    element.dataset.perfectFinish = 'armed'
+  })
+  await page.locator('#daily-play').click()
+  await page.locator('#move-right').evaluate(button => button.click())
+  await expect(page.locator('#overlay-title')).toHaveText('STAMP EARNED!')
+
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('jumpit-save-v1')))
+  expect(saved.completed).toEqual([])
+  expect(saved.bestSeeds).toEqual({})
+  expect(saved.dailyWins).toHaveLength(1)
+
+  await page.locator('#ending-home').click()
+  await expect(page.locator('#gold-bell-count')).toHaveText('ALL SEEDS + BELL = GOLD BELL')
+  await page.getByRole('button', { name: 'TRAILS' }).click()
+  await expect(page.getByRole('button', { name: 'Play Dewdrop Dash' })).not.toContainText('GOLD BELL')
 })
 
 test('Rain and Lantern looks unlock from their campaign milestones and persist', async ({ page }) => {

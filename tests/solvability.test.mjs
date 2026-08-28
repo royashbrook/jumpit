@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { recordHiddenLightReplay, recordReplay, replayLevel } from '../engine/solvability.js'
-import { createSimulation, stepSimulation } from '../engine/simulation.js'
+import { createSimulation, enemyAttackLands, stepSimulation } from '../engine/simulation.js'
 import { LEVELS, TILE } from '../levels.js'
 
 const level = id => LEVELS.find(item => item.id === id)
@@ -93,9 +93,79 @@ test('First Light pays off fast and Windward Tower stays forgiving', () => {
 
   const tower = recordReplay(level('keep-3'))
   assert.equal(tower.eventFrames.finish?.[0], tower.frames)
-  assert.ok(tower.frames >= 900 && tower.frames <= 1500, `tower bell arrived on frame ${tower.frames}`)
+  assert.ok(tower.frames >= 700 && tower.frames <= 1100, `tower bell arrived on frame ${tower.frames}`)
   assert.ok(tower.respawns <= 1, `tower needed ${tower.respawns} respawns`)
   assert.equal(level('keep-3').objects.filter(([, kind]) => kind === 'sentry').length, 3)
+})
+
+test('Lantern Seeds spark same-frame creature bumps and expire on exact fixed steps', () => {
+  const simulation = createSimulation(level('garden-1'))
+  const { player, world } = simulation
+  const seed = world.seeds[0]
+  const enemy = world.enemies[0]
+  Object.assign(enemy, {
+    x: seed.x - 10, y: 438, home: seed.x - 10, baseY: 438,
+    vx: 0, patrol: 0,
+  })
+  placePlayer(simulation, seed.x - 10, 438, 0, true)
+  const pickup = eventTypes(simulation)
+  assert.deepEqual(pickup.filter(type => ['seed', 'stomp', 'hurt'].includes(type)), ['seed', 'stomp'])
+  assert.equal(player.sparkFrames, 330)
+  assert.equal(enemy.alive, false)
+
+  const capped = createSimulation(level('garden-1'))
+  const cappedEnemy = capped.world.enemies[0]
+  capped.player.sparkFrames = 350
+  Object.assign(cappedEnemy, { y: 438, baseY: 438, vx: 0, patrol: 0 })
+  placePlayer(capped, cappedEnemy.x, 438, 0, true)
+  assert.ok(eventTypes(capped).includes('stomp'))
+  assert.equal(capped.player.sparkFrames, 360)
+
+  const refill = createSimulation(level('garden-1'))
+  const refillSeed = refill.world.seeds[0]
+  refill.world.enemies[0].alive = false
+  refill.player.sparkFrames = 350
+  placePlayer(refill, refillSeed.x - 10, 438, 0, true)
+  assert.ok(eventTypes(refill).includes('seed'))
+  assert.equal(refill.player.sparkFrames, 360)
+
+  const plainStomp = createSimulation(level('garden-1'))
+  const plainEnemy = plainStomp.world.enemies[0]
+  placePlayer(plainStomp, plainEnemy.x, plainEnemy.y - plainStomp.player.h, 1)
+  const plainEvents = stepSimulation(plainStomp)
+  assert.equal(plainEvents.find(event => event.type === 'stomp')?.message, 'BOUNCE!')
+  assert.equal(plainStomp.player.sparkFrames, 0)
+
+  const expiring = createSimulation(level('garden-1'))
+  expiring.player.sparkFrames = 2
+  eventTypes(expiring)
+  assert.equal(expiring.player.sparkFrames, 1)
+  eventTypes(expiring)
+  assert.equal(expiring.player.sparkFrames, 0)
+})
+
+test('the Glow Cloak stays permanent while death clears only temporary Seed Spark', () => {
+  const fresh = createSimulation(level('garden-1'))
+  assert.equal(fresh.player.sparkFrames, 0)
+  assert.equal(fresh.player.glowing, false)
+
+  const simulation = createSimulation(level('garden-2'))
+  const { player, world } = simulation
+  const cloak = world.cloak[0]
+  player.sparkFrames = 2
+  placePlayer(simulation, cloak.x - 10, cloak.y - 20)
+  assert.ok(eventTypes(simulation).includes('cloak'))
+  assert.equal(player.sparkFrames, 0)
+  assert.equal(player.glowing, true)
+
+  player.sparkFrames = 120
+  placePlayer(simulation, 0, world.height + 100)
+  assert.ok(eventTypes(simulation).includes('fall'))
+  assert.equal(player.sparkFrames, 0)
+  assert.equal(player.glowing, true)
+
+  const warden = createSimulation(level('keep-4')).world.enemies.find(enemy => enemy.kind === 'warden')
+  assert.equal(enemyAttackLands({ y: warden.y, h: 42, vy: 0, glowing: false, sparkFrames: 240 }, warden), false)
 })
 
 test('Bramble Bank teaches crumble once before its late stable checkpoint', () => {

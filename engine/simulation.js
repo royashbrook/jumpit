@@ -2,6 +2,9 @@ import { createBody, isStomp, stepPhysics } from './physics.js?v=2'
 import { TILE } from '../levels.js?v=2'
 
 const WARDEN_HEALTH = 3
+const SEED_SPARK_FRAMES = 240
+const SEED_SPARK_BONUS = 90
+const SEED_SPARK_MAX = 360
 
 const overlaps = (body, x, y, width, height) =>
   body.x < x + width && body.x + body.w > x && body.y < y + height && body.y + body.h > y
@@ -116,6 +119,7 @@ export function createPlayer(level) {
   player.spawnX = player.x
   player.spawnY = player.y
   player.glowing = false
+  player.sparkFrames = 0
   return player
 }
 
@@ -169,7 +173,7 @@ export function strikeEnemy(enemy) {
 }
 
 export function enemyAttackLands(player, enemy) {
-  return isStomp(player, enemy) || (enemy.kind !== 'warden' && player.glowing)
+  return isStomp(player, enemy) || (enemy.kind !== 'warden' && (player.glowing || player.sparkFrames > 0))
 }
 
 export function finishOutcome(world, player) {
@@ -227,7 +231,7 @@ function resetPlayer(simulation) {
   const { player } = simulation
   Object.assign(player, {
     x: player.spawnX, y: player.spawnY, vx: 0, vy: 0,
-    onGround: false, coyote: 0, jumpBuffer: 0, justJumped: false, pose: 'idle',
+    onGround: false, coyote: 0, jumpBuffer: 0, justJumped: false, pose: 'idle', sparkFrames: 0,
   })
   simulation.respawns += 1
 }
@@ -238,6 +242,8 @@ export function stepSimulation(simulation, input = {}) {
   const events = []
   const emit = (type, cue = '', message = '', burst = null, extra = {}) =>
     events.push({ type, cue, message, burst, ...extra })
+
+  if (player.sparkFrames > 0) player.sparkFrames -= 1
 
   for (const rect of world.terrain) {
     if (rect.kind !== 'lift' || !rect.active) continue
@@ -266,14 +272,22 @@ export function stepSimulation(simulation, input = {}) {
   for (const seed of world.seeds) {
     if (seed.found || !overlaps(player, seed.x - 12, seed.y - 15, 24, 30)) continue
     seed.found = true
-    emit('seed', 'seed', 'LANTERN SEED!', [seed.x, seed.y, '#FFD563'])
+    const alreadySparked = player.sparkFrames > 0
+    if (!player.glowing) player.sparkFrames = Math.min(SEED_SPARK_MAX, player.sparkFrames + SEED_SPARK_FRAMES)
+    emit(
+      'seed',
+      'seed',
+      player.glowing ? 'LANTERN SEED!' : alreadySparked ? 'SEED SPARK REFILLED!' : 'SEED SPARK · BUMP CREATURES!',
+      [seed.x, seed.y, '#FFD563'],
+    )
   }
 
   for (const cloak of world.cloak) {
     if (cloak.found || !overlaps(player, cloak.x - 18, cloak.y - 25, 36, 50)) continue
     cloak.found = true
     player.glowing = true
-    emit('cloak', 'power', 'GLOW CLOAK · BUMP CREATURES!', [cloak.x, cloak.y, '#B8F4BD'])
+    player.sparkFrames = 0
+    emit('cloak', 'power', 'GLOW CLOAK · POWER STAYS ON!', [cloak.x, cloak.y, '#B8F4BD'])
   }
 
   for (const hiddenLight of world.hiddenLights) {
@@ -305,7 +319,9 @@ export function stepSimulation(simulation, input = {}) {
           { enemyKind: enemy.kind },
         )
       } else {
-        emit('stomp', 'stomp', player.glowing ? 'GLOW BUMP!' : 'BOUNCE!', burst, { enemyKind: enemy.kind })
+        const sparkBump = !player.glowing && player.sparkFrames > 0
+        if (sparkBump) player.sparkFrames = Math.min(SEED_SPARK_MAX, player.sparkFrames + SEED_SPARK_BONUS)
+        emit('stomp', 'stomp', player.glowing ? 'GLOW BUMP!' : sparkBump ? 'SPARK EXTENDED!' : 'BOUNCE!', burst, { enemyKind: enemy.kind })
       }
     } else {
       const contactX = player.x

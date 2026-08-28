@@ -1,12 +1,12 @@
 import { currentSeed, isDaily, shareSeed } from './seed.js'
 import { createAudio } from './audio.js?v=2'
 import { challengeWon, dailyChallenge } from './daily.js'
-import { createGame } from './game.js?v=14'
+import { createGame } from './game.js?v=15'
 import { wireInstall } from './install.js'
 import { LEVELS, REGIONS } from './levels.js?v=2'
 import { createRelease } from './release.js'
-import { createSaveStore } from './save.js?v=2'
-import { wireUpdate, registerWorker } from './update.js?v=7'
+import { createSaveStore, hasGoldBell } from './save.js?v=3'
+import { wireUpdate, registerWorker } from './update.js?v=8'
 import { VERSION } from './version.js'
 
 const $ = id => document.getElementById(id)
@@ -105,6 +105,7 @@ const game = createGame($('stage'), state => {
   if (state.hiddenLightId) store.findHiddenLight(state.hiddenLightId)
   const challengeFinished = Boolean(activeChallenge && state.finished)
   const campaignFinished = !activeChallenge && state.finished && state.levelId === 'keep-4'
+  const goldFinished = !activeChallenge && state.finished && state.maxSeeds > 0 && state.seeds === state.maxSeeds
   const foundHiddenLights = new Set(save.hiddenLights)
   const hiddenLightEnding = foundHiddenLights.size === hiddenLights.length
     ? ' EVERY HIDDEN LIGHT JOINS THE BEACON.'
@@ -139,13 +140,13 @@ const game = createGame($('stage'), state => {
   $('overlay-title').textContent = challengeFinished
     ? stamped ? 'STAMP EARNED!' : 'MORE LIGHT NEEDED'
     : campaignFinished ? 'THE GARDEN GLOWS!'
-      : state.finished ? 'TRAIL CLEARED!' : 'PAUSED'
+      : goldFinished ? 'GOLD BELL!' : state.finished ? 'TRAIL CLEARED!' : 'PAUSED'
   $('overlay-copy').textContent = challengeFinished
     ? stamped
       ? `${activeChallenge.goalSeeds} SEEDS + BELL · STAMP EARNED`
       : `FOUND ${state.seeds}/${activeChallenge.goalSeeds} SEEDS · TRY AGAIN`
     : campaignFinished
-      ? `${completionCopy(state)} YOU LIT THE BEACON. ALL FIVE PLACES GLOW AGAIN.${hiddenLightEnding}`
+      ? `${goldFinished ? 'GOLD BELL EARNED! ' : ''}${completionCopy(state)} YOU LIT THE BEACON. ALL FIVE PLACES GLOW AGAIN.${hiddenLightEnding}`
       : state.finished
       ? completionCopy(state)
       : 'The trail waits for you.'
@@ -358,21 +359,22 @@ function openTab(name) {
 
 function trailButton(level, index, state) {
   const unlocked = state.unlocked.includes(level.id)
+  const gold = hasGoldBell(state, level.id)
   const button = document.createElement('button')
   button.className = 'trail-button'
   button.disabled = !unlocked
   button.setAttribute('aria-current', String(state.selectedLevel === level.id))
-  button.setAttribute('aria-label', unlocked ? `Play ${level.name}` : `${level.name} locked`)
+  button.setAttribute('aria-label', unlocked ? `Play ${level.name}${gold ? ', Gold Bell earned' : ''}` : `${level.name} locked`)
 
   const number = document.createElement('span')
   number.className = 'trail-number'
-  number.textContent = unlocked ? String(index + 1) : '×'
+  number.textContent = gold ? '🔔' : unlocked ? String(index + 1) : '×'
   const meta = document.createElement('span')
   meta.className = 'trail-meta'
   const name = document.createElement('b')
   name.textContent = level.name.toUpperCase()
   const status = document.createElement('small')
-  status.textContent = state.completed.includes(level.id) ? 'TRAIL CLEARED' : unlocked ? 'READY TO RUN' : 'CLEAR THE TRAIL BEFORE IT'
+  status.textContent = gold ? 'GOLD BELL EARNED' : state.completed.includes(level.id) ? 'TRAIL CLEARED' : unlocked ? 'READY TO RUN' : 'CLEAR THE TRAIL BEFORE IT'
   meta.append(name, status)
   const seeds = document.createElement('span')
   seeds.className = 'trail-seeds'
@@ -411,11 +413,18 @@ function renderMenu(nextState = store.get()) {
   const selectedId = release.playable(save.selectedLevel, save.unlocked)
   const selected = release.find(selectedId) || releaseLevels[0]
   const selectedMax = selected.objects.filter(([, kind]) => kind === 'seed').length
+  const selectedGold = hasGoldBell(save, selected.id)
+  const goldBellCount = releaseLevels.filter(level => hasGoldBell(save, level.id)).length
   const campaignComplete = save.completed.includes('keep-4')
   $('hero-kicker').textContent = campaignComplete ? 'THE BEACON IS AWAKE' : 'THE GARDEN NEEDS A LIGHT'
   $('hero-title').textContent = campaignComplete ? 'You brought light home.' : 'Run it home.'
   $('play').textContent = campaignComplete ? 'RUN THE KEEP AGAIN' : 'PLAY THE TRAIL'
-  $('continue-label').textContent = `${selected.name.toUpperCase()} · ${save.bestSeeds[selected.id] || 0}/${selectedMax} SEEDS`
+  $('continue-label').textContent = selectedGold
+    ? `${selected.name.toUpperCase()} · 🔔 GOLD BELL`
+    : `${selected.name.toUpperCase()} · ${save.bestSeeds[selected.id] || 0}/${selectedMax} SEEDS`
+  $('gold-bell-count').textContent = goldBellCount
+    ? `🔔 ${goldBellCount} OF ${releaseLevels.length} GOLD BELLS`
+    : 'ALL SEEDS + BELL = GOLD BELL'
   const trailSummary = $('trail-summary')
   if (trailSummary) {
     const placeCount = new Set(releaseLevels.map(level => level.region)).size

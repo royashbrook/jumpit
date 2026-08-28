@@ -3,7 +3,7 @@ import {
   createSimulation,
   guardianState,
   stepSimulation,
-} from './engine/simulation.js?v=2'
+} from './engine/simulation.js?v=3'
 
 export {
   activateCheckpoint,
@@ -15,7 +15,7 @@ export {
   finishOutcome,
   guardianState,
   strikeEnemy,
-} from './engine/simulation.js?v=2'
+} from './engine/simulation.js?v=3'
 
 const WORLD_HEIGHT = 18 * TILE
 const MAX_VIEW_WIDTH = 28 * TILE
@@ -74,16 +74,17 @@ export function artKeysForLevel(level) {
   return keys
 }
 
-export function coachMessage({ moved, jumped, glowing, x, frame = 0 }) {
+export function coachMessage({ moved, jumped, glowing, sparkFrames = 0, x, frame = 0 }) {
   if (frame < COACH_FRAMES && !moved) return 'SLIDE TO RUN'
   if (frame < COACH_FRAMES && !jumped) return 'TAP RIGHT TO JUMP'
+  if (sparkFrames > 0 && x < 620) return 'SPARK BUMPS CREATURES'
   if (glowing && x < 620) return 'GLOW BUMPS CREATURES'
   return ''
 }
 
-export function playHint({ finished, moved, jumped, glowing, x, y, finishX, finishY, frame = 0 }) {
+export function playHint({ finished, moved, jumped, glowing, sparkFrames = 0, x, y, finishX, finishY, frame = 0 }) {
   if (finished) return { kind: 'none', text: '' }
-  const coach = coachMessage({ moved, jumped, glowing, x, frame })
+  const coach = coachMessage({ moved, jumped, glowing, sparkFrames, x, frame })
   if (coach) return { kind: 'coach', text: coach }
   if (Math.abs(finishX - x) < TILE * 2 && Math.abs(finishY - y) > TILE) {
     return { kind: 'guide', text: finishY > y ? 'BELL ↓' : 'BELL ↑' }
@@ -98,6 +99,24 @@ export function impactFeedback(type, reducedMotion = false) {
     kick: reducedMotion || type === 'hidden-light' ? 0 : type === 'finish' || type === 'checkpoint' ? 5 : 3,
     expands: !reducedMotion,
   }
+}
+
+export function sparkGlowBright(sparkFrames, animationFrame) {
+  return sparkFrames > 60 || (sparkFrames > 0 && Math.floor(animationFrame / 6) % 2 === 0)
+}
+
+export function drawPowerAura(context, subject, animationFrame, width, height) {
+  if (!subject.glowing && !(subject.sparkFrames > 0)) return false
+  const sparkBright = subject.glowing || sparkGlowBright(subject.sparkFrames, animationFrame)
+  context.shadowColor = subject.glowing ? '#D4FF9D' : '#FFD563'
+  context.shadowBlur = sparkBright ? 18 : 4
+  context.fillStyle = subject.glowing
+    ? 'rgb(213 255 165 / .28)'
+    : sparkBright ? 'rgb(255 213 99 / .32)' : 'rgb(255 213 99 / .1)'
+  context.beginPath()
+  context.ellipse(0, -height * .45, width * .38, height * .48, 0, 0, Math.PI * 2)
+  context.fill()
+  return true
 }
 
 export function terrainVisible(rect, cameraLeft, cameraTop, viewWidth, viewHeight) {
@@ -710,14 +729,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
         context.rotate(deathProgress * .2)
       }
     }
-    if (subject.glowing) {
-      context.shadowColor = '#D4FF9D'
-      context.shadowBlur = 18
-      context.fillStyle = 'rgb(213 255 165 / .28)'
-      context.beginPath()
-      context.ellipse(0, -height * .45, width * .38, height * .48, 0, 0, Math.PI * 2)
-      context.fill()
-    }
+    drawPowerAura(context, subject, frame, width, height)
     if (courier.complete && courier.naturalWidth) {
       context.drawImage(courier, sourceX, sourceY, sourceWidth, sourceHeight, -width / 2, -height + 9, width, height)
     } else {
@@ -760,6 +772,7 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       moved,
       jumped,
       glowing: player.glowing,
+      sparkFrames: player.sparkFrames,
       x: player.x,
       y: player.y,
       finishX: world.finish.x,

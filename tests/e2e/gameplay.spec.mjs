@@ -175,6 +175,17 @@ test('the first visible action pays off inside five seconds with a real seed', a
 })
 
 test('a miss gets a readable respawn beat and clears held movement', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('jumpit-save-v1', JSON.stringify({
+    version: 3,
+    completed: ['garden-1'],
+    unlocked: ['garden-1', 'garden-2'],
+    bestSeeds: {},
+    selectedLevel: 'garden-2',
+    theme: 'garden',
+    muted: true,
+    dailyWins: [],
+    hiddenLights: [],
+  })))
   await page.goto('/')
   await launchTrail(page)
   const controls = page.locator('#controls')

@@ -26,6 +26,10 @@
 - Rebuilt natural terrain as outlined cartoon cliffs with scalloped turf, grass tufts,
   roots, and curved stonework instead of rectangular tiles.
 - Cull terrain outside the camera so the richer foreground stays smooth on phones.
+- Made every Lantern Seed grant a short gold combat Spark, with extra time for creature
+  bumps, while the Glow Cloak remains the permanent in-trail power-up.
+- Added persistent Gold Bells for perfect seed clears, visible on Home, trail cards, and
+  the clear celebration without adding currency, grinding, or another control.
 - Added a sticky in-app update toast so a ready release waits for the player's tap
   instead of reloading the game or requiring a close and reopen.
 - Compacted release JavaScript during packaging to preserve the fixed download budget.

@@ -20,14 +20,14 @@ const currentCache = workerSource.match(/const CACHE\s*=\s*['"]([^'"]+)/)?.[1]
 const nextVersion = '2.1.0'
 const CURRENT_URLS = Object.freeze({
   css: './app.css?v=10',
-  app: './app.js?v=17',
+  app: './app.js?v=18',
   audio: './audio.js?v=2',
-  game: './game.js?v=14',
+  game: './game.js?v=15',
   levels: './levels.js?v=2',
-  save: './save.js?v=2',
+  save: './save.js?v=3',
   physics: './engine/physics.js?v=2',
-  simulation: './engine/simulation.js?v=2',
-  update: './update.js?v=7',
+  simulation: './engine/simulation.js?v=3',
+  update: './update.js?v=8',
 })
 const REQUIRED_SHELL = [
   './', './index.html', CURRENT_URLS.css, CURRENT_URLS.app, CURRENT_URLS.audio, './daily.js',

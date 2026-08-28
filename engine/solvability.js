@@ -75,7 +75,7 @@ function stateVector(simulation, events) {
     Number(simulation.finished),
     simulation.respawns,
     player.x, player.y, player.vx, player.vy, Number(player.onGround), player.coyote,
-    player.jumpBuffer, Number(player.glowing), player.spawnX, player.spawnY,
+    player.jumpBuffer, Number(player.glowing), player.sparkFrames, player.spawnX, player.spawnY,
     ...world.terrain.flatMap(rect => [rect.id, rect.y, Number(rect.active), rect.timer]),
     ...world.seeds.flatMap(seed => [seed.id, Number(seed.found)]),
     ...world.hiddenLights.flatMap(hiddenLight => [hiddenLight.id, Number(hiddenLight.found)]),

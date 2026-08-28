@@ -38,6 +38,7 @@ const {
 function canvasHarness(width = 390, height = 720) {
   const draws = []
   const imageDraws = []
+  const ellipses = []
   const fills = []
   const arcs = []
   const translates = []
@@ -51,7 +52,7 @@ function canvasHarness(width = 390, height = 720) {
   let bounds = { width, height }
   const gradient = { addColorStop() {} }
   const noops = new Set([
-    'arc', 'beginPath', 'clearRect', 'closePath', 'ellipse', 'fill', 'restore', 'rotate',
+    'arc', 'beginPath', 'clearRect', 'closePath', 'fill', 'restore', 'rotate',
     'save', 'scale', 'setTransform', 'strokeRect', 'strokeText',
   ])
   const context = new Proxy({}, {
@@ -61,6 +62,9 @@ function canvasHarness(width = 390, height = 720) {
         imageDraws.push({ args, translate: translates.at(-1) })
       }
       if (key === 'fillRect') return (...args) => fills.push({ args, fillStyle: target.fillStyle })
+      if (key === 'ellipse') return (...args) => ellipses.push({
+        args, fillStyle: target.fillStyle, shadowBlur: target.shadowBlur, shadowColor: target.shadowColor,
+      })
       if (key === 'arc') return (...args) => arcs.push({ args, strokeStyle: target.strokeStyle, lineWidth: target.lineWidth })
       if (key === 'translate') return (...args) => translates.push(args)
       if (key === 'moveTo') return (...args) => moves.push(args)
@@ -83,6 +87,7 @@ function canvasHarness(width = 390, height = 720) {
   })
   return {
     draws,
+    ellipses,
     imageDraws,
     fills,
     arcs,
@@ -160,6 +165,42 @@ test('the courier meets shelf tops and the bell stands on its authored finish la
   assert.equal(harness.fills.some(({ args }) => args[2] === 12 && args[3] === 7), false,
     'legacy rectangular face chips should stay removed')
   game.stop()
+})
+
+test('collecting the opening seed wires the gold Spark aura into live courier rendering', () => {
+  const originalRequest = globalThis.requestAnimationFrame
+  const originalCancel = globalThis.cancelAnimationFrame
+  let pending = null
+  let nextId = 0
+  let time = 1
+  globalThis.requestAnimationFrame = callback => { pending = callback; return ++nextId }
+  globalThis.cancelAnimationFrame = () => {}
+
+  try {
+    const harness = canvasHarness(844, 320)
+    const game = createGame(harness.canvas)
+    const tick = () => {
+      const callback = pending
+      assert.equal(typeof callback, 'function')
+      pending = null
+      callback(time)
+      time += 1000 / 60
+    }
+    game.start('garden-1')
+    game.setInput('right', true)
+    for (let step = 0; step < 40 && !harness.ellipses.some(item => item.shadowColor === '#FFD563'); step += 1) tick()
+    assert.equal(harness.ellipses.some(item => item.shadowColor === '#FFD563' && item.shadowBlur === 18), true)
+    game.setInput('right', false)
+    for (let step = 0; step < 240 && !harness.ellipses.some(item => item.shadowColor === '#FFD563' && item.shadowBlur === 4); step += 1) tick()
+    assert.equal(harness.ellipses.some(item => item.shadowColor === '#FFD563' && item.shadowBlur === 4), true)
+    const dimPulse = harness.ellipses.length
+    for (let step = 0; step < 7; step += 1) tick()
+    assert.equal(harness.ellipses.slice(dimPulse).some(item => item.shadowColor === '#FFD563' && item.shadowBlur === 18), true)
+    game.stop()
+  } finally {
+    globalThis.requestAnimationFrame = originalRequest
+    globalThis.cancelAnimationFrame = originalCancel
+  }
 })
 
 test('the runtime coach clears and the wrong-level bell cue reaches the canvas', () => {
