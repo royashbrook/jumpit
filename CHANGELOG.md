@@ -25,6 +25,7 @@
 - Gave walkable terrain a brighter edge, deeper lip, and palette-aware face texture.
 - Rebuilt natural terrain as outlined cartoon cliffs with scalloped turf, grass tufts,
   roots, and curved stonework instead of rectangular tiles.
+- Cull terrain outside the camera so the richer foreground stays smooth on phones.
 - Added a sticky in-app update toast so a ready release waits for the player's tap
   instead of reloading the game or requiring a close and reopen.
 - Compacted release JavaScript during packaging to preserve the fixed download budget.
