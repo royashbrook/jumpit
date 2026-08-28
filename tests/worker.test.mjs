@@ -5,9 +5,9 @@ import test from 'node:test'
 import vm from 'node:vm'
 
 const REQUIRED_SHELL = [
-  './', './index.html', './app.css?v=10', './app.js?v=15', './audio.js?v=2', './daily.js',
-  './game.js?v=12', './levels.js?v=2', './release.js', './save.js?v=2', './engine/physics.js?v=2',
-  './engine/simulation.js?v=2', './version.js', './seed.js', './install.js', './update.js?v=5', './manifest.json',
+  './', './index.html', './app.css?v=10', './app.js?v=16', './audio.js?v=2', './daily.js',
+  './game.js?v=13', './levels.js?v=2', './release.js', './save.js?v=2', './engine/physics.js?v=2',
+  './engine/simulation.js?v=2', './version.js', './seed.js', './install.js', './update.js?v=6', './manifest.json',
   './icon-180.png', './icon-192.png', './icon-512.png', './icon-maskable-512.png',
   './assets/backgrounds/garden-walk.webp', './assets/backgrounds/region-atlas.webp',
   './assets/backgrounds/final-atlas.webp', './assets/sprites/courier-sheet.webp',

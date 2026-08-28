@@ -1,12 +1,12 @@
 import { currentSeed, isDaily, shareSeed } from './seed.js'
 import { createAudio } from './audio.js?v=2'
 import { challengeWon, dailyChallenge } from './daily.js'
-import { createGame } from './game.js?v=12'
+import { createGame } from './game.js?v=13'
 import { wireInstall } from './install.js'
 import { LEVELS, REGIONS } from './levels.js?v=2'
 import { createRelease } from './release.js'
 import { createSaveStore } from './save.js?v=2'
-import { wireUpdate, registerWorker } from './update.js?v=5'
+import { wireUpdate, registerWorker } from './update.js?v=6'
 import { VERSION } from './version.js'
 
 const $ = id => document.getElementById(id)
