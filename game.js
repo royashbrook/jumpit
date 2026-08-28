@@ -332,22 +332,92 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     if (!rect.active) return
     const [soil, moss, line] = terrainPalette(rect.kind)
     const shake = rect.kind === 'crumble' && rect.timer > 24 ? Math.sin(frame * 1.8) * 2 : 0
+    const natural = ['ground', 'leaf', 'crumble', 'stone', 'beacon'].includes(rect.kind)
+    const radius = Math.min(7, rect.w / 4, rect.h / 4)
+    const cap = Math.min(natural ? 15 : 11, rect.h)
+    const right = rect.x + rect.w
     context.save()
     context.translate(shake, 0)
-    context.fillStyle = soil
-    context.fillRect(rect.x, rect.y, rect.w, rect.h)
-    context.fillStyle = 'rgb(18 31 25 / .14)'
-    context.fillRect(rect.x, rect.y + 12, rect.w, Math.min(4, Math.max(0, rect.h - 12)))
-    context.fillRect(rect.x + rect.w - 4, rect.y + 12, 4, Math.max(0, rect.h - 12))
+    context.lineJoin = 'round'
+    const face = context.createLinearGradient(0, rect.y, 0, rect.y + rect.h)
+    face.addColorStop(0, soil)
+    face.addColorStop(.58, soil)
+    face.addColorStop(1, line)
+    context.fillStyle = face
+    context.strokeStyle = line
+    context.lineWidth = 2
+    context.beginPath()
+    if (natural) {
+      const bottom = rect.y + rect.h
+      context.moveTo(rect.x, rect.y)
+      context.lineTo(right, rect.y)
+      context.quadraticCurveTo(right, rect.y, right - 1, rect.y + radius)
+      context.lineTo(right - 3, bottom - 7)
+      let lobe = 0
+      for (let x = right - 3; x > rect.x + 3; x -= 24) {
+        const end = Math.max(rect.x + 3, x - 24)
+        const edge = bottom - 6 + (lobe % 2) * 4
+        context.quadraticCurveTo(x - (x - end) / 2, bottom + (lobe % 3 === 0 ? 5 : 2), end, edge)
+        lobe += 1
+      }
+      context.lineTo(rect.x + 1, rect.y + radius)
+      context.quadraticCurveTo(rect.x, rect.y, rect.x, rect.y)
+      context.closePath()
+    } else {
+      context.roundRect(rect.x, rect.y, rect.w, rect.h, radius)
+    }
+    context.fill()
+    context.stroke()
+
     context.fillStyle = moss
-    context.fillRect(rect.x, rect.y, rect.w, Math.min(9, rect.h))
-    context.fillStyle = 'rgb(255 255 224 / .24)'
-    context.fillRect(rect.x, rect.y, rect.w, Math.min(2, rect.h))
-    context.fillStyle = line
-    context.fillRect(rect.x, rect.y + Math.min(9, rect.h), rect.w, 3)
-    for (let x = rect.x + 10; x < rect.x + rect.w; x += 22) {
-      context.fillStyle = 'rgb(255 255 224 / .24)'
-      context.fillRect(x, rect.y + 2, 10, 2)
+    context.beginPath()
+    context.moveTo(rect.x + radius, rect.y)
+    context.quadraticCurveTo(rect.x, rect.y, rect.x, rect.y + radius)
+    context.lineTo(rect.x, rect.y + cap - 4)
+    let scallop = 0
+    for (let x = rect.x; x < right; x += 18) {
+      const end = Math.min(x + 18, right)
+      const edge = rect.y + cap - 4 + (scallop % 2) * 2
+      const dip = rect.y + cap + ((scallop + Math.floor(rect.x / 16)) % 3 === 0 ? 2 : 0)
+      context.quadraticCurveTo(x + (end - x) / 2, dip, end, edge)
+      scallop += 1
+    }
+    context.lineTo(right, rect.y + radius)
+    context.quadraticCurveTo(right, rect.y, right - radius, rect.y)
+    context.closePath()
+    context.fill()
+    context.strokeStyle = line
+    context.lineWidth = 2
+    context.stroke()
+
+    context.strokeStyle = 'rgb(255 255 224 / .38)'
+    context.lineWidth = 2
+    context.lineCap = 'round'
+    context.beginPath()
+    context.moveTo(rect.x + radius + 2, rect.y + 3)
+    context.lineTo(right - radius - 2, rect.y + 3)
+    context.stroke()
+
+    if (natural && rect.w > 48) {
+      context.strokeStyle = moss
+      context.lineWidth = 3
+      context.beginPath()
+      for (let x = rect.x + 30; x < right - 16; x += 58) {
+        context.moveTo(x, rect.y + 2)
+        context.quadraticCurveTo(x + 4, rect.y - 5, x + 7, rect.y + 2)
+        context.moveTo(x + 5, rect.y + 2)
+        context.quadraticCurveTo(x + 10, rect.y - 3, x + 12, rect.y + 2)
+      }
+      context.stroke()
+
+      context.strokeStyle = 'rgb(20 26 23 / .28)'
+      context.lineWidth = 2
+      context.beginPath()
+      for (let x = rect.x + 46; x < right - 18; x += 74) {
+        context.moveTo(x, rect.y + cap - 5)
+        context.quadraticCurveTo(x + 7, rect.y + cap + 7, x - 2, rect.y + cap + 17)
+      }
+      context.stroke()
     }
     if (rect.kind === 'belt') {
       context.fillStyle = '#E9F4D6'
@@ -369,16 +439,36 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       context.lineTo(rect.x + rect.w - 8, rect.y - 42)
       context.stroke()
     }
-    if (rect.h > 16) {
-      for (let y = rect.y + 22; y < rect.y + rect.h; y += 22) {
-        const offset = (Math.floor(y / 22) % 2) * 13
-        for (let x = rect.x + 9 + offset; x < rect.x + rect.w - 5; x += 29) {
-          context.fillStyle = (x + y) % 3 ? 'rgb(20 26 23 / .2)' : 'rgb(255 239 196 / .14)'
-          context.fillRect(x, y, 12, 7)
-          context.fillStyle = 'rgb(255 255 255 / .1)'
-          context.fillRect(x + 2, y + 1, 6, 1)
+    if (rect.h > cap + 8) {
+      const stones = []
+      for (let y = rect.y + cap + 9, row = 0; y < rect.y + rect.h - 8; y += 27, row += 1) {
+        const offset = row % 2 ? 24 : 0
+        for (let x = rect.x + 11 + offset, column = 0; x < right - 11; column += 1) {
+          const width = 30 + ((row + column + Math.floor(rect.x / 16)) % 3) * 6
+          const height = 12 + ((row + column) % 2) * 3
+          stones.push([x, y, Math.min(width, right - x - 9), height])
+          x += width + 20
         }
       }
+      context.strokeStyle = 'rgb(20 26 23 / .25)'
+      context.lineWidth = 2
+      context.beginPath()
+      for (const [x, y, width, height] of stones) {
+        context.moveTo(x, y + height * .58)
+        context.quadraticCurveTo(x + 3, y, x + width * .45, y)
+        context.quadraticCurveTo(x + width - 2, y, x + width, y + height * .55)
+        context.quadraticCurveTo(x + width - 4, y + height, x + width * .4, y + height)
+        context.quadraticCurveTo(x, y + height, x, y + height * .58)
+      }
+      context.stroke()
+      context.strokeStyle = 'rgb(255 239 196 / .2)'
+      context.lineWidth = 2
+      context.beginPath()
+      for (const [x, y, width] of stones) {
+        context.moveTo(x + 7, y + 3)
+        context.quadraticCurveTo(x + width * .32, y, x + width * .55, y + 2)
+      }
+      context.stroke()
     }
     context.restore()
   }

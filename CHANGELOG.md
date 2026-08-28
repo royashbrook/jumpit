@@ -23,6 +23,8 @@
 - Added an original looping woodland-adventure score that follows play, pause, mute,
   background suspension, and Home.
 - Gave walkable terrain a brighter edge, deeper lip, and palette-aware face texture.
+- Rebuilt natural terrain as outlined cartoon cliffs with scalloped turf, grass tufts,
+  roots, and curved stonework instead of rectangular tiles.
 - Added a sticky in-app update toast so a ready release waits for the player's tap
   instead of reloading the game or requiring a close and reopen.
 - Compacted release JavaScript during packaging to preserve the fixed download budget.

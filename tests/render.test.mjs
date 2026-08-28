@@ -43,9 +43,16 @@ function canvasHarness(width = 390, height = 720) {
   const hiddenLights = []
   const moves = []
   const lines = []
+  const quadratics = []
+  const roundRects = []
+  const strokes = []
   const texts = []
   let bounds = { width, height }
   const gradient = { addColorStop() {} }
+  const noops = new Set([
+    'arc', 'beginPath', 'clearRect', 'closePath', 'ellipse', 'fill', 'restore', 'rotate',
+    'save', 'scale', 'setTransform', 'strokeRect', 'strokeText',
+  ])
   const context = new Proxy({}, {
     get(target, key) {
       if (key === 'drawImage') return (...args) => {
@@ -57,15 +64,19 @@ function canvasHarness(width = 390, height = 720) {
       if (key === 'translate') return (...args) => translates.push(args)
       if (key === 'moveTo') return (...args) => moves.push(args)
       if (key === 'lineTo') return (...args) => lines.push(args)
+      if (key === 'quadraticCurveTo') return (...args) => quadratics.push({ args, fillStyle: target.fillStyle, strokeStyle: target.strokeStyle })
+      if (key === 'stroke') return () => strokes.push({ strokeStyle: target.strokeStyle, lineWidth: target.lineWidth })
       if (key === 'fillText') return (...args) => texts.push({ args, globalAlpha: target.globalAlpha })
       if (key === 'roundRect') return (...args) => {
+        roundRects.push({ args, fillStyle: target.fillStyle, strokeStyle: target.strokeStyle })
         if (args[0] === -10 && args[1] === -42 && args[2] === 20 && args[3] === 25 && args[4] === 7) {
           hiddenLights.push({ fillStyle: target.fillStyle })
         }
       }
       if (key === 'createLinearGradient') return () => gradient
-      if (!(key in target)) target[key] = () => {}
-      return target[key]
+      if (key in target) return target[key]
+      if (noops.has(key)) return () => {}
+      throw new Error(`unexpected canvas API ${String(key)}`)
     },
     set(target, key, value) { target[key] = value; return true },
   })
@@ -78,6 +89,9 @@ function canvasHarness(width = 390, height = 720) {
     hiddenLights,
     moves,
     lines,
+    quadratics,
+    roundRects,
+    strokes,
     texts,
     setBounds(nextWidth, nextHeight) { bounds = { width: nextWidth, height: nextHeight } },
     canvas: {
@@ -106,20 +120,34 @@ test('the courier meets shelf tops and the bell stands on its authored finish la
     'transparent shoe padding should sit below the collision feet')
   assert.equal(harness.moves.some(([x, y]) => x === finishX + 4 && y === floor), true)
   assert.equal(harness.lines.some(([x, y]) => x === finishX + 4 && y === floor - 70), true)
-  assert.equal(harness.fills.some(({ args, fillStyle }) =>
-    args[2] === 12 && args[3] === 7 && fillStyle === 'rgb(20 26 23 / .2)'), true,
-  'terrain faces should carry palette-neutral depth texture')
   const [, , terrainX, terrainY, terrainWidth] = level.terrain[0]
-  assert.equal(harness.fills.some(({ args, fillStyle }) =>
-    args[0] === terrainX * TILE && args[1] === terrainY * TILE &&
-    args[2] === terrainWidth * TILE && args[3] === 2 &&
-    fillStyle === 'rgb(255 255 224 / .24)'), true,
-  'walkable edges should carry a light surface bevel')
-  assert.equal(harness.fills.some(({ args, fillStyle }) =>
-    args[0] === terrainX * TILE && args[1] === terrainY * TILE + 12 &&
-    args[2] === terrainWidth * TILE && args[3] === 4 &&
-    fillStyle === 'rgb(18 31 25 / .14)'), true,
-  'terrain faces should carry a full-width depth lip')
+  const groundX = terrainX * TILE
+  const groundY = terrainY * TILE
+  const groundWidth = terrainWidth * TILE
+  assert.equal(harness.moves.some(([x, y]) => x === groundX && y === groundY), true)
+  assert.equal(harness.lines.some(([x, y]) => x === groundX + groundWidth && y === groundY), true,
+    'the cartoon face should preserve the exact walkable edge')
+  assert.equal(harness.quadratics.some(({ args }) =>
+    args[0] === groundX + groundWidth && args[1] === groundY &&
+    args[2] === groundX + groundWidth - 1 && args[3] === groundY + 7), true,
+  'natural terrain should taper through a curved side')
+  assert.equal(harness.quadratics.some(({ args, fillStyle }) =>
+    args[1] >= groundY + 15 && args[3] <= groundY + 13 && fillStyle === '#8BC65A'), true,
+  'the grass cap should finish in an organic scalloped edge')
+  assert.equal(harness.quadratics.some(({ args, strokeStyle }) =>
+    args[1] < groundY && strokeStyle === '#8BC65A'), true,
+  'wide natural terrain should sprout curved grass tufts')
+  assert.equal(harness.quadratics.filter(({ strokeStyle }) =>
+    strokeStyle === 'rgb(20 26 23 / .25)').length > 4, true,
+  'terrain faces should batch curved stone lines instead of pixel blocks')
+  const texturedFaces = level.terrain.filter(([, , , , , height]) => height * TILE > 23).length
+  assert.equal(harness.strokes.filter(({ strokeStyle }) =>
+    strokeStyle === 'rgb(20 26 23 / .25)').length, texturedFaces,
+  'each textured face should paint its stonework in one batch')
+  assert.equal(harness.quadratics.some(({ fillStyle }) => fillStyle === '#8ECF68'), true,
+    'floating leaf shelves should share the organic cap treatment')
+  assert.equal(harness.fills.some(({ args }) => args[2] === 12 && args[3] === 7), false,
+    'legacy rectangular face chips should stay removed')
   game.stop()
 })
 
