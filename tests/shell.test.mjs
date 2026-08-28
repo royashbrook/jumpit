@@ -43,11 +43,11 @@ test('the manifest has a stable app identity and a separate maskable icon', asyn
 test('the worker keeps navigation network-first and the update probe uncached', async () => {
   const worker = await text('sw.js')
   const updater = await text('update.js')
-  assert.match(worker, /const CACHE = 'jumpit-v2\.0\.0-r19'/)
-  assert.match(updater, /GENERATION = 'jumpit-v2\.0\.0-r19'/)
-  assert.match(await text('index.html'), /app\.css\?v=10[\s\S]*app\.js\?v=17/)
-  assert.match(await text('app.js'), /audio\.js\?v=2[\s\S]*game\.js\?v=14[\s\S]*levels\.js\?v=2[\s\S]*save\.js\?v=2[\s\S]*update\.js\?v=7/)
-  assert.match(await text('game.js'), /levels\.js\?v=2[\s\S]*simulation\.js\?v=2/)
+  assert.match(worker, /const CACHE = 'jumpit-v2\.0\.0-r20'/)
+  assert.match(updater, /GENERATION = 'jumpit-v2\.0\.0-r20'/)
+  assert.match(await text('index.html'), /app\.css\?v=10[\s\S]*app\.js\?v=18/)
+  assert.match(await text('app.js'), /audio\.js\?v=2[\s\S]*game\.js\?v=15[\s\S]*levels\.js\?v=2[\s\S]*save\.js\?v=3[\s\S]*update\.js\?v=8/)
+  assert.match(await text('game.js'), /levels\.js\?v=2[\s\S]*simulation\.js\?v=3/)
   assert.match(await text('engine/simulation.js'), /physics\.js\?v=2[\s\S]*levels\.js\?v=2/)
   assert.match(await text('save.js'), /levels\.js\?v=2/)
   assert.match(worker, /cache\.addAll\(SHELL\)/)
@@ -58,7 +58,7 @@ test('the worker keeps navigation network-first and the update probe uncached', 
   assert.match(worker, /event\.waitUntil\(store\(request, response\)\)/)
 })
 
-test('an exact r12 cache-first controller cannot mix old gameplay into the r19 shell', async () => {
+test('an exact r12 cache-first controller cannot mix old gameplay into the r20 shell', async () => {
   const [index, app, game, simulation, save, worker] = await Promise.all([
     text('index.html'), text('app.js'), text('game.js'), text('engine/simulation.js'), text('save.js'), text('sw.js'),
   ])
@@ -81,15 +81,15 @@ test('an exact r12 cache-first controller cannot mix old gameplay into the r19 s
   ])
 
   assert.deepEqual([...current].sort(), [
-    'app.js?v=17', 'audio.js?v=2', 'engine/physics.js?v=2', 'engine/simulation.js?v=2',
-    'game.js?v=14', 'levels.js?v=2', 'save.js?v=2',
+    'app.js?v=18', 'audio.js?v=2', 'engine/physics.js?v=2', 'engine/simulation.js?v=3',
+    'game.js?v=15', 'levels.js?v=2', 'save.js?v=3',
   ])
   for (const url of current) {
     assert.equal(r12.has(url), false, `r12 can serve stale ${url}`)
-    assert.match(worker, new RegExp(`['"]\\./${url.replace(/[.?]/g, '\\$&')}['"]`), `r19 does not precache ${url}`)
+    assert.match(worker, new RegExp(`['"]\\./${url.replace(/[.?]/g, '\\$&')}['"]`), `r20 does not precache ${url}`)
   }
 
-  // If r19 claims before app code attaches controllerchange, no toast fires.
+  // If r20 claims before app code attaches controllerchange, no toast fires.
   // Every changed module must therefore already be current through the r12 cache-first controller.
   const served = [...current].map(url => r12.get(url) || 'current')
   assert.deepEqual(new Set(served), new Set(['current']))

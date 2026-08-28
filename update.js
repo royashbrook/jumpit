@@ -3,7 +3,7 @@
 // generation needs no redundant reload.
 const EVERY = 5 * 60 * 1000
 let reloadStarted = false
-export const GENERATION = 'jumpit-v2.0.0-r19'
+export const GENERATION = 'jumpit-v2.0.0-r20'
 
 function reloadOnce() {
   if (reloadStarted) return false

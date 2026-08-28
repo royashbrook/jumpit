@@ -12,6 +12,7 @@ import {
   clearInputState,
   coachMessage,
   createGame,
+  drawPowerAura,
   enemyAttackLands,
   finishOutcome,
   guardianState,
@@ -21,6 +22,7 @@ import {
   makeWorld,
   playHint,
   setInputState,
+  sparkGlowBright,
   strikeEnemy,
   verticalCameraTarget,
 } from '../game.js'
@@ -160,6 +162,7 @@ test('coaching is one short action at a time and then gets out of the way', () =
   assert.equal(coachMessage({ moved: false, jumped: false, glowing: false, x: 60, frame: 119 }), 'SLIDE TO RUN')
   assert.equal(coachMessage({ moved: false, jumped: false, glowing: false, x: 60, frame: 120 }), '')
   assert.equal(coachMessage({ moved: true, jumped: true, glowing: true, x: 400 }), 'GLOW BUMPS CREATURES')
+  assert.equal(coachMessage({ moved: true, jumped: true, glowing: false, sparkFrames: 10, x: 400 }), 'SPARK BUMPS CREATURES')
   assert.equal(coachMessage({ moved: true, jumped: true, glowing: false, x: 700 }), '')
   assert.deepEqual(playHint({ finished: false, moved: true, jumped: true, glowing: false, x: 700, y: 400, finishX: 1_000, finishY: 400 }), {
     kind: 'none',
@@ -237,6 +240,29 @@ test('reward feedback adds a short impact without moving reduced-motion play', (
   assert.deepEqual(impactFeedback('hidden-light', true), { frames: 48, kick: 0, expands: false })
   assert.deepEqual(impactFeedback('finish', true), { frames: 12, kick: 0, expands: false })
   assert.equal(impactFeedback('fan'), null)
+})
+
+test('Seed Spark warns with a fast halo pulse during its final second', () => {
+  assert.equal(sparkGlowBright(61, 6), true)
+  assert.equal(sparkGlowBright(60, 0), true)
+  assert.equal(sparkGlowBright(60, 6), false)
+  assert.equal(sparkGlowBright(0, 0), false)
+
+  const pulses = []
+  const context = {
+    beginPath() {},
+    ellipse() { pulses.push({ blur: this.shadowBlur, color: this.fillStyle }) },
+    fill() {},
+  }
+  assert.equal(drawPowerAura(context, { glowing: false }, 0, 62, 82), false)
+  assert.equal(drawPowerAura(context, { glowing: false, sparkFrames: 60 }, 0, 62, 82), true)
+  assert.equal(drawPowerAura(context, { glowing: false, sparkFrames: 60 }, 6, 62, 82), true)
+  assert.equal(drawPowerAura(context, { glowing: true, sparkFrames: 0 }, 6, 62, 82), true)
+  assert.deepEqual(pulses, [
+    { blur: 18, color: 'rgb(255 213 99 / .32)' },
+    { blur: 4, color: 'rgb(255 213 99 / .1)' },
+    { blur: 18, color: 'rgb(213 255 165 / .28)' },
+  ])
 })
 
 test('overlay keyboard actions cannot preload a jump while paused or finished', () => {

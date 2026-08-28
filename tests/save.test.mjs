@@ -5,6 +5,7 @@ import {
   createSaveStore,
   DAILY_WIN_LIMIT,
   freshSave,
+  hasGoldBell,
   loadSave,
   SAVE_KEY,
   SAVE_VERSION,
@@ -34,6 +35,21 @@ test('completion saves the best seed count and unlocks the next trail', () => {
     selectedLevel: 'garden-2',
   })
   assert.equal(loadSave(storage).bestSeeds['garden-1'], 2)
+})
+
+test('a Gold Bell is an exact, permanent perfect-clear reward derived from saved progress', () => {
+  const store = createSaveStore({ storage: memoryStorage() })
+  assert.equal(hasGoldBell(store.get(), 'garden-1'), false)
+  assert.equal(hasGoldBell({ ...freshSave(), bestSeeds: { 'garden-1': 3 } }, 'garden-1'), false)
+  store.completeLevel('garden-1', 2, 'garden-2')
+  assert.equal(hasGoldBell(store.get(), 'garden-1'), false)
+  store.completeLevel('garden-1', 3, 'garden-2')
+  assert.equal(hasGoldBell(store.get(), 'garden-1'), true)
+  store.completeLevel('garden-1', 1, 'garden-2')
+  assert.equal(hasGoldBell(store.get(), 'garden-1'), true)
+  store.requestReset()
+  store.reset()
+  assert.equal(hasGoldBell(store.get(), 'garden-1'), false)
 })
 
 test('locked trails cannot be selected and reset requires an armed second action', () => {

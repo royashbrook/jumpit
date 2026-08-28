@@ -12,6 +12,11 @@ const SEED_MAX = new Map(LEVELS.map(level => [
   level.objects.filter(([, kind]) => kind === 'seed').length,
 ]))
 
+export function hasGoldBell(state, levelId) {
+  const maximum = SEED_MAX.get(levelId)
+  return Boolean(maximum && state.completed.includes(levelId) && state.bestSeeds[levelId] === maximum)
+}
+
 export function freshSave() {
   return {
     version: SAVE_VERSION,
