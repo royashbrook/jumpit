@@ -302,6 +302,7 @@ test('a held move control survives an overlapping ArrowRight release', async ({ 
 })
 
 test('run and a right-side jump can overlap without sticking either control', async ({ page }) => {
+  await page.route('**/game.js*', route => route.fulfill({ contentType: 'text/javascript', body: inputGameStub }))
   await page.goto('/')
   await launchTrail(page)
   await pointer(page, '#move-right', 'pointerdown', 7)

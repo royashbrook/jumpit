@@ -100,6 +100,12 @@ export function impactFeedback(type, reducedMotion = false) {
   }
 }
 
+export function terrainVisible(rect, cameraLeft, cameraTop, viewWidth, viewHeight) {
+  const margin = TILE * 2
+  return rect.x + rect.w >= cameraLeft - margin && rect.x <= cameraLeft + viewWidth + margin &&
+    rect.y + rect.h >= cameraTop - margin && rect.y <= cameraTop + viewHeight + margin
+}
+
 export function keyInputMode({ type, running, paused, finished, respawning = false }) {
   if (!running) return 'ignore'
   if (paused || finished || respawning) return type === 'keyup' ? 'release' : 'ignore'
@@ -846,11 +852,13 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     context.save()
     context.scale(scale, scale)
     const cameraJolt = reducedMotion || !cameraKick ? 0 : (frame % 2 ? cameraKick : -cameraKick)
-    context.translate(
-      -clamp(camera + cameraJolt, 0, maxCamera),
-      -clamp(cameraY, 0, maxCameraY),
-    )
-    for (const rect of world.terrain) drawTerrain(rect)
+    const cameraLeft = clamp(camera + cameraJolt, 0, maxCamera)
+    const cameraTop = clamp(cameraY, 0, maxCameraY)
+    context.translate(-cameraLeft, -cameraTop)
+    for (const rect of world.terrain) {
+      if (!terrainVisible(rect, cameraLeft, cameraTop, viewWidth, viewHeight)) continue
+      drawTerrain(rect)
+    }
     for (const seed of world.seeds) drawSeed(seed)
     drawCloaks()
     drawSprings()

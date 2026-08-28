@@ -31,6 +31,7 @@ const {
   cameraScale,
   cameraTarget,
   createGame,
+  terrainVisible,
   verticalCameraTarget,
 } = await import('../game.js')
 
@@ -103,6 +104,14 @@ function canvasHarness(width = 390, height = 720) {
   }
 }
 
+test('terrain culling keeps tall lift art through the viewport edge', () => {
+  const lift = { x: 0, y: 353, w: 96, h: 16 }
+  assert.equal(terrainVisible(lift, 0, 0, 320, 320), true,
+    'a lift cable that reaches into view should not pop in late')
+  assert.equal(terrainVisible({ ...lift, y: 385 }, 0, 0, 320, 320), false,
+    'terrain beyond the two-tile art margin should stay culled')
+})
+
 test('the courier meets shelf tops and the bell stands on its authored finish lane', () => {
   const harness = canvasHarness(844, 320)
   const game = createGame(harness.canvas)
@@ -141,9 +150,11 @@ test('the courier meets shelf tops and the bell stands on its authored finish la
     strokeStyle === 'rgb(20 26 23 / .25)').length > 4, true,
   'terrain faces should batch curved stone lines instead of pixel blocks')
   const texturedFaces = level.terrain.filter(([, , , , , height]) => height * TILE > 23).length
-  assert.equal(harness.strokes.filter(({ strokeStyle }) =>
-    strokeStyle === 'rgb(20 26 23 / .25)').length, texturedFaces,
-  'each textured face should paint its stonework in one batch')
+  const stoneStrokes = harness.strokes.filter(({ strokeStyle }) => strokeStyle === 'rgb(20 26 23 / .25)')
+  assert.equal(stoneStrokes.length < texturedFaces, true,
+    'offscreen terrain should not spend paths outside the camera')
+  assert.equal(stoneStrokes.length <= texturedFaces, true,
+    'each visible textured face should paint its stonework in at most one batch')
   assert.equal(harness.quadratics.some(({ fillStyle }) => fillStyle === '#8ECF68'), true,
     'floating leaf shelves should share the organic cap treatment')
   assert.equal(harness.fills.some(({ args }) => args[2] === 12 && args[3] === 7), false,
