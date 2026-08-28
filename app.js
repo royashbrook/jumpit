@@ -6,7 +6,7 @@ import { wireInstall } from './install.js'
 import { LEVELS, REGIONS } from './levels.js?v=2'
 import { createRelease } from './release.js'
 import { createSaveStore } from './save.js?v=2'
-import { wireUpdate, registerWorker } from './update.js?v=4'
+import { wireUpdate, registerWorker } from './update.js?v=5'
 import { VERSION } from './version.js'
 
 const $ = id => document.getElementById(id)
@@ -673,5 +673,5 @@ document.addEventListener('visibilitychange', () => {
 })
 window.addEventListener('pagehide', pauseForInterruption)
 window.addEventListener('blur', pauseForInterruption)
-wireUpdate(updateButton)
-registerWorker()
+const updater = wireUpdate(updateButton)
+registerWorker('sw.js', updater.reveal)

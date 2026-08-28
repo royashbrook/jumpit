@@ -5,9 +5,9 @@ import test from 'node:test'
 import vm from 'node:vm'
 
 const REQUIRED_SHELL = [
-  './', './index.html', './app.css?v=10', './app.js?v=14', './audio.js?v=2', './daily.js',
+  './', './index.html', './app.css?v=10', './app.js?v=15', './audio.js?v=2', './daily.js',
   './game.js?v=12', './levels.js?v=2', './release.js', './save.js?v=2', './engine/physics.js?v=2',
-  './engine/simulation.js?v=2', './version.js', './seed.js', './install.js', './update.js?v=4', './manifest.json',
+  './engine/simulation.js?v=2', './version.js', './seed.js', './install.js', './update.js?v=5', './manifest.json',
   './icon-180.png', './icon-192.png', './icon-512.png', './icon-maskable-512.png',
   './assets/backgrounds/garden-walk.webp', './assets/backgrounds/region-atlas.webp',
   './assets/backgrounds/final-atlas.webp', './assets/sprites/courier-sheet.webp',
@@ -16,6 +16,7 @@ const REQUIRED_SHELL = [
 ]
 
 const source = await readFile(new URL('../sw.js', import.meta.url), 'utf8')
+const generation = source.match(/const CACHE = '([^']+)'/)?.[1]
 
 const gitBlobId = bytes => createHash('sha1')
   .update(`blob ${bytes.length}\0`)
@@ -56,6 +57,25 @@ test('one failed shell entry rejects installation and never calls skipWaiting', 
   })
   await assert.rejects(install.done, /required shell entry failed/)
   assert.equal(install.skipped(), 0)
+})
+
+test('the active worker reports the exact generation it installed', () => {
+  const listeners = {}
+  vm.runInNewContext(source, {
+    self: {
+      addEventListener: (name, listener) => { listeners[name] = listener },
+      clients: { claim: async () => {} },
+      location: { origin: 'https://example.test' },
+    },
+    caches: {},
+    URL,
+  })
+  let received
+  listeners.message({
+    data: 'jumpit:generation',
+    ports: [{ postMessage: value => { received = value } }],
+  })
+  assert.equal(received, generation)
 })
 
 test('migration fixtures are byte-for-byte shipped and preview clients', async () => {
