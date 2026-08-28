@@ -1,16 +1,9 @@
-// the update banner. an installed PWA will happily run a months-old shell forever,
-// so the game has to notice for itself and offer the reload.
-//
-// the mechanism: the loaded VERSION came from this session's coherent cached shell.
-// fetch version.js through `?update-probe` and compare the deployed VERSION to it.
-// the worker passes that query straight to the network, so a client reopening after
-// a deployment can detect the change instead of accepting the new html with old js.
-
-import { VERSION } from './version.js'
-
-const PROBE = './version.js?update-probe'
+// An update becomes actionable only after its complete cache has activated. The
+// replacement worker reports its generation; a page already running that exact
+// generation needs no redundant reload.
 const EVERY = 5 * 60 * 1000
 let reloadStarted = false
+export const GENERATION = 'jumpit-v2.0.0-r17'
 
 function reloadOnce() {
   if (reloadStarted) return false
@@ -19,52 +12,49 @@ function reloadOnce() {
   return true
 }
 
-function versionFrom(source) {
-  return source.match(/\bVERSION\s*=\s*(['"])([^'"]+)\1/)?.[2] || null
-}
+export function wireUpdate(banner) {
+  if (!banner) return { reveal: () => false }
 
-export function wireUpdate(banner, { onStatus } = {}) {
-  if (!banner) return { check: async () => 'unknown' }
-
-  const check = async () => {
-    try {
-      const response = await fetch(PROBE, { cache: 'no-store' })
-      if (!response.ok) return 'unknown'
-      const deployed = versionFrom(await response.text())
-      if (!deployed) return 'unknown'
-      const status = deployed === VERSION ? 'current' : 'stale'
-      banner.hidden = status !== 'stale'
-      return status
-    } catch {
-      return 'offline' // nothing to say, and nothing broken
-    }
+  let available = false
+  const reveal = () => {
+    available = true
+    banner.hidden = false
+    return true
   }
 
-  const announce = () => check().then(status => {
-    onStatus?.(status)
-    return status
+  banner.addEventListener('click', () => {
+    if (available) reloadOnce()
   })
 
-  banner.addEventListener('click', reloadOnce)
-  void announce()
-  setInterval(() => { void announce() }, EVERY)
-  // coming back to the tab is the moment a player is most likely to accept a reload
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) void announce()
-  })
-
-  return { check }
+  return { reveal }
 }
 
-export function registerWorker(path = 'sw.js') {
+function readGeneration(controller, receive) {
+  if (!controller || typeof MessageChannel === 'undefined') return false
+  try {
+    const channel = new MessageChannel()
+    channel.port1.onmessage = event => receive(event.data)
+    controller.postMessage('jumpit:generation', [channel.port2])
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function registerWorker(path = 'sw.js', revealUpdate = () => {}) {
   if (!('serviceWorker' in navigator)) return null
   // file:// has no worker scope, and a dev server on localhost is fine
   if (location.protocol === 'file:') return null
 
   const serviceWorker = navigator.serviceWorker
-  const hadController = Boolean(serviceWorker.controller)
+  let hadController = Boolean(serviceWorker.controller)
   serviceWorker.addEventListener('controllerchange', () => {
-    if (hadController) reloadOnce()
+    if (hadController) {
+      readGeneration(serviceWorker.controller, generation => {
+        if (generation && generation !== GENERATION) revealUpdate()
+      })
+    }
+    hadController = true
   })
 
   const start = () => serviceWorker.register(path).then(registration => {

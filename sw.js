@@ -1,11 +1,11 @@
 // Versioned offline shell: network-first navigation and update probes, atomic
 // installation, and immutable active caches. Bump CACHE with any shell change.
-const CACHE = 'jumpit-v2.0.0-r16'
+const CACHE = 'jumpit-v2.0.0-r17'
 const SHELL = [
   './',
   './index.html',
   './app.css?v=10',
-  './app.js?v=14',
+  './app.js?v=15',
   './audio.js?v=2',
   './daily.js',
   './game.js?v=12',
@@ -17,7 +17,7 @@ const SHELL = [
   './version.js',
   './seed.js',
   './install.js',
-  './update.js?v=4',
+  './update.js?v=5',
   './manifest.json',
   './icon-180.png',
   './icon-192.png',
@@ -60,6 +60,10 @@ self.addEventListener('activate', event => {
       void client.navigate(client.url).catch(() => {})
     }
   })())
+})
+
+self.addEventListener('message', event => {
+  if (event.data === 'jumpit:generation') event.ports[0]?.postMessage(CACHE)
 })
 
 function store(request, response) {

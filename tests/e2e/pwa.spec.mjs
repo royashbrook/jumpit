@@ -20,14 +20,14 @@ const currentCache = workerSource.match(/const CACHE\s*=\s*['"]([^'"]+)/)?.[1]
 const nextVersion = '2.1.0'
 const CURRENT_URLS = Object.freeze({
   css: './app.css?v=10',
-  app: './app.js?v=14',
+  app: './app.js?v=15',
   audio: './audio.js?v=2',
   game: './game.js?v=12',
   levels: './levels.js?v=2',
   save: './save.js?v=2',
   physics: './engine/physics.js?v=2',
   simulation: './engine/simulation.js?v=2',
-  update: './update.js?v=4',
+  update: './update.js?v=5',
 })
 const REQUIRED_SHELL = [
   './', './index.html', CURRENT_URLS.css, CURRENT_URLS.app, CURRENT_URLS.audio, './daily.js',
@@ -171,8 +171,8 @@ async function startVersionServer(initial = '1.5.0') {
       import { VERSION } from './version.js'
       import { wireUpdate, registerWorker } from './update.js'
       document.documentElement.dataset.release = VERSION
-      wireUpdate(document.querySelector('#update'))
-      registerWorker()
+      const updater = wireUpdate(document.querySelector('#update'))
+      registerWorker('sw.js', updater.reveal)
     </script></body></html>`
   const server = createServer((request, response) => {
     const url = new URL(request.url, 'http://local.test')
@@ -421,7 +421,7 @@ test('the exact shipped v1.9 client upgrades once into a coherent current shell'
   }
 })
 
-test('the pre-fullscreen v2 preview updates on first open without a version bump', async ({ page, context, browserName }) => {
+test('a current page accepts its same-generation worker without a redundant update toast', async ({ page, context, browserName }) => {
   const server = await startSameVersionServer()
   try {
     await page.goto(server.origin, { waitUntil: 'domcontentloaded' })
@@ -446,8 +446,12 @@ test('the pre-fullscreen v2 preview updates on first open without a version bump
     expect(server.workerResponses).toEqual(['preview'])
 
     server.releaseCurrentWorker()
-    await expect.poll(() => server.navigations.filter(generation => generation === 'current').length).toBe(2)
-    expect(server.navigations).toHaveLength(before + 2)
+    await expect.poll(() => page.evaluate(async () =>
+      (await caches.keys()).filter(name => name.startsWith('jumpit-')),
+    )).toEqual([currentCache])
+    await expect(page.getByRole('button', { name: 'NEW VERSION, TAP TO LOAD' })).toBeHidden()
+    expect(server.navigations.filter(generation => generation === 'current')).toHaveLength(1)
+    expect(server.navigations).toHaveLength(before + 1)
     expect(server.workerResponses.slice(0, 2)).toEqual(['preview', 'current'])
 
     const proof = await page.evaluate(async urls => {
@@ -472,7 +476,7 @@ test('the pre-fullscreen v2 preview updates on first open without a version bump
     await context.setOffline(true)
     await page.reload({ waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('button', { name: 'PLAY THE TRAIL' })).toBeVisible()
-    expect(server.navigations.filter(generation => generation === 'current')).toHaveLength(2)
+    expect(server.navigations.filter(generation => generation === 'current')).toHaveLength(1)
     await context.setOffline(false)
   } finally {
     server.releaseCurrentWorker()
@@ -538,18 +542,28 @@ test('failed next precache cannot mutate the active shell; Chromium reloads that
   }
 })
 
-test('the update probe is network-fresh and reveals the reload banner', async ({ page }) => {
-  let body = versionSource
-  let probes = 0
-  await page.route('**/version.js?update-probe*', route => {
-    probes += 1
-    return route.fulfill({ status: 200, contentType: 'text/javascript', body })
-  })
-  await page.goto('/')
-  await expect.poll(() => probes).toBeGreaterThan(0)
-  body = `export const VERSION = '${currentVersion}-next'`
-  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
-  await expect(page.locator('#update')).toBeVisible()
+test('a fully installed newer worker waits for the update-toast tap before navigating', async ({ page }) => {
+  const server = await startVersionServer(currentVersion)
+  try {
+    await page.goto(server.origin, { waitUntil: 'domcontentloaded' })
+    await page.evaluate(() => navigator.serviceWorker.ready)
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await expect(page.locator('html')).toHaveAttribute('data-release', currentVersion)
+    const before = server.navigations.length
+
+    server.use(nextVersion)
+    await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update())
+    await expect(page.locator('#update')).toBeVisible()
+    expect(server.navigations).toHaveLength(before)
+    expect(server.navigations.filter(release => release === nextVersion)).toHaveLength(0)
+
+    await page.locator('#update').click()
+    await expect(page.locator('html')).toHaveAttribute('data-release', nextVersion)
+    expect(server.navigations).toHaveLength(before + 1)
+    expect(server.navigations.filter(release => release === nextVersion)).toHaveLength(1)
+  } finally {
+    await server.close()
+  }
 })
 
 test('first play assigns only the three Garden canvas WebPs', async ({ page }) => {

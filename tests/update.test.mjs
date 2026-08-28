@@ -1,9 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
 import test from 'node:test'
-
-const versionSource = await readFile(new URL('../version.js', import.meta.url), 'utf8')
-const currentVersion = versionSource.match(/VERSION\s*=\s*['"]([^'"]+)/)?.[1]
 
 class Target {
   constructor() { this.listeners = new Map() }
@@ -23,9 +19,21 @@ async function withUpdate(run) {
   document.hidden = false
   document.readyState = 'complete'
   const serviceWorker = new Target()
-  serviceWorker.controller = { scriptURL: 'https://example.test/sw.js' }
+  let workerGeneration
+  class TestMessageChannel {
+    constructor() {
+      this.port1 = { onmessage: null }
+      this.port2 = { postMessage: data => this.port1.onmessage?.({ data }) }
+    }
+  }
+  const controller = {
+    scriptURL: 'https://example.test/sw.js',
+    postMessage: (_message, ports) => ports[0].postMessage(workerGeneration),
+  }
+  serviceWorker.controller = controller
   let reloads = 0
   let updates = 0
+  const intervals = []
   const registration = { update: async () => { updates += 1 } }
   serviceWorker.register = async () => registration
   Object.defineProperties(globalThis, {
@@ -33,13 +41,24 @@ async function withUpdate(run) {
     navigator: { configurable: true, value: { serviceWorker } },
     location: { configurable: true, value: { protocol: 'https:', reload: () => { reloads += 1 } } },
     addEventListener: { configurable: true, value: () => {} },
-    setInterval: { configurable: true, value: () => 1 },
+    MessageChannel: { configurable: true, value: TestMessageChannel },
+    setInterval: { configurable: true, value: (callback, delay) => intervals.push({ callback, delay }) },
   })
   try {
     const module = await import(`../update.js?test=${Math.random()}`)
-    await run({ ...module, document, serviceWorker, reloads: () => reloads, updates: () => updates })
+    workerGeneration = module.GENERATION
+    await run({
+      ...module,
+      controller,
+      document,
+      intervals,
+      serviceWorker,
+      setGeneration: value => { workerGeneration = value },
+      reloads: () => reloads,
+      updates: () => updates,
+    })
   } finally {
-    for (const key of ['document', 'navigator', 'location', 'addEventListener', 'setInterval', 'fetch']) {
+    for (const key of ['document', 'navigator', 'location', 'addEventListener', 'MessageChannel', 'setInterval', 'fetch']) {
       const descriptor = saved[key]
       if (descriptor) Object.defineProperty(globalThis, key, descriptor)
       else delete globalThis[key]
@@ -47,47 +66,58 @@ async function withUpdate(run) {
   }
 }
 
-test('the update probe compares the deployed version with the loaded shell version', async () => {
-  await withUpdate(async ({ wireUpdate }) => {
+test('the update toast is inert until a ready release arms it and reloads once', async () => {
+  await withUpdate(async ({ wireUpdate, reloads }) => {
     const banner = new Target()
     banner.hidden = true
-    let deployed = currentVersion
-    globalThis.fetch = async (url, options) => {
-      assert.equal(url, './version.js?update-probe')
-      assert.equal(options.cache, 'no-store')
-      return { ok: true, text: async () => `export const VERSION = '${deployed}'` }
-    }
     const update = wireUpdate(banner)
-    assert.equal(await update.check(), 'current')
+    await banner.emit('click')
+    assert.equal(reloads(), 0)
     assert.equal(banner.hidden, true)
-    deployed = '999.0.0'
-    assert.equal(await update.check(), 'stale')
+    update.reveal()
     assert.equal(banner.hidden, false)
-  })
-})
-
-test('a replacement controller and the banner can trigger only one reload', async () => {
-  await withUpdate(async ({ wireUpdate, registerWorker, document, serviceWorker, reloads, updates }) => {
-    globalThis.fetch = async () => ({ ok: true, text: async () => versionSource })
-    const banner = new Target()
-    banner.hidden = true
-    wireUpdate(banner)
-    await registerWorker()
-    assert.equal(updates(), 1)
-    await document.emit('visibilitychange')
-    assert.equal(updates(), 2)
-    await serviceWorker.emit('controllerchange')
-    await serviceWorker.emit('controllerchange')
+    await banner.emit('click')
     await banner.emit('click')
     assert.equal(reloads(), 1)
   })
 })
 
-test('first installation claims the page without an update reload', async () => {
-  await withUpdate(async ({ registerWorker, serviceWorker, reloads }) => {
-    serviceWorker.controller = null
-    await registerWorker()
+test('only a fully activated newer generation reveals the sticky update toast', async () => {
+  await withUpdate(async ({ GENERATION, wireUpdate, registerWorker, document, intervals, serviceWorker, setGeneration, reloads, updates }) => {
+    const banner = new Target()
+    banner.hidden = true
+    const update = wireUpdate(banner)
+    await registerWorker('sw.js', update.reveal)
+    assert.equal(updates(), 1)
+    assert.equal(intervals[0].delay, 300_000)
+    await intervals[0].callback()
+    assert.equal(updates(), 2)
+    await document.emit('visibilitychange')
+    assert.equal(updates(), 3)
+    setGeneration(GENERATION)
     await serviceWorker.emit('controllerchange')
+    assert.equal(banner.hidden, true)
+    setGeneration(`${GENERATION}-next`)
+    await serviceWorker.emit('controllerchange')
+    assert.equal(banner.hidden, false)
+    assert.equal(reloads(), 0)
+  })
+})
+
+test('first installation claims the page without an update toast or reload', async () => {
+  await withUpdate(async ({ GENERATION, wireUpdate, registerWorker, controller, serviceWorker, setGeneration, reloads }) => {
+    serviceWorker.controller = null
+    const banner = new Target()
+    banner.hidden = true
+    const update = wireUpdate(banner)
+    await registerWorker('sw.js', update.reveal)
+    serviceWorker.controller = controller
+    setGeneration(`${GENERATION}-next`)
+    await serviceWorker.emit('controllerchange')
+    assert.equal(banner.hidden, true)
+    assert.equal(reloads(), 0)
+    await serviceWorker.emit('controllerchange')
+    assert.equal(banner.hidden, false)
     assert.equal(reloads(), 0)
   })
 })
