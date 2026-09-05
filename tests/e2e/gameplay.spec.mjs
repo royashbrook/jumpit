@@ -485,7 +485,7 @@ test('the left half is a drag stick and the right half is an independent jump zo
   const origin = await point('#direction-zone', .45, .7)
   await fire('#direction-zone', 'pointerdown', 31, origin)
   await expect(page.locator('#direction-zone')).toHaveAttribute('data-active', '')
-  await expect(page.locator('#move-stick')).toHaveCSS('opacity', '0.48')
+  await expect(page.locator('#move-stick')).toHaveCSS('opacity', '0.9')
   expect(await read()).toEqual([])
 
   await fire('#direction-zone', 'pointermove', 31, { x: origin.x + 8, y: origin.y })
@@ -502,7 +502,7 @@ test('the left half is a drag stick and the right half is an independent jump zo
 
   const jump = await point('#jump-zone', .55, .45)
   await fire('#jump', 'pointerdown', 32, jump, false)
-  await expect(page.locator('.jump-feedback')).toHaveCSS('opacity', '0.48')
+  await expect(page.locator('.jump-feedback')).toHaveCSS('opacity', '0.9')
   expect(await read()).toEqual(['right:true', 'right:false', 'left:true', 'jump:true'])
   await fire('#jump', 'pointerup', 32, jump, false)
   await fire('#direction-zone', 'pointerup', 31, origin)

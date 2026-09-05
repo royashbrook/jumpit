@@ -249,6 +249,60 @@ test('the runtime coach clears and the wrong-level bell cue reaches the canvas',
   }
 })
 
+test('the controls-learned cue fires once per trail, only after a real run and a jump', () => {
+  const originalRequest = globalThis.requestAnimationFrame
+  const originalCancel = globalThis.cancelAnimationFrame
+  let pending = null
+  let time = 1
+  globalThis.requestAnimationFrame = callback => { pending = callback; return 1 }
+  globalThis.cancelAnimationFrame = () => {}
+
+  try {
+    const harness = canvasHarness(844, 320)
+    const cues = []
+    const game = createGame(harness.canvas, () => {}, cue => cues.push(cue))
+    const run = frames => {
+      for (let frame = 0; frame < frames; frame += 1) {
+        const callback = pending
+        pending = null
+        callback(time)
+        time += 1000 / 60
+      }
+    }
+    const learned = () => cues.filter(cue => cue === 'controls-learned').length
+
+    game.start('garden-1')
+    run(1)
+    game.setInput('jump', true)
+    run(30)
+    game.setInput('jump', false)
+    assert.equal(cues.includes('jump'), true)
+    assert.equal(learned(), 0, 'a lone jump is airborne movement, not a run')
+
+    game.setInput('right', true)
+    run(30)
+    assert.equal(learned(), 1)
+    game.setInput('jump', true)
+    run(30)
+    game.setInput('jump', false)
+    game.setInput('right', false)
+    assert.equal(learned(), 1, 'the cue does not repeat inside one trail')
+
+    game.restart()
+    run(1)
+    game.setInput('right', true)
+    run(30)
+    assert.equal(learned(), 1, 'a run alone is not enough either')
+    game.setInput('jump', true)
+    run(30)
+    assert.equal(learned(), 2, 'a new trail can report it again; the save decides whether that matters')
+    game.stop()
+  } finally {
+    globalThis.requestAnimationFrame = originalRequest
+    globalThis.cancelAnimationFrame = originalCancel
+  }
+})
+
 test('all four later places render their own generated atlas rows', () => {
   const rain = canvasHarness()
   const rainGame = createGame(rain.canvas)

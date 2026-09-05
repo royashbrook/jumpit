@@ -53,10 +53,10 @@ test('the manifest has a stable app identity and a separate maskable icon', asyn
 test('the worker keeps navigation network-first and the update probe uncached', async () => {
   const worker = await text('sw.js')
   const updater = await text('update.js')
-  assert.match(worker, /const CACHE = 'jumpit-v2\.0\.0-r21'/)
-  assert.match(updater, /GENERATION = 'jumpit-v2\.0\.0-r21'/)
-  assert.match(await text('index.html'), /app\.css\?v=11[\s\S]*app\.js\?v=19/)
-  assert.match(await text('app.js'), /audio\.js\?v=2[\s\S]*game\.js\?v=15[\s\S]*levels\.js\?v=2[\s\S]*save\.js\?v=3[\s\S]*update\.js\?v=8/)
+  assert.match(worker, /const CACHE = 'jumpit-v2\.0\.0-r22'/)
+  assert.match(updater, /GENERATION = 'jumpit-v2\.0\.0-r22'/)
+  assert.match(await text('index.html'), /app\.css\?v=12[\s\S]*app\.js\?v=20/)
+  assert.match(await text('app.js'), /audio\.js\?v=2[\s\S]*game\.js\?v=16[\s\S]*levels\.js\?v=2[\s\S]*save\.js\?v=4[\s\S]*update\.js\?v=8/)
   assert.match(await text('game.js'), /levels\.js\?v=2[\s\S]*simulation\.js\?v=3/)
   assert.match(await text('engine/simulation.js'), /physics\.js\?v=2[\s\S]*levels\.js\?v=2/)
   assert.match(await text('save.js'), /levels\.js\?v=2/)
@@ -91,8 +91,8 @@ test('an exact r12 cache-first controller cannot mix old gameplay into the curre
   ])
 
   assert.deepEqual([...current].sort(), [
-    'app.js?v=19', 'audio.js?v=2', 'engine/physics.js?v=2', 'engine/simulation.js?v=3',
-    'game.js?v=15', 'levels.js?v=2', 'save.js?v=3',
+    'app.js?v=20', 'audio.js?v=2', 'engine/physics.js?v=2', 'engine/simulation.js?v=3',
+    'game.js?v=16', 'levels.js?v=2', 'save.js?v=4',
   ])
   for (const url of current) {
     assert.equal(r12.has(url), false, `r12 can serve stale ${url}`)

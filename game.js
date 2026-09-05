@@ -190,6 +190,8 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
   let accumulator = 0
   let raf = 0
   let knownHiddenLights = []
+  let ran = false
+  let controlsLearned = false
 
   function loadArt(level) {
     const needed = new Set(artKeysForLevel(level))
@@ -284,6 +286,12 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     const events = stepSimulation(simulation, input)
     input.jumpPressed = false
     syncSimulation()
+    // moved is also true while airborne, so a lone jump must not count as a run.
+    if (Math.abs(player.vx) > .25) ran = true
+    if (ran && jumped && !controlsLearned) {
+      controlsLearned = true
+      onCue('controls-learned')
+    }
 
     for (const event of events) {
       if (event.type === 'hidden-light' && !knownHiddenLights.includes(event.hiddenLightId)) {
@@ -960,6 +968,8 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
       cameraY = 0
       cameraReady = false
       cameraDirection = 0
+      ran = false
+      controlsLearned = false
       paused = false
       lastTime = 0
       accumulator = 0
