@@ -12,6 +12,11 @@
   pulsing spot on the right, until the player has both run and jumped once. The save
   remembers that, so they come back on every new trail only until it happens. The stick
   and jump rings are brighter with a light fill so a touch visibly lands.
+- Home polish: the trail hero art covers its card with no repeat seam, every label a kid
+  reads is at least 14px (the two daily buttons stack), the MORE footer carries the full
+  promise line, the trail coach bubble moved to the top band off the ground line, and a
+  challenge whose trail is still locked shows as locked instead of dropping a fresh save
+  into it.
 
 ## 2.0.0: 2026-08-27
 
