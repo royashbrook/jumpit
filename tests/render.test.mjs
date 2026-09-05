@@ -303,6 +303,28 @@ test('the controls-learned cue fires once per trail, only after a real run and a
   }
 })
 
+test('the coach bubble sits in the top band, off the ground line a kid watches', () => {
+  const originalRequest = globalThis.requestAnimationFrame
+  let pending = null
+  globalThis.requestAnimationFrame = callback => { pending = callback; return 1 }
+
+  try {
+    const harness = canvasHarness(844, 320)
+    const game = createGame(harness.canvas)
+    game.start('garden-1')
+    pending(1)
+    const coach = harness.texts.find(({ args }) => args[0] === 'SLIDE TO RUN')
+    const bubble = harness.roundRects.find(({ args }) => args[3] === 48 && args[4] === 16)
+    assert.ok(coach && bubble, 'the first frame draws the coach bubble')
+    assert.ok(bubble.args[1] + 48 < 160, `bubble bottom ${bubble.args[1] + 48} should stay in the top half`)
+    assert.ok(coach.args[2] < 160, `coach text at ${coach.args[2]} should stay in the top half`)
+    assert.ok(bubble.args[1] >= 88, 'the bubble should clear the status pill under the game bar')
+    game.stop()
+  } finally {
+    globalThis.requestAnimationFrame = originalRequest
+  }
+})
+
 test('all four later places render their own generated atlas rows', () => {
   const rain = canvasHarness()
   const rainGame = createGame(rain.canvas)

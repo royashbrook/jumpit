@@ -19,10 +19,10 @@ const currentVersion = versionSource.match(/VERSION\s*=\s*['"]([^'"]+)/)?.[1]
 const currentCache = workerSource.match(/const CACHE\s*=\s*['"]([^'"]+)/)?.[1]
 const nextVersion = '2.1.0'
 const CURRENT_URLS = Object.freeze({
-  css: './app.css?v=12',
-  app: './app.js?v=20',
+  css: './app.css?v=13',
+  app: './app.js?v=21',
   audio: './audio.js?v=2',
-  game: './game.js?v=16',
+  game: './game.js?v=17',
   levels: './levels.js?v=2',
   save: './save.js?v=4',
   physics: './engine/physics.js?v=2',
