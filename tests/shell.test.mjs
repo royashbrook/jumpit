@@ -12,6 +12,16 @@ test('v2.0.0 is the package and visible shell version', async () => {
   assert.match(version, /VERSION = '2\.0\.0'/)
 })
 
+test('the docs describe the shipped landscape-only v2.0.0 build', async () => {
+  const [readme, changelog, roadmap] = await Promise.all([text('README.md'), text('CHANGELOG.md'), text('docs/ROADMAP.md')])
+  assert.match(readme, /current v2\.0\.0 release/)
+  assert.match(readme, /landscape only by design/)
+  assert.doesNotMatch(readme, /Home works upright|release candidate|v1\.9 release/)
+  assert.match(changelog, /^## 2\.0\.0: \d{4}-\d{2}-\d{2}$/m)
+  assert.doesNotMatch(changelog, /pending human gates/)
+  assert.doesNotMatch(roadmap, /portrait Home/)
+})
+
 test('the house promise is present in readable metadata', async () => {
   const promise = 'no ads, no lives, no timers, nothing to buy, no accounts, no cookies, nothing sold or shared.'
   const manifest = JSON.parse(await text('manifest.json'))
@@ -43,9 +53,9 @@ test('the manifest has a stable app identity and a separate maskable icon', asyn
 test('the worker keeps navigation network-first and the update probe uncached', async () => {
   const worker = await text('sw.js')
   const updater = await text('update.js')
-  assert.match(worker, /const CACHE = 'jumpit-v2\.0\.0-r20'/)
-  assert.match(updater, /GENERATION = 'jumpit-v2\.0\.0-r20'/)
-  assert.match(await text('index.html'), /app\.css\?v=10[\s\S]*app\.js\?v=18/)
+  assert.match(worker, /const CACHE = 'jumpit-v2\.0\.0-r21'/)
+  assert.match(updater, /GENERATION = 'jumpit-v2\.0\.0-r21'/)
+  assert.match(await text('index.html'), /app\.css\?v=11[\s\S]*app\.js\?v=19/)
   assert.match(await text('app.js'), /audio\.js\?v=2[\s\S]*game\.js\?v=15[\s\S]*levels\.js\?v=2[\s\S]*save\.js\?v=3[\s\S]*update\.js\?v=8/)
   assert.match(await text('game.js'), /levels\.js\?v=2[\s\S]*simulation\.js\?v=3/)
   assert.match(await text('engine/simulation.js'), /physics\.js\?v=2[\s\S]*levels\.js\?v=2/)
@@ -58,7 +68,7 @@ test('the worker keeps navigation network-first and the update probe uncached', 
   assert.match(worker, /event\.waitUntil\(store\(request, response\)\)/)
 })
 
-test('an exact r12 cache-first controller cannot mix old gameplay into the r20 shell', async () => {
+test('an exact r12 cache-first controller cannot mix old gameplay into the current shell', async () => {
   const [index, app, game, simulation, save, worker] = await Promise.all([
     text('index.html'), text('app.js'), text('game.js'), text('engine/simulation.js'), text('save.js'), text('sw.js'),
   ])
@@ -81,15 +91,15 @@ test('an exact r12 cache-first controller cannot mix old gameplay into the r20 s
   ])
 
   assert.deepEqual([...current].sort(), [
-    'app.js?v=18', 'audio.js?v=2', 'engine/physics.js?v=2', 'engine/simulation.js?v=3',
+    'app.js?v=19', 'audio.js?v=2', 'engine/physics.js?v=2', 'engine/simulation.js?v=3',
     'game.js?v=15', 'levels.js?v=2', 'save.js?v=3',
   ])
   for (const url of current) {
     assert.equal(r12.has(url), false, `r12 can serve stale ${url}`)
-    assert.match(worker, new RegExp(`['"]\\./${url.replace(/[.?]/g, '\\$&')}['"]`), `r20 does not precache ${url}`)
+    assert.match(worker, new RegExp(`['"]\\./${url.replace(/[.?]/g, '\\$&')}['"]`), `the current shell does not precache ${url}`)
   }
 
-  // If r20 claims before app code attaches controllerchange, no toast fires.
+  // If the current worker claims before app code attaches controllerchange, no toast fires.
   // Every changed module must therefore already be current through the r12 cache-first controller.
   const served = [...current].map(url => r12.get(url) || 'current')
   assert.deepEqual(new Set(served), new Set(['current']))

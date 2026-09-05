@@ -269,6 +269,10 @@ function syncOrientation() {
   updateButton.inert = blocked
 
   if (blocked) {
+    $('rotate-kicker').textContent = inGame ? 'PAUSED' : 'MORE TRAIL AHEAD'
+    $('rotate-copy').textContent = inGame
+      ? 'Your trail is paused. Turn your phone sideways to keep going.'
+      : 'Turn your phone sideways to play. Jumpit plays wide so you can see the next jump.'
     for (const dialog of [howto, about]) if (dialog.open) dialog.close()
     if (!rotateDevice.open) rotateDevice.showModal()
     releaseAllInputs()
