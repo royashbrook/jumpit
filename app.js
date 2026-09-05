@@ -1,7 +1,7 @@
 import { currentSeed, isDaily, shareSeed } from './seed.js'
 import { createAudio } from './audio.js?v=2'
 import { challengeWon, dailyChallenge } from './daily.js'
-import { createGame } from './game.js?v=15'
+import { createGame } from './game.js?v=16'
 import { wireInstall } from './install.js'
 import { LEVELS, REGIONS } from './levels.js?v=2'
 import { createRelease } from './release.js'
@@ -331,9 +331,13 @@ function goHome() {
   if (!orientationBlocked) $('play').focus({ preventScroll: true })
 }
 
+function challengeLocked(challenge, state = store.get()) {
+  return !state.unlocked.includes(challenge.levelId)
+}
+
 function playLevel(levelId = store.get().selectedLevel, challenge = null) {
   levelId = challenge
-    ? release.find(challenge.levelId)?.id
+    ? challengeLocked(challenge) ? null : release.find(challenge.levelId)?.id
     : release.playable(levelId, store.get().unlocked)
   if (!levelId) return
   const level = release.find(levelId)
@@ -435,15 +439,22 @@ function renderMenu(nextState = store.get()) {
     trailSummary.textContent = `${releaseLevels.length} TRAILS · ${placeCount} PLACES`
   }
   const dailyWon = save.dailyWins.includes(activeSeed)
+  const dailyLocked = challengeLocked(featuredChallenge, save)
+  const dailyGate = releaseLevels[releaseLevels.findIndex(level => level.id === featuredChallenge.levelId) - 1]
   for (const [id, text] of [
     ['daily-kicker', featuredChallenge.daily ? "TODAY'S CHALLENGE" : 'FRIEND CHALLENGE'],
     ['daily-title', featuredChallenge.title],
     ['daily-copy', featuredChallenge.copy],
-    ['daily-status', dailyWon ? 'STAMP EARNED' : `◆ ${featuredChallenge.goalSeeds} SEEDS + BELL`],
+    ['daily-status', dailyWon ? 'STAMP EARNED'
+      : dailyLocked ? `LOCKED · CLEAR ${dailyGate?.name.toUpperCase() || 'THE TRAIL BEFORE IT'} TO OPEN`
+        : `◆ ${featuredChallenge.goalSeeds} SEEDS + BELL`],
   ]) {
     if ($(id)) $(id).textContent = text
   }
-  if ($('daily-play')) $('daily-play').textContent = dailyWon ? 'PLAY AGAIN' : 'PLAY CHALLENGE'
+  if ($('daily-play')) {
+    $('daily-play').textContent = dailyWon ? 'PLAY AGAIN' : dailyLocked ? 'TRAIL LOCKED' : 'PLAY CHALLENGE'
+    $('daily-play').disabled = dailyLocked
+  }
   const trailNodes = []
   for (const [regionIndex, region] of REGIONS.entries()) {
     const placeLevels = releaseLevels.filter(level => level.region === region.id)

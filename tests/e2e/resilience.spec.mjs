@@ -113,7 +113,7 @@ test('a shared seed previews its deterministic challenge without touching campai
   const baseline = {
     version: 2,
     completed: [],
-    unlocked: ['garden-1'],
+    unlocked: ['garden-1', challenge.levelId],
     bestSeeds: {},
     selectedLevel: 'garden-1',
     theme: 'garden',
@@ -139,8 +139,21 @@ test('a shared seed previews its deterministic challenge without touching campai
 test('a perfect challenge earns its stamp without minting a campaign Gold Bell', async ({ page }) => {
   await page.route('**/game.js*', route => route.fulfill({ contentType: 'text/javascript', body: lifecycleGameStub }))
   await page.route('**/audio.js*', route => route.fulfill({ contentType: 'text/javascript', body: lifecycleAudioStub }))
-  await page.goto('/')
+  // A fixed seed with its trail unlocked: a locked challenge trail no longer starts.
+  await page.addInitScript(() => localStorage.setItem('jumpit-save-v1', JSON.stringify({
+    version: 3,
+    completed: ['garden-1'],
+    unlocked: ['garden-1', 'garden-2'],
+    bestSeeds: {},
+    selectedLevel: 'garden-1',
+    theme: 'garden',
+    muted: false,
+    dailyWins: [],
+    hiddenLights: [],
+  })))
+  await page.goto('/?seed=20260909')
   await page.getByRole('button', { name: 'MORE' }).click()
+  await expect(page.locator('#daily-title')).toHaveText('SEEDLING SPRINT')
   await page.locator('html').evaluate(element => {
     element.dataset.finishOnRight = 'armed'
     element.dataset.perfectFinish = 'armed'
@@ -150,7 +163,7 @@ test('a perfect challenge earns its stamp without minting a campaign Gold Bell',
   await expect(page.locator('#overlay-title')).toHaveText('STAMP EARNED!')
 
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('jumpit-save-v1')))
-  expect(saved.completed).toEqual([])
+  expect(saved.completed).toEqual(['garden-1'])
   expect(saved.bestSeeds).toEqual({})
   expect(saved.dailyWins).toHaveLength(1)
 

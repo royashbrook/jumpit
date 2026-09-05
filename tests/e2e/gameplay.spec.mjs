@@ -289,7 +289,19 @@ test('a hidden light stamps once, survives reload, and only then reveals Home pr
 
 test('a Hidden Light found in a challenge keeps its stamp', async ({ page }) => {
   await page.route('**/game.js*', route => route.fulfill({ contentType: 'text/javascript', body: hiddenLightGameStub }))
-  await page.goto('/')
+  // A fixed seed with its trail unlocked: a locked challenge trail no longer starts.
+  await page.addInitScript(() => localStorage.setItem('jumpit-save-v1', JSON.stringify({
+    version: 3,
+    completed: ['garden-1'],
+    unlocked: ['garden-1', 'garden-2'],
+    bestSeeds: {},
+    selectedLevel: 'garden-1',
+    theme: 'garden',
+    muted: false,
+    dailyWins: [],
+    hiddenLights: [],
+  })))
+  await page.goto('/?seed=20260909')
   await page.getByRole('button', { name: 'MORE' }).click()
   await page.locator('#daily-play').click()
   await page.locator('#jump').click()

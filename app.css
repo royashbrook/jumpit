@@ -247,8 +247,8 @@ h1 {
   border: .18rem solid var(--line);
   border-radius: calc(var(--radius) * 1.2);
   background:
-    linear-gradient(to top, rgb(from var(--line) r g b / .86), transparent 70%),
-    url('assets/backgrounds/garden-walk.webp') 24% center / auto 100%;
+    linear-gradient(to top, rgb(from var(--line) r g b / .86), transparent 70%) no-repeat,
+    url('assets/backgrounds/garden-walk.webp') 24% 70% / cover no-repeat;
   box-shadow: var(--shadow);
   color: var(--surface-raised);
 }
@@ -261,14 +261,14 @@ h1 {
 
 .trail-hero p {
   margin: 0 0 .75rem;
-  font-size: .78rem;
+  font-size: .875rem;
   font-weight: 900;
 }
 
 .trail-hero .hero-kicker {
   margin: 0;
   color: var(--surface-raised);
-  font-size: .7rem;
+  font-size: .875rem;
   letter-spacing: .08em;
 }
 
@@ -295,7 +295,7 @@ h1 {
 .daily-status {
   margin: 0;
   color: var(--accent-dim);
-  font-size: .65rem;
+  font-size: .875rem;
   font-weight: 900;
   letter-spacing: .07em;
 }
@@ -308,7 +308,7 @@ h1 {
 #daily-copy {
   margin: 0;
   color: var(--ink-dim);
-  font-size: .78rem;
+  font-size: .875rem;
   font-weight: 800;
 }
 
@@ -318,22 +318,20 @@ h1 {
 
 .daily-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
   gap: .5rem;
 }
 
 .daily-actions .big {
   min-height: 2.8rem;
   padding: .55rem .4rem;
-  font-size: .7rem;
-  white-space: nowrap;
+  font-size: .875rem;
 }
 
 .play-promise,
 .panel-copy {
   margin: .15rem 0;
   color: var(--ink-dim);
-  font-size: .82rem;
+  font-size: .875rem;
   font-weight: 800;
   text-align: center;
 }
@@ -355,13 +353,13 @@ h1 {
   display: grid;
   gap: .1rem;
   color: var(--ink);
-  font-size: .7rem;
+  font-size: .875rem;
   letter-spacing: .06em;
 }
 
 .hidden-lights small {
   color: var(--ink-dim);
-  font-size: .62rem;
+  font-size: .875rem;
   font-weight: 900;
 }
 
@@ -392,7 +390,7 @@ h1 {
 .panel-heading p {
   margin: .2rem 0 0;
   color: var(--accent-dim);
-  font-size: .7rem;
+  font-size: .875rem;
   font-weight: 900;
   letter-spacing: .08em;
 }
@@ -410,7 +408,7 @@ h1 {
 .region-divider {
   margin: .45rem 0 -.2rem;
   color: var(--accent-dim);
-  font-size: .72rem;
+  font-size: .875rem;
   letter-spacing: .08em;
 }
 
@@ -439,7 +437,7 @@ h1 {
 
 .sleeping-place small {
   margin-top: .08rem;
-  font-size: .68rem;
+  font-size: .875rem;
   font-weight: 800;
 }
 
@@ -489,7 +487,7 @@ h1 {
 .trail-meta small,
 .trail-seeds {
   color: var(--ink-dim);
-  font-size: .72rem;
+  font-size: .875rem;
   font-weight: 800;
 }
 
@@ -571,7 +569,7 @@ h1 {
   min-height: 2em;
   margin-top: .35rem;
   color: var(--accent-dim);
-  font-size: .62rem;
+  font-size: .875rem;
   font-weight: 900;
   line-height: 1.25;
 }
@@ -597,7 +595,7 @@ h1 {
   background: transparent;
   color: var(--ink-dim);
   font: inherit;
-  font-size: .66rem;
+  font-size: .875rem;
 }
 
 .nav-item span {
@@ -642,7 +640,7 @@ h1 {
 .ethos {
   margin: .65rem 0 0;
   color: var(--ink-dim);
-  font-size: .78rem;
+  font-size: .875rem;
   font-weight: 800;
   text-align: center;
 }
@@ -671,7 +669,7 @@ h1 {
   box-shadow: var(--shadow-pressed);
   color: var(--ink);
   font: inherit;
-  font-size: .76rem;
+  font-size: .875rem;
   font-weight: 900;
 }
 
@@ -838,7 +836,7 @@ h1 {
 
 .rotate-device .rotate-kicker {
   color: var(--surface-raised);
-  font-size: .7rem;
+  font-size: .875rem;
   letter-spacing: .08em;
 }
 
@@ -878,7 +876,7 @@ h1 {
   border-radius: calc(var(--radius) * 2);
   background: rgb(from var(--surface-raised) r g b / .9);
   color: var(--ink);
-  font-size: .7rem;
+  font-size: .875rem;
   font-weight: 900;
   opacity: 0;
   pointer-events: none;
@@ -904,7 +902,7 @@ h1 {
   background: var(--surface-raised);
   box-shadow: var(--shadow-pressed);
   color: var(--ink);
-  font-size: .68rem;
+  font-size: .875rem;
   font-weight: 900;
   white-space: nowrap;
 }
@@ -949,14 +947,14 @@ h1 {
 .game-card p {
   margin: 0 0 .8rem;
   color: var(--ink-dim);
-  font-size: .82rem;
+  font-size: .875rem;
   font-weight: 900;
 }
 
 .game-card .overlay-kicker {
   margin: 0;
   color: var(--accent-dim);
-  font-size: .68rem;
+  font-size: .875rem;
   letter-spacing: .08em;
 }
 
@@ -1122,7 +1120,7 @@ h1 {
   display: grid;
   place-items: center;
   color: rgb(from var(--line) r g b / .7);
-  font-size: .76rem;
+  font-size: .875rem;
   transition: opacity .1s ease, scale .1s ease;
 }
 
@@ -1174,7 +1172,7 @@ dialog ol {
 .small,
 .about-ethos {
   color: var(--ink-dim);
-  font-size: .86rem;
+  font-size: .875rem;
   line-height: 1.5;
 }
 
