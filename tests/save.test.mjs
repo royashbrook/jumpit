@@ -69,6 +69,20 @@ test('blocked or corrupt storage falls back without breaking play', () => {
   assert.equal(store.get().selectedLevel, 'garden-2')
 })
 
+test('learning the controls is remembered once and cleared only by reset', () => {
+  const storage = memoryStorage()
+  const store = createSaveStore({ storage })
+  assert.equal(store.get().controlsLearned, false)
+  assert.equal(store.learnControls(), true)
+  assert.equal(store.learnControls(), false)
+  assert.equal(storage.writes(), 1)
+  assert.equal(loadSave(storage).controlsLearned, true)
+  assert.equal(loadSave(memoryStorage(JSON.stringify({ version: 3, controlsLearned: 'yes' }))).controlsLearned, false)
+  store.requestReset()
+  store.reset()
+  assert.equal(store.get().controlsLearned, false)
+})
+
 test('sound preference is part of the guarded save', () => {
   const storage = memoryStorage()
   const store = createSaveStore({ storage })

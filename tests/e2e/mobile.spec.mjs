@@ -206,7 +206,7 @@ test('one landscape Play tap starts a full-screen iPhone Air trail', async ({ pa
     pointerId: 51, pointerType: 'touch', isPrimary: true, buttons: 1,
     clientX: directionTouch.x, clientY: directionTouch.y,
   })
-  await expect(page.locator('#move-stick')).toHaveCSS('opacity', '0.48')
+  await expect(page.locator('#move-stick')).toHaveCSS('opacity', '0.9')
   const stickCenter = await page.locator('#move-stick').evaluate(element => {
     const box = element.getBoundingClientRect()
     return { x: box.left + box.width / 2, y: box.top + box.height / 2 }
@@ -224,7 +224,7 @@ test('one landscape Play tap starts a full-screen iPhone Air trail', async ({ pa
     pointerId: 52, pointerType: 'touch', isPrimary: true, buttons: 1,
     clientX: jumpTouch.x, clientY: jumpTouch.y,
   })
-  await expect(page.locator('.jump-feedback')).toHaveCSS('opacity', '0.48')
+  await expect(page.locator('.jump-feedback')).toHaveCSS('opacity', '0.9')
   const jumpCenter = await page.locator('.jump-feedback').evaluate(element => {
     const box = element.getBoundingClientRect()
     return { x: box.left + box.width / 2, y: box.top + box.height / 2 }
@@ -236,6 +236,79 @@ test('one landscape Play tap starts a full-screen iPhone Air trail', async ({ pa
     clientX: jumpTouch.x, clientY: jumpTouch.y,
   })
   await expect(page.locator('.jump-feedback')).toHaveCSS('opacity', '0')
+})
+
+test('thumb targets show on the first trail until a real run and jump, then never again', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'two-finger touch needs the chromium devtools protocol')
+  await page.setViewportSize({ width: 932, height: 430 })
+  await page.goto('/')
+  await page.getByRole('button', { name: 'PLAY THE TRAIL' }).click()
+  await expect(page.locator('#stage')).toBeVisible()
+  await expect(page.locator('#controls')).toHaveAttribute('data-coach', '')
+  await expect(page.locator('.coach-run')).toHaveCSS('opacity', '1')
+  await expect(page.locator('.coach-jump')).toHaveCSS('opacity', '1')
+  const boxes = await page.evaluate(() => ({
+    run: document.querySelector('.coach-run').getBoundingClientRect().toJSON(),
+    jump: document.querySelector('.coach-jump').getBoundingClientRect().toJSON(),
+  }))
+  expect(boxes.run.right).toBeLessThan(932 / 2)
+  expect(boxes.jump.left).toBeGreaterThan(932 / 2)
+  for (const box of [boxes.run, boxes.jump]) expect(box.width).toBeGreaterThanOrEqual(112)
+
+  // Jump first from the standing start (nothing to bump yet), then run: a lone jump must not count.
+  const cdp = await page.context().newCDPSession(page)
+  const touch = (type, touchPoints) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints })
+  await touch('touchStart', [{ id: 2, x: 700, y: 300 }])
+  await expect(page.locator('#jump')).toHaveAttribute('data-held', '')
+  await expect(page.locator('.jump-feedback')).toHaveCSS('opacity', '0.9')
+  await touch('touchEnd', [{ id: 2, x: 700, y: 300 }])
+  await page.waitForTimeout(150)
+  await expect(page.locator('#controls')).toHaveAttribute('data-coach', '')
+  await expect(page.locator('.coach-run')).toHaveCSS('opacity', '1')
+
+  await touch('touchStart', [{ id: 1, x: 150, y: 300 }])
+  await touch('touchMove', [{ id: 1, x: 175, y: 300 }])
+  await touch('touchMove', [{ id: 1, x: 200, y: 300 }])
+  await expect(page.locator('#move-right')).toHaveAttribute('data-held', '')
+  await expect(page.locator('#move-stick')).toHaveCSS('opacity', '0.9')
+  await expect(page.locator('#controls')).not.toHaveAttribute('data-coach', '')
+  await expect(page.locator('.coach-run')).toHaveCSS('opacity', '0')
+  await expect(page.locator('.coach-jump')).toHaveCSS('opacity', '0')
+  await touch('touchEnd', [{ id: 1, x: 200, y: 300 }])
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('jumpit-save-v1')).controlsLearned)).toBe(true)
+
+  await page.getByRole('button', { name: 'MENU' }).click()
+  await page.getByRole('button', { name: 'PLAY THE TRAIL' }).click()
+  await expect(page.locator('#stage')).toBeVisible()
+  await expect(page.locator('#controls')).not.toHaveAttribute('data-coach', '')
+})
+
+test('thumb targets return on any later trail until the save says they were learned', async ({ page }) => {
+  const save = {
+    version: 3,
+    completed: ['garden-1'],
+    unlocked: ['garden-1', 'garden-2'],
+    bestSeeds: {},
+    selectedLevel: 'garden-2',
+    theme: 'garden',
+    muted: true,
+    dailyWins: [],
+    hiddenLights: [],
+  }
+  // The init script runs again on reload, so it must not clobber the learned flag written below.
+  await page.addInitScript(state => {
+    if (!localStorage.getItem('jumpit-save-v1')) localStorage.setItem('jumpit-save-v1', JSON.stringify(state))
+  }, save)
+  await page.goto('/')
+  await page.getByRole('button', { name: 'PLAY THE TRAIL' }).dispatchEvent('click')
+  await expect(page.locator('#level-name')).toHaveText('CLOVER CROSSING')
+  await expect(page.locator('#controls')).toHaveAttribute('data-coach', '')
+
+  await page.evaluate(state => localStorage.setItem('jumpit-save-v1', JSON.stringify({ ...state, controlsLearned: true })), save)
+  await page.reload()
+  await page.getByRole('button', { name: 'PLAY THE TRAIL' }).dispatchEvent('click')
+  await expect(page.locator('#stage')).toBeVisible()
+  await expect(page.locator('#controls')).not.toHaveAttribute('data-coach', '')
 })
 
 test('all four looks keep every text token pair at WCAG AA contrast', async ({ page }) => {
