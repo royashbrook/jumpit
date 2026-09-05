@@ -1,6 +1,15 @@
 # Changelog
 
-## 2.0.0: pending human gates
+## Unreleased
+
+- Gave the portrait rotate gate the game's identity (icon, name, tagline) and a clear
+  state: at Home it says turn sideways to play, mid-trail it says the trail is paused and
+  EXIT TO HOME visibly returns to the Home wording. Dropped the focus ring the gate title
+  painted on first load.
+- Made the README, roadmap, and changelog match the shipped build: the whole game is
+  landscape only by design, and v2.0.0 is released.
+
+## 2.0.0: 2026-08-27
 
 - Stabilized the twenty-trail campaign across five grounded places with full progression,
   original art and sound, optional Hidden Lights, and a three-hit final guardian.
@@ -36,9 +45,9 @@
 - Proved the exact shipped v1.9 installed client and same-version preview cache upgrade
   once into the coherent v2 shell,
   while a failed v2.1 precache leaves the active offline shell untouched.
-- Prepared v2 for the protected permanent-origin and Pages workflows. Its deploy, exact
-  byte-parity receipt, and tag wait for physical iPhone install/update/offline, physical
-  Android install/offline, and the 4-of-5 cold-kid gate.
+- Shipped v2.0.0 through the protected permanent-origin and Pages workflows on 2026-08-27;
+  the later 2.0.0 shell generations rolled out behind the in-app update toast. The physical
+  iPhone and Android receipts and the 4-of-5 cold-kid gate stay open in issue #1.
 
 ## 1.9.0: 2026-08-26
 

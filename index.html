@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="stylesheet" href="app.css?v=10">
+  <link rel="stylesheet" href="app.css?v=11">
 </head>
 <body>
   <main id="menu" class="screen menu-screen">
@@ -153,9 +153,14 @@
   </main>
 
   <dialog id="rotate-device" class="rotate-device" aria-labelledby="rotate-title" aria-describedby="rotate-copy">
-    <p class="rotate-kicker">MORE TRAIL AHEAD</p>
+    <div class="rotate-brand">
+      <img src="icon-192.png" width="72" height="72" alt="">
+      <p class="rotate-name">Jumpit</p>
+      <p class="rotate-tagline">run the lantern trail</p>
+    </div>
+    <p id="rotate-kicker" class="rotate-kicker">MORE TRAIL AHEAD</p>
     <h2 id="rotate-title" tabindex="-1">Turn your phone sideways</h2>
-    <p id="rotate-copy">Jumpit plays wide so you can see the next jump.</p>
+    <p id="rotate-copy">Turn your phone sideways to play. Jumpit plays wide so you can see the next jump.</p>
     <button id="rotate-home" class="big secondary" hidden>EXIT TO HOME</button>
     <button id="rotate-about" class="chip rotate-about">ABOUT</button>
   </dialog>
@@ -185,6 +190,6 @@
   </dialog>
 
   <button id="update" class="update" aria-live="polite" hidden>NEW VERSION, TAP TO LOAD</button>
-  <script type="module" src="app.js?v=18"></script>
+  <script type="module" src="app.js?v=19"></script>
 </body>
 </html>

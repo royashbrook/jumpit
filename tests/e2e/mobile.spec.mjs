@@ -53,6 +53,36 @@ test('portrait entry requires landscape before exposing the one-action Home', as
   await expect(page.getByRole('button', { name: 'PLAY THE TRAIL' })).toBeVisible()
 })
 
+test('the portrait gate names the game and says whether a trail is paused', async ({ page }) => {
+  await page.setViewportSize({ width: 430, height: 932 })
+  await page.goto('/')
+  const gate = page.locator('#rotate-device')
+  await expect(gate).toHaveAttribute('open', '')
+  await expect(gate.locator('.rotate-brand img')).toBeVisible()
+  await expect(gate.locator('.rotate-name')).toHaveText('Jumpit')
+  await expect(gate.locator('.rotate-tagline')).toHaveText('run the lantern trail')
+  await expect(page.locator('#rotate-kicker')).toHaveText('MORE TRAIL AHEAD')
+  await expect(page.locator('#rotate-copy')).toContainText('Turn your phone sideways to play.')
+  await expect(page.locator('#rotate-title')).toBeFocused()
+  await expect(page.locator('#rotate-title')).toHaveCSS('outline-style', 'none')
+
+  await page.setViewportSize({ width: 932, height: 430 })
+  await page.getByRole('button', { name: 'PLAY THE TRAIL' }).click()
+  await expect(page.locator('#stage')).toBeVisible()
+  await page.setViewportSize({ width: 430, height: 932 })
+  await expect(page.locator('#rotate-kicker')).toHaveText('PAUSED')
+  await expect(page.locator('#rotate-copy')).toContainText('Turn your phone sideways to keep going.')
+  await expect(page.getByRole('button', { name: 'EXIT TO HOME' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'EXIT TO HOME' }).click()
+  await expect(page.locator('#game')).toBeHidden()
+  await expect(page.getByRole('button', { name: 'EXIT TO HOME' })).toBeHidden()
+  await expect(page.locator('#rotate-kicker')).toHaveText('MORE TRAIL AHEAD')
+  await expect(page.locator('#rotate-copy')).toContainText('Turn your phone sideways to play.')
+  await expect(page.locator('#rotate-title')).toBeFocused()
+  await expect(page.locator('#rotate-title')).toHaveCSS('outline-style', 'none')
+})
+
 test('the portrait gate supersedes an open Home dialog', async ({ page }) => {
   await page.setViewportSize({ width: 912, height: 420 })
   await page.goto('/')

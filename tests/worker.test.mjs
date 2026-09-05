@@ -5,7 +5,7 @@ import test from 'node:test'
 import vm from 'node:vm'
 
 const REQUIRED_SHELL = [
-  './', './index.html', './app.css?v=10', './app.js?v=18', './audio.js?v=2', './daily.js',
+  './', './index.html', './app.css?v=11', './app.js?v=19', './audio.js?v=2', './daily.js',
   './game.js?v=15', './levels.js?v=2', './release.js', './save.js?v=3', './engine/physics.js?v=2',
   './engine/simulation.js?v=3', './version.js', './seed.js', './install.js', './update.js?v=8', './manifest.json',
   './icon-180.png', './icon-192.png', './icon-512.png', './icon-maskable-512.png',

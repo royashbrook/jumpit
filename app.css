@@ -792,11 +792,41 @@ h1 {
   background: var(--surface-sunk);
 }
 
+.rotate-brand {
+  display: grid;
+  justify-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.rotate-brand img {
+  width: 4.5rem;
+  height: 4.5rem;
+  border: .18rem solid var(--surface-raised);
+  border-radius: calc(var(--radius) * 1.3);
+  box-shadow: 0 .3rem 0 rgb(from var(--line) r g b / .6);
+}
+
+.rotate-device .rotate-name {
+  margin: .6rem 0 0;
+  font-size: clamp(2.25rem, 11vw, 3rem);
+  line-height: .95;
+}
+
+.rotate-device .rotate-tagline {
+  margin-top: .25rem;
+  color: rgb(from var(--surface-raised) r g b / .82);
+}
+
 .rotate-device h2 {
   max-width: 18rem;
   margin: .15rem 0 .45rem;
   font-size: clamp(1.75rem, 8vw, 2.5rem);
   line-height: 1;
+}
+
+/* The title only takes focus from script (tabindex -1), so the ring is noise. */
+.rotate-device h2:focus {
+  outline: none;
 }
 
 .rotate-device p {
