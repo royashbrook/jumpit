@@ -28,6 +28,7 @@ export function freshSave() {
     muted: false,
     dailyWins: [],
     hiddenLights: [],
+    controlsLearned: false,
   }
 }
 
@@ -51,6 +52,7 @@ export function migrateSave(value) {
   if (Array.isArray(value.hiddenLights)) {
     clean.hiddenLights = [...new Set(value.hiddenLights.filter(id => HIDDEN_LIGHT_IDS.has(id)))]
   }
+  clean.controlsLearned = value.controlsLearned === true
   return clean
 }
 
@@ -105,6 +107,12 @@ export function createSaveStore({ storage = globalThis.localStorage, onChange = 
     findHiddenLight(id) {
       if (!HIDDEN_LIGHT_IDS.has(id) || state.hiddenLights.includes(id)) return false
       state.hiddenLights.push(id)
+      write()
+      return true
+    },
+    learnControls() {
+      if (state.controlsLearned) return false
+      state.controlsLearned = true
       write()
       return true
     },

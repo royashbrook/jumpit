@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="stylesheet" href="app.css?v=11">
+  <link rel="stylesheet" href="app.css?v=12">
 </head>
 <body>
   <main id="menu" class="screen menu-screen">
@@ -142,11 +142,13 @@
     </div>
     <div id="controls" class="controls" aria-label="game controls">
       <div id="direction-zone" class="control-zone direction-zone" role="group" aria-label="movement">
+        <span class="coach-thumb coach-run" aria-hidden="true"></span>
         <span id="move-stick" class="move-stick" aria-hidden="true"></span>
         <button id="move-left" class="control direction" aria-label="move left"><span aria-hidden="true">◀</span></button>
         <button id="move-right" class="control direction" aria-label="move right"><span aria-hidden="true">▶</span></button>
       </div>
       <div id="jump-zone" class="control-zone jump-zone">
+        <span class="coach-thumb coach-jump" aria-hidden="true"></span>
         <button id="jump" class="control jump" aria-label="jump"><span class="jump-feedback" aria-hidden="true">JUMP</span></button>
       </div>
     </div>
@@ -190,6 +192,6 @@
   </dialog>
 
   <button id="update" class="update" aria-live="polite" hidden>NEW VERSION, TAP TO LOAD</button>
-  <script type="module" src="app.js?v=19"></script>
+  <script type="module" src="app.js?v=20"></script>
 </body>
 </html>

@@ -8,6 +8,10 @@
   painted on first load.
 - Made the README, roadmap, and changelog match the shipped build: the whole game is
   landscape only by design, and v2.0.0 is released.
+- Drew two thumb targets on the play screen, a ring with a sliding arrow on the left and a
+  pulsing spot on the right, until the player has both run and jumped once. The save
+  remembers that, so they come back on every new trail only until it happens. The stick
+  and jump rings are brighter with a light fill so a touch visibly lands.
 
 ## 2.0.0: 2026-08-27
 

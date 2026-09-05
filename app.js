@@ -1,11 +1,11 @@
 import { currentSeed, isDaily, shareSeed } from './seed.js'
 import { createAudio } from './audio.js?v=2'
 import { challengeWon, dailyChallenge } from './daily.js'
-import { createGame } from './game.js?v=15'
+import { createGame } from './game.js?v=16'
 import { wireInstall } from './install.js'
 import { LEVELS, REGIONS } from './levels.js?v=2'
 import { createRelease } from './release.js'
-import { createSaveStore, hasGoldBell } from './save.js?v=3'
+import { createSaveStore, hasGoldBell } from './save.js?v=4'
 import { wireUpdate, registerWorker } from './update.js?v=8'
 import { VERSION } from './version.js'
 
@@ -184,6 +184,11 @@ const game = createGame($('stage'), state => {
   }
   $('next-trail').hidden = !state.finished || !queuedNext
 }, cue => {
+  if (cue === 'controls-learned') {
+    store.learnControls()
+    $('controls').removeAttribute('data-coach')
+    return
+  }
   audio.cue(cue)
   const pulse = cue === 'guardian-defeated' ? [35, 25, 35, 25, 80]
     : cue === 'finish' ? [35, 35, 60]
@@ -249,6 +254,7 @@ function beginPendingPlay() {
   pendingPlay = null
   pendingNeedsResume = false
   gameStarted = true
+  $('controls').toggleAttribute('data-coach', !store.get().controlsLearned)
   game.start(next.levelId, { foundHiddenLights: store.get().hiddenLights })
   if (startPaused) game.pause()
   void Promise.resolve(pendingAudio).then(ready => { if (ready) audio.cue('start') })
