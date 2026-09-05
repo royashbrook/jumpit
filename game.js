@@ -23,6 +23,7 @@ const BACKGROUND_PAN_MARGIN = .08
 const FIXED_STEP = 1000 / 60
 const RESPAWN_FRAMES = 42
 const COACH_FRAMES = 120
+const HINT_TOP = 96
 const PLAYER_FRAMES = { idle: 0, run: 1, jump: 4, fall: 5 }
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value))
 
@@ -782,6 +783,8 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     if (!hint.text) return
     const bubbleWidth = hint.kind === 'guide' ? 94 : Math.min(250, width - 32)
     const bubbleX = hint.kind === 'guide' ? width - bubbleWidth - 16 : (width - bubbleWidth) / 2
+    // The top band sits under the status pill and clear of the ground line a kid watches.
+    const bubbleY = Math.min(HINT_TOP, height / 2 - 48)
     context.setTransform(1, 0, 0, 1, 0, 0)
     const ratio = Math.min(devicePixelRatio || 1, 2)
     context.scale(ratio, ratio)
@@ -789,13 +792,13 @@ export function createGame(canvas, onState = () => {}, onCue = () => {}) {
     context.strokeStyle = '#173D3A'
     context.lineWidth = 3
     context.beginPath()
-    context.roundRect(bubbleX, height - 96, bubbleWidth, 48, 16)
+    context.roundRect(bubbleX, bubbleY, bubbleWidth, 48, 16)
     context.fill()
     context.stroke()
     context.fillStyle = '#173D3A'
     context.font = '900 16px ui-rounded, system-ui, sans-serif'
     context.textAlign = 'center'
-    context.fillText(hint.text, bubbleX + bubbleWidth / 2, height - 65)
+    context.fillText(hint.text, bubbleX + bubbleWidth / 2, bubbleY + 31)
   }
 
   function drawRespawn(width, height) {

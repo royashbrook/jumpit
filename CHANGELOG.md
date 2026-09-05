@@ -8,6 +8,11 @@
   painted on first load.
 - Made the README, roadmap, and changelog match the shipped build: the whole game is
   landscape only by design, and v2.0.0 is released.
+- Home polish: the trail hero art covers its card with no repeat seam, SHARE WITH A FRIEND
+  sits on Home under the play button, every label a kid reads is at least 14px (the two
+  daily buttons stack), the MORE footer carries the full promise line, the trail coach
+  bubble moved to the top band off the ground line, and a challenge whose trail is still
+  locked shows as locked instead of dropping a fresh save into it.
 
 ## 2.0.0: 2026-08-27
 

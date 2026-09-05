@@ -1,4 +1,6 @@
 import { expect, test } from 'playwright/test'
+import { dailyChallenge } from '../../daily.js'
+import { LEVELS } from '../../levels.js'
 
 test('portrait entry requires landscape before exposing the one-action Home', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
@@ -534,4 +536,65 @@ test('reduced motion removes the status animation without hiding pause feedback'
   }))
   expect(motion.animationName).toBe('none')
   expect(parseFloat(motion.animationDuration)).toBeLessThanOrEqual(.01)
+})
+
+test('the Home hero art covers its card with no repeat seam', async ({ page }) => {
+  await page.goto('/')
+  const hero = await page.locator('.trail-hero').evaluate(element => {
+    const style = getComputedStyle(element)
+    return { repeat: style.backgroundRepeat, size: style.backgroundSize, width: element.getBoundingClientRect().width }
+  })
+  expect(hero.width).toBeGreaterThan(600)
+  expect(hero.repeat).toBe('no-repeat, no-repeat')
+  expect(hero.size.split(',').at(-1).trim()).toBe('cover')
+})
+
+test('every label a kid reads is at least 14px and the daily buttons stack', async ({ page }) => {
+  await page.goto('/')
+  const sizes = await page.evaluate(() => Object.fromEntries([
+    '.nav-item', '#hero-kicker', '#continue-label', '.play-promise', '#daily-kicker', '#daily-copy',
+    '#daily-status', '#daily-play', '#friends', '.panel-heading p', '.ethos', '#back', '#seed-count',
+    '#game-status', '#guardian-status', '#overlay-kicker', '#overlay-copy', '#rotate-kicker', '.jump-feedback',
+    '.trail-seeds', '.region-divider', '.look-status',
+  ].map(selector => [selector, parseFloat(getComputedStyle(document.querySelector(selector)).fontSize)])))
+  for (const [selector, size] of Object.entries(sizes)) expect(size, selector).toBeGreaterThanOrEqual(14)
+
+  await page.getByRole('button', { name: 'MORE' }).click()
+  const play = await page.locator('#daily-play').boundingBox()
+  const share = await page.locator('#friends').boundingBox()
+  expect(share.y).toBeGreaterThanOrEqual(play.y + play.height)
+  expect(share.width).toBeCloseTo(play.width, 0)
+})
+
+test('a challenge on a locked trail previews as locked instead of starting it', async ({ page }) => {
+  const seed = 48151623
+  const challenge = dailyChallenge(seed)
+  const index = LEVELS.findIndex(level => level.id === challenge.levelId)
+  expect(index).toBeGreaterThan(1)
+  await page.goto(`/?seed=${seed}`)
+  await expect(page.locator('#daily-title')).toHaveText(challenge.title)
+  await expect(page.locator('#daily-status')).toHaveText(`LOCKED · CLEAR ${LEVELS[index - 1].name.toUpperCase()} TO OPEN`)
+  await expect(page.locator('#daily-play')).toHaveText('TRAIL LOCKED')
+  await expect(page.locator('#daily-play')).toBeDisabled()
+  await page.evaluate(() => document.querySelector('#daily-play').click())
+  await expect(page.locator('#game')).toBeHidden()
+  expect(await page.evaluate(() => localStorage.getItem('jumpit-save-v1'))).toBeNull()
+
+  await page.evaluate(levelId => localStorage.setItem('jumpit-save-v1', JSON.stringify({
+    version: 3,
+    completed: [],
+    unlocked: ['garden-1', levelId],
+    bestSeeds: {},
+    selectedLevel: 'garden-1',
+    theme: 'garden',
+    muted: true,
+    dailyWins: [],
+    hiddenLights: [],
+  })), challenge.levelId)
+  await page.reload()
+  await expect(page.locator('#daily-status')).toHaveText(`◆ ${challenge.goalSeeds} SEEDS + BELL`)
+  await expect(page.locator('#daily-play')).toHaveText('PLAY CHALLENGE')
+  await expect(page.locator('#daily-play')).toBeEnabled()
+  await page.locator('#daily-play').click()
+  await expect(page.locator('#level-name')).toHaveText(LEVELS[index].name.toUpperCase())
 })
