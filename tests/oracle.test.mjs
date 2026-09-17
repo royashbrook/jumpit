@@ -2,6 +2,21 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { diffRecordings } from '../tools/oracle/compare.mjs'
 import { recordedJSON } from '../tools/oracle/json.mjs'
+import { assertReferenceHash } from '../tools/oracle/reference.mjs'
+
+test('reference pins accept only the measured hash for each platform', () => {
+  const mac = '31548e207fb4592844ff7b7e59180ac1aa4563ffd618bff5d46fe3810ef82060'
+  const linux = 'e4d7672571b72c8d4230dcf7f65b5f254a9b6df150adc739e413e0f8505bae05'
+  assert.doesNotThrow(() => assertReferenceHash(mac, 'darwin-arm64'))
+  assert.doesNotThrow(() => assertReferenceHash(linux, 'linux-x64'))
+  assert.throws(() => assertReferenceHash(linux, 'darwin-arm64'), /drifted on darwin-arm64/)
+  assert.throws(() => assertReferenceHash(mac, 'linux-x64'), /drifted on linux-x64/)
+  assert.throws(() => assertReferenceHash('changed', 'darwin-arm64'), /got changed/)
+  for (const key of ['linux-arm64', 'toString', '__proto__']) {
+    assert.throws(() => assertReferenceHash(mac, key), error =>
+      error.message.includes(`unmeasured reference platform ${key}`) && error.message.includes(mac))
+  }
+})
 
 test('reference comparison rejects changed container types even when enumerable keys match', () => {
   for (const [before, after] of [[[], {}], [[1, 2], { 0: 1, 1: 2 }]]) {

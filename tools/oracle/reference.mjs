@@ -9,8 +9,24 @@ import { fileURLToPath } from 'node:url'
 export const here = dirname(fileURLToPath(import.meta.url))
 export const repo = resolve(here, '../..')
 export const REFERENCE = '25abd61230184517c85a7b5f381ad25988c81989'
-// sha256 of the reference recording with its meta section removed. Reproduced on node 22 and 26.
-export const REFERENCE_HASH = '31548e207fb4592844ff7b7e59180ac1aa4563ffd618bff5d46fe3810ef82060'
+// The old game's Math.sin differs by one ulp across these platforms. Compare old/new exactly
+// on the SAME runtime, with separately measured pins. No rounding or gameplay exceptions.
+// darwin-arm64: independent pre-port recorder + integrated recorder, Node 22.23.2 / 26.8.2.
+// linux-x64: Node 22.23.2, runs 35247033841, 35247868083 and 35247863325, original tree.
+const REFERENCE_HASHES = {
+  'darwin-arm64': '31548e207fb4592844ff7b7e59180ac1aa4563ffd618bff5d46fe3810ef82060',
+  'linux-x64': 'e4d7672571b72c8d4230dcf7f65b5f254a9b6df150adc739e413e0f8505bae05',
+}
+
+export function assertReferenceHash(hash, platform = `${process.platform}-${process.arch}`) {
+  const expected = REFERENCE_HASHES[platform]
+  if (!Object.hasOwn(REFERENCE_HASHES, platform)) {
+    throw new Error(`unmeasured reference platform ${platform}: got ${hash}. Measure the original release before adding a pin.`)
+  }
+  if (hash !== expected) {
+    throw new Error(`reference recording drifted on ${platform}: expected ${expected}, got ${hash}. The recorder or the runtime changed, not the port.`)
+  }
+}
 
 export function contentHash(recording) {
   const copy = { ...recording }
@@ -57,6 +73,6 @@ export function withReference(fn) {
 export function referenceRecording(dir) {
   const recording = record(dir)
   const hash = contentHash(recording)
-  if (hash !== REFERENCE_HASH) throw new Error(`reference recording drifted: expected ${REFERENCE_HASH}, got ${hash}. The recorder or the runtime changed, not the port.`)
+  assertReferenceHash(hash)
   return recording
 }

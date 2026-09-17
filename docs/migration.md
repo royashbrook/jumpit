@@ -113,7 +113,7 @@ never into the deployed `build/` allowlist.
 ## integrated verification
 
 - strict Svelte/TypeScript: zero errors and zero warnings.
-- 174 unit/build checks pass. artifact Playwright: 111 pass, the same one intentional
+- 176 unit/build checks pass. artifact Playwright: 113 pass, the same one intentional
   WebKit skip remains. installed-update coverage is 22 passing cases across both engines.
 - the real shipped r23 client upgrades to the compiled app only on the update action,
   retaining non-empty progress, sound and look settings. an old second tab keeps its
@@ -123,7 +123,7 @@ never into the deployed `build/` allowlist.
   phone sizes and portrait rotation. ordinary run/jump, pause/resume and Home journeys
   collect the same first seed with no errors or overflow. the same requested art bytes are
   unchanged. animated frames were not phase-locked, so this is not a pixel-perfect claim.
-- `tools/oracle/` retains the independent pre-port recorder, exact reference hash and 37
+- `tools/oracle/` retains the independent pre-port recorder, exact platform reference hashes and 37
   deliberate mutation probes. the aggregate check runs comparison and mutation detection,
   not just the migrated tests. four named PWA parser/URL deltas are explicit and cannot
   exempt gameplay, content, saves or audio.

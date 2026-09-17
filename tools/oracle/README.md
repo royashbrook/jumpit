@@ -36,8 +36,21 @@ node tools/oracle/equivalence.mjs  # reproduce the equivalent-mutant evidence
 
 All three build a temporary git worktree of the reference, so they need that commit locally. In
 Actions use `actions/checkout` with `fetch-depth: 0`. Every run first checks the reference recording
-against a pinned hash, so a change in the recorder or the runtime fails loudly instead of being read
-as a port difference. The hash reproduces on node 22 and node 26.
+against a platform-specific pinned hash, so a change in the recorder or the runtime fails loudly
+instead of being read as a port difference. Unknown platforms fail with their measured hash.
+
+The original release produces `31548e20…` on macOS ARM64 (Node 22.23.2 and 26.8.2), but
+`e4d76725…` on Linux x64 (Node 22.23.2, pinned in CI). The 697-frame market-1 diagnostic found
+one state difference: at frame 179, moth-a's y is `407a4320f6a5ab2d` versus `407a4320f6a5ab2e`
+in IEEE-754 bits. Sine differs by one ulp at 11 sampled moth arguments, only one of which survives
+the position arithmetic. Player state and event types match every frame. This is a difference in
+the original release, not a port change. [JavaScript permits implementation-approximated sine](https://tc39.es/ecma262/multipage/numbers-and-dates.html#sec-math.sin).
+The compiler-level cause is not established. `fingerprint.mjs` and `market1-diag.mjs` retain the
+diagnostics, and `reference.mjs` names the original-tree runs that measured each full hash.
+
+No coordinates are rounded, no trajectory is omitted, and no gameplay delta is allowed. The
+current and original trees still record on the same runtime and compare every recorded leaf
+exactly. Tests reject crossed pins, changed hashes and unknown platform keys.
 
 ## rules
 
