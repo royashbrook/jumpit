@@ -2,33 +2,47 @@ name: deploy jumpit.royashbrook.com
 
 on:
   workflow_dispatch:
-  push:
+  workflow_run:
+    workflows: [functional]
     branches: [main]
+    types: [completed]
 
 permissions:
   contents: read
 
 concurrency:
-  group: jumpit-cloudflare-${{ github.ref }}
-  cancel-in-progress: true
+  group: jumpit-cloudflare
+  cancel-in-progress: false
 
 jobs:
   deploy:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      RELEASE_BUILD: '1'
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # A late older check must validate the current tip, not cancel its deployment.
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium webkit
       - run: npm run check
-      - name: verify release artifact
+      - name: refuse a superseded release
         run: |
-          test -f build/index.html
-          test -f build/sw.js
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
       - name: deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

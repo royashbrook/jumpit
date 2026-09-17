@@ -1,0 +1,6 @@
+[
+  {
+    "mutant": ["onewayTolerance", "engine/physics.js", "previousBottom <= rect.y + 1 &&", "previousBottom <= rect.y + 2 &&"],
+    "evidence": "node tools/oracle/equivalence.mjs: 400000 randomized differential trials, half placed on the one-way tolerance band, 0 differing steps. The second guard (previousBottom > rect.y + 1) masks this bound. The both-sites mutant onewayToleranceBoth is scored in mutants.json and detected."
+  }
+]

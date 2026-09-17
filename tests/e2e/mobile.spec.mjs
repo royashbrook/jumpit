@@ -1,6 +1,6 @@
 import { expect, test } from 'playwright/test'
-import { dailyChallenge } from '../../daily.js'
-import { LEVELS } from '../../levels.js'
+import { dailyChallenge } from '../../src/daily.ts'
+import { LEVELS } from '../../src/levels.ts'
 
 test('portrait entry requires landscape before exposing the one-action Home', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
@@ -503,9 +503,14 @@ test('the portrait trail gate has a direct, stopped exit to Home', async ({ page
 
 test('two-times text and phone safe-area insets keep menu and play inside the viewport', async ({ page }) => {
   await page.setViewportSize({ width: 844, height: 390 })
-  await page.route('**/app.css*', async route => {
+  let patchedStylesheets = 0
+  await page.route(url => url.pathname.endsWith('.css'), async route => {
     const response = await route.fetch()
-    const css = (await response.text())
+    const original = await response.text()
+    if (['top', 'right', 'bottom', 'left'].every(side => original.includes(`env(safe-area-inset-${side})`))) {
+      patchedStylesheets += 1
+    }
+    const css = original
       .replaceAll('env(safe-area-inset-top)', '19px')
       .replaceAll('env(safe-area-inset-right)', '47px')
       .replaceAll('env(safe-area-inset-bottom)', '21px')
@@ -513,6 +518,7 @@ test('two-times text and phone safe-area insets keep menu and play inside the vi
     await route.fulfill({ response, body: `${css}\nhtml { font-size: 200%; }\n` })
   })
   await page.goto('/')
+  expect(patchedStylesheets, 'the emitted app stylesheet must receive all four safe-area overrides').toBe(1)
 
   const menuFit = await page.evaluate(() => {
     const body = getComputedStyle(document.body)

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { challengeWon, dailyChallenge, DAILY_CHALLENGES } from '../daily.js'
-import { LEVELS } from '../levels.js'
+import { challengeWon, dailyChallenge, DAILY_CHALLENGES } from '../src/daily.ts'
+import { LEVELS } from '../src/levels.ts'
 
 test('a shared seed always selects the same authored released challenge', () => {
   const first = dailyChallenge(20260826)

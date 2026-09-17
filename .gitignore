@@ -1,5 +1,7 @@
 node_modules/
 build/
+.build-public/
+build-harness/
 test-results/
 playwright-report/
 .DS_Store

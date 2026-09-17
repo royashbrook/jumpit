@@ -4,18 +4,31 @@
   "version": "2.0.0",
   "description": "An original mobile-first storybook platform game for kids.",
   "type": "module",
+  "engines": { "node": ">=22.18" },
   "scripts": {
-    "serve": "node tools/serve.mjs .",
-    "test": "node --test",
-    "test:e2e": "playwright test",
-    "test:e2e:build": "npm run build && JUMPIT_ROOT=build playwright test",
+    "serve": "node tools/serve.mjs build 4391",
+    "dev": "vite",
+    "typecheck": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "test:e2e": "npm run build && node tools/build-harness.mjs && playwright test",
+    "test:e2e:build": "npm run test:e2e",
     "solvability": "node tools/solvability.mjs",
     "build": "node tools/build.mjs",
-    "check": "npm test && npm run test:e2e && npm run test:e2e:build"
+    "test:oracle": "node tools/oracle/run.mjs",
+    "test:mutations": "node tools/oracle/mutants.mjs",
+    "check": "npm run typecheck && npm test && npm run test:oracle && npm run test:mutations && npm run test:e2e"
   },
   "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "7.2.0",
+    "@types/node": "22.19.19",
     "esbuild": "^0.28.1",
-    "playwright": "^1.56.0",
-    "wrangler": "^4.126.0"
+    "playwright": "1.62.1",
+    "svelte-check": "4.7.3",
+    "typescript": "6.0.3",
+    "vite": "8.1.5",
+    "wrangler": "4.133.0"
+  },
+  "dependencies": {
+    "svelte": "5.56.8"
   }
 }

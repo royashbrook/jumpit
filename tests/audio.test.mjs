@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createAudio } from '../audio.js'
+import { createAudio } from '../src/audio.ts'
 
 function fakeContext() {
   const starts = []
@@ -147,4 +147,81 @@ test('an immediate gesture waits for an in-flight background suspension before r
   await Promise.all([hiding, waking])
   assert.equal(context.state, 'running')
   assert.deepEqual(context.calls, ['resume', 'suspend', 'resume'])
+})
+
+test('disposing audio before a gesture never creates a context or writes preferences', async () => {
+  let created = 0
+  const writes = []
+  const audio = createAudio({
+    contextFactory: () => { created += 1; return fakeContext() },
+    writeMuted: value => writes.push(value),
+  })
+  await audio.dispose()
+  assert.equal(await audio.startFromGesture(), false)
+  assert.equal(await audio.suspend(), false)
+  assert.equal(audio.cue('jump'), false)
+  assert.equal(audio.setMusicPlaying(true), false)
+  assert.equal(audio.setMuted(true), false)
+  assert.equal(created, 0)
+  assert.deepEqual(writes, [])
+})
+
+test('audio disposal silences the mix, stops its loop, and closes only once', async () => {
+  const context = fakeContext()
+  const audio = createAudio({ contextFactory: () => context })
+  audio.setMusicPlaying(true)
+  await audio.startFromGesture()
+  assert.equal(audio.cue('jump'), true)
+  const starts = context.starts.length
+  await audio.dispose()
+  await audio.dispose()
+  await audio.stop()
+  assert.equal(context.sources[0].stopped, true)
+  assert.deepEqual(context.gains.map(gain => gain.gain.value), [0, 0, 0, 0])
+  assert.deepEqual(context.calls, ['resume', 'close'])
+  assert.equal(await audio.startFromGesture(), false)
+  assert.equal(audio.cue('seed'), false)
+  assert.equal(audio.setMusicPlaying(true), false)
+  assert.equal(context.starts.length, starts)
+})
+
+test('disposing during background suspension prevents the queued gesture from resuming', async () => {
+  const context = fakeContext()
+  let finishSuspend
+  context.suspend = function () {
+    this.calls.push('suspend')
+    return new Promise(resolve => { finishSuspend = () => { this.state = 'suspended'; resolve() } })
+  }
+  const audio = createAudio({ contextFactory: () => context })
+  await audio.startFromGesture()
+  const hiding = audio.suspend()
+  const waking = audio.startFromGesture()
+  await audio.dispose()
+  finishSuspend()
+  assert.deepEqual(await Promise.all([hiding, waking]), [false, false])
+  assert.deepEqual(context.calls, ['resume', 'suspend', 'close'])
+  assert.equal(context.sources.length, 0)
+})
+
+test('disposing during resume prevents late audio work and contains a failed close', async () => {
+  const context = fakeContext()
+  let finishResume
+  context.resume = function () {
+    this.calls.push('resume')
+    return new Promise(resolve => { finishResume = () => { this.state = 'running'; resolve() } })
+  }
+  context.close = function () {
+    this.calls.push('close')
+    return Promise.reject(new Error('audio device unavailable'))
+  }
+  const audio = createAudio({ contextFactory: () => context })
+  audio.setMusicPlaying(true)
+  const waking = audio.startFromGesture()
+  await audio.dispose()
+  finishResume()
+  assert.equal(await waking, false)
+  assert.equal(audio.cue('seed'), false)
+  assert.equal(context.sources.length, 0)
+  assert.deepEqual(context.gains.map(gain => gain.gain.value), [0, 0])
+  assert.deepEqual(context.calls, ['resume', 'close'])
 })

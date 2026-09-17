@@ -1,59 +1,7 @@
 import { expect, test } from 'playwright/test'
-import { dailyChallenge } from '../../daily.js'
-import { LEVELS } from '../../levels.js'
-
-const lifecycleAudioStub = `
-export function createAudio() {
-  const mark = value => { document.documentElement.dataset.audioState = value }
-  const markMusic = value => { document.documentElement.dataset.musicState = value ? 'playing' : 'paused' }
-  return {
-    startFromGesture() { mark('running'); return Promise.resolve(true) },
-    suspend() { mark('suspended'); return Promise.resolve(true) },
-    cue(name) {
-      const cues = JSON.parse(document.documentElement.dataset.audioCues || '[]')
-      cues.push(name)
-      document.documentElement.dataset.audioCues = JSON.stringify(cues)
-      return true
-    },
-    setMusicPlaying(value) { markMusic(value); return value },
-    setMuted(value) { return value }, isMuted() { return false }, stop() {},
-  }
-}
-`
-
-const lifecycleGameStub = `
-export function createGame(_canvas, onState = () => {}, onCue = () => {}) {
-  let finished = false
-  let paused = false
-  const report = message => {
-    document.documentElement.dataset.lifecycleGameState = finished ? 'finished' : paused ? 'paused' : 'running'
-    onState({
-      levelId: 'garden-1', levelName: 'Dewdrop Dash', regionName: 'Garden Walk',
-      seeds: document.documentElement.dataset.perfectFinish === 'armed' ? 99 : 0,
-      maxSeeds: document.documentElement.dataset.perfectFinish === 'armed' ? 99 : 3,
-      paused, finished, message,
-    })
-  }
-  const start = () => { finished = false; paused = false; report('') }
-  return {
-    start, restart: start, stop() {}, resize() {}, clearInput() {},
-    setInput(action, value) {
-      if (document.documentElement.dataset.finishOnRight !== 'armed' || action !== 'right' || !value || finished) return
-      finished = true
-      onCue('finish')
-      report('TRAIL CLEARED!')
-    },
-    togglePause() { paused = !paused; onCue('pause'); report(paused ? 'PAUSED' : 'GO!'); return paused },
-    pause() {
-      if (paused || finished) return paused
-      paused = true
-      onCue('pause')
-      report('PAUSED')
-      return paused
-    },
-  }
-}
-`
+import { openHarness } from '../harness/open.mjs'
+import { dailyChallenge } from '../../src/daily.ts'
+import { LEVELS } from '../../src/levels.ts'
 
 test('theme selection survives reload and remount', async ({ page, context }) => {
   await page.goto('/')
@@ -137,8 +85,6 @@ test('a shared seed previews its deterministic challenge without touching campai
 })
 
 test('a perfect challenge earns its stamp without minting a campaign Gold Bell', async ({ page }) => {
-  await page.route('**/game.js*', route => route.fulfill({ contentType: 'text/javascript', body: lifecycleGameStub }))
-  await page.route('**/audio.js*', route => route.fulfill({ contentType: 'text/javascript', body: lifecycleAudioStub }))
   // A fixed seed with its trail unlocked: a locked challenge trail no longer starts.
   await page.addInitScript(() => localStorage.setItem('jumpit-save-v1', JSON.stringify({
     version: 3,
@@ -151,7 +97,7 @@ test('a perfect challenge earns its stamp without minting a campaign Gold Bell',
     dailyWins: [],
     hiddenLights: [],
   })))
-  await page.goto('/?seed=20260909')
+  await openHarness(page, { game: 'lifecycle', audio: 'lifecycle', seed: '20260909' })
   await page.getByRole('button', { name: 'MORE' }).click()
   await expect(page.locator('#daily-title')).toHaveText('SEEDLING SPRINT')
   await page.locator('html').evaluate(element => {
@@ -240,9 +186,7 @@ test('the iOS install hint cannot overwrite the normal gameplay help', async ({ 
 })
 
 test('blur, pagehide, and hidden visibility pause, release input, and wait for explicit audio resume', async ({ page }) => {
-  await page.route('**/audio.js*', route => route.fulfill({ contentType: 'text/javascript', body: lifecycleAudioStub }))
-  await page.route('**/game.js*', route => route.fulfill({ contentType: 'text/javascript', body: lifecycleGameStub }))
-  await page.goto('/')
+  await openHarness(page, { audio: 'lifecycle', game: 'lifecycle' })
   await page.getByRole('button', { name: 'PLAY THE TRAIL' }).dispatchEvent('click')
   await expect(page.locator('html')).toHaveAttribute('data-lifecycle-game-state', 'running')
   await expect(page.locator('html')).toHaveAttribute('data-audio-state', 'running')
@@ -303,8 +247,7 @@ test('blur, pagehide, and hidden visibility pause, release input, and wait for e
 })
 
 test('keyboard pause and resume never leak a jump into the real game', async ({ page }) => {
-  await page.route('**/audio.js*', route => route.fulfill({ contentType: 'text/javascript', body: lifecycleAudioStub }))
-  await page.goto('/')
+  await openHarness(page, { audio: 'lifecycle' })
   await page.getByRole('button', { name: 'PLAY THE TRAIL' }).dispatchEvent('click')
   await page.getByRole('button', { name: 'pause game' }).click()
   const resume = page.getByRole('button', { name: 'KEEP GOING' })
@@ -326,9 +269,7 @@ test('keyboard pause and resume never leak a jump into the real game', async ({ 
 })
 
 test('music stops at Home and when the trail finishes', async ({ page }) => {
-  await page.route('**/audio.js*', route => route.fulfill({ contentType: 'text/javascript', body: lifecycleAudioStub }))
-  await page.route('**/game.js*', route => route.fulfill({ contentType: 'text/javascript', body: lifecycleGameStub }))
-  await page.goto('/')
+  await openHarness(page, { audio: 'lifecycle', game: 'lifecycle' })
   await page.getByRole('button', { name: 'PLAY THE TRAIL' }).dispatchEvent('click')
   await expect(page.locator('html')).toHaveAttribute('data-music-state', 'playing')
 
@@ -349,8 +290,7 @@ test('music stops at Home and when the trail finishes', async ({ page }) => {
 })
 
 test('a right-side jump on the interruption frame cannot fire after explicit resume', async ({ page }) => {
-  await page.route('**/audio.js*', route => route.fulfill({ contentType: 'text/javascript', body: lifecycleAudioStub }))
-  await page.goto('/')
+  await openHarness(page, { audio: 'lifecycle' })
   await page.getByRole('button', { name: 'PLAY THE TRAIL' }).dispatchEvent('click')
   await page.evaluate(() => {
     document.querySelector('#jump').dispatchEvent(new PointerEvent('pointerdown', {
@@ -366,4 +306,91 @@ test('a right-side jump on the interruption frame cannot fire after explicit res
   const cues = await page.evaluate(() => JSON.parse(document.documentElement.dataset.audioCues || '[]'))
   expect(cues).toContain('pause')
   expect(cues).not.toContain('jump')
+})
+
+test('unmount cancels a queued trail start before a fresh shell mounts', async ({ page }) => {
+  await openHarness(page, { game: 'input', audio: 'lifecycle' })
+  await page.evaluate(async () => {
+    document.querySelector('#play').click()
+    await window.jumpitHarness.unmount()
+  })
+  await expect(page.locator('#app')).toBeEmpty()
+  await expect(page.locator('html')).toHaveAttribute('data-harness-game-destroyed', '1')
+  await expect(page.locator('html')).toHaveAttribute('data-harness-audio-disposed', '1')
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+  expect(await page.locator('html').getAttribute('data-harness-game-starts')).toBeNull()
+  expect(await page.evaluate(() => JSON.parse(document.documentElement.dataset.audioCues || '[]'))).not.toContain('start')
+
+  await page.evaluate(() => window.jumpitHarness.mount())
+  await expect(page.locator('html')).toHaveAttribute('data-harness-game-calls', '2')
+  await expect(page.locator('html')).toHaveAttribute('data-harness-audio-calls', '2')
+  await page.getByRole('button', { name: 'PLAY THE TRAIL' }).dispatchEvent('click')
+  await expect(page.locator('#stage')).toBeVisible()
+  await expect(page.locator('html')).toHaveAttribute('data-harness-game-starts', '1')
+  await page.evaluate(async () => {
+    await window.jumpitHarness.unmount()
+    await window.jumpitHarness.unmount()
+  })
+  await expect(page.locator('#app')).toBeEmpty()
+  await expect(page.locator('html')).toHaveAttribute('data-harness-game-destroyed', '2')
+  await expect(page.locator('html')).toHaveAttribute('data-harness-audio-disposed', '2')
+})
+
+test('unmount releases controls and listeners, closes dialogs, and remounts without duplicate input', async ({ page }) => {
+  await openHarness(page, { game: 'input', audio: 'lifecycle' })
+  await page.getByRole('button', { name: 'PLAY THE TRAIL' }).dispatchEvent('click')
+  await expect(page.locator('#stage')).toBeVisible()
+  const oldStage = await page.locator('#stage').elementHandle()
+  const oldDirectionZone = await page.locator('#direction-zone').elementHandle()
+  await page.evaluate(async () => {
+    // Assistive activation arms the real shell's delayed input-release timer.
+    document.querySelector('#move-right').click()
+    await window.jumpitHarness.unmount()
+  })
+  await expect(page.locator('#app')).toBeEmpty()
+  expect(await oldStage.evaluate(node => node.isConnected)).toBe(false)
+  expect(await oldDirectionZone.evaluate(node => node.dispatchEvent(new MouseEvent('click', { cancelable: true })))).toBe(true)
+  await expect(page.locator('html')).toHaveAttribute('data-harness-game-destroyed', '1')
+  await expect(page.locator('html')).toHaveAttribute('data-harness-audio-disposed', '1')
+  const released = await page.evaluate(() => JSON.parse(document.documentElement.dataset.inputEvents || '[]'))
+  expect(released).toContain('right:true')
+  expect(released.at(-1)).toBe('jump:false')
+  expect(released.lastIndexOf('right:false')).toBeGreaterThan(released.lastIndexOf('right:true'))
+  await page.keyboard.press('Space')
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event('blur'))
+    window.dispatchEvent(new Event('pagehide'))
+    window.dispatchEvent(new Event('resize'))
+    window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 51 }))
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+  await page.waitForTimeout(160)
+  expect(await page.evaluate(() => JSON.parse(document.documentElement.dataset.inputEvents || '[]'))).toEqual(released)
+
+  await page.evaluate(() => window.jumpitHarness.mount())
+  await expect(page.locator('html')).toHaveAttribute('data-harness-game-calls', '2')
+  await expect(page.locator('html')).toHaveAttribute('data-harness-audio-calls', '2')
+  await page.getByRole('button', { name: 'PLAY THE TRAIL' }).dispatchEvent('click')
+  await expect(page.locator('#stage')).toBeVisible()
+  await expect(page.locator('#pause')).toBeFocused()
+  await page.evaluate(() => {
+    document.activeElement.blur()
+    document.documentElement.dataset.inputEvents = '[]'
+  })
+  await page.keyboard.press('Space')
+  expect(await page.evaluate(() => JSON.parse(document.documentElement.dataset.inputEvents || '[]'))).toEqual(['jump:true', 'jump:false'])
+  await page.evaluate(() => { document.documentElement.dataset.inputEvents = '[]' })
+  await page.dispatchEvent('#move-right', 'pointerdown', { pointerId: 52, pointerType: 'touch', isPrimary: true, buttons: 1 })
+  await page.dispatchEvent('#move-right', 'pointerup', { pointerId: 52, pointerType: 'touch', isPrimary: true, buttons: 0 })
+  expect(await page.evaluate(() => JSON.parse(document.documentElement.dataset.inputEvents || '[]'))).toEqual(['right:true', 'right:false'])
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(page.locator('#rotate-device')).toBeVisible()
+  await expect(page.locator('body')).toHaveClass(/orientation-blocked/)
+  await page.evaluate(() => window.jumpitHarness.unmount())
+  await expect(page.locator('#app')).toBeEmpty()
+  await expect(page.locator('dialog[open]')).toHaveCount(0)
+  await expect(page.locator('body')).not.toHaveClass(/orientation-blocked/)
+  await expect(page.locator('html')).toHaveAttribute('data-harness-game-destroyed', '2')
+  await expect(page.locator('html')).toHaveAttribute('data-harness-audio-disposed', '2')
 })

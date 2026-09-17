@@ -24,14 +24,27 @@ no Nintendo characters, names, art, music, sounds, trade dress, or copied maps.
 
 ## Local
 
+Development uses Svelte 5, strict TypeScript and Vite on Node 22.18 or newer. The canvas
+renderer and fixed-step game simulation remain separate from the UI. The migration status
+and compatibility evidence are in [docs/migration.md](docs/migration.md).
+
 ```sh
-npm install
-npm run serve
+npm ci
+npm run dev
 npm test
 npm run test:e2e
+npm run check
 npm run build
+npm run serve
 ```
 
-The release history begins at `v0.0.0` and advances only when the corresponding
-verified increment is real. The full roadmap and acceptance evidence live in
-`docs/ROADMAP.md`.
+`serve` opens the built artifact on port 4391. Browser tests use the production artifact
+there and an isolated test-only shell on port 4392, override them with `JUMPIT_PORT` and
+`JUMPIT_HARNESS_PORT` when running a second checkout. The test shell never ships.
+
+Historical tags remain unchanged. New releases use `vMAJOR.MINOR` milestone tags on the
+first-parent history, with the patch equal to every commit since the milestone. Local builds
+carry `-dev`; `RELEASE_BUILD=1 npm run build` refuses a dirty or shallow checkout or missing
+milestone. The build records exact source and content identity in `version.json`. Both
+deployment paths check strict types, emitted files, unit regressions and Chromium/WebKit
+before publishing the current main tip. The full roadmap remains in `docs/ROADMAP.md`.

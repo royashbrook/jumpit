@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { LEVELS } from '../levels.js'
-import { createRelease } from '../release.js'
+import { LEVELS } from '../src/levels.ts'
+import { createRelease } from '../src/release.ts'
 
 test('the v1.5 release opens the complete twenty-trail campaign', () => {
   const release = createRelease(LEVELS, 20)

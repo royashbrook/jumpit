@@ -1,0 +1,15 @@
+{
+  "physics": "src/engine/physics.ts",
+  "simulation": "src/engine/simulation.ts",
+  "solvability": "src/engine/solvability.ts",
+  "levels": "src/levels.ts",
+  "save": "src/save.ts",
+  "seed": "src/seed.ts",
+  "daily": "src/daily.ts",
+  "release": "src/release.ts",
+  "audio": "src/audio.ts",
+  "manifest": "manifest.json",
+  "index": "build/index.html",
+  "worker": "build/sw.js",
+  "stateFixture": "tests/fixtures/v2.0-preview/state.json"
+}

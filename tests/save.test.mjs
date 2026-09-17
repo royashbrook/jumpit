@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { LEVELS } from '../levels.js'
+import { LEVELS } from '../src/levels.ts'
 import {
   createSaveStore,
   DAILY_WIN_LIMIT,
@@ -9,7 +9,7 @@ import {
   loadSave,
   SAVE_KEY,
   SAVE_VERSION,
-} from '../save.js'
+} from '../src/save.ts'
 
 function memoryStorage(initial = null) {
   let value = initial
@@ -67,6 +67,46 @@ test('blocked or corrupt storage falls back without breaking play', () => {
   assert.deepEqual(store.get(), freshSave())
   assert.doesNotThrow(() => store.completeLevel('garden-1', 4, 'garden-2'))
   assert.equal(store.get().selectedLevel, 'garden-2')
+})
+
+test('a denied localStorage getter boots an in-memory save and still reports progress', () => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    get() { throw new Error('storage access denied') },
+  })
+  try {
+    assert.deepEqual(loadSave(), freshSave())
+    const changes = []
+    const store = createSaveStore({ onChange: next => changes.push(next) })
+    store.completeLevel('garden-1', 3, 'garden-2')
+    assert.equal(store.get().selectedLevel, 'garden-2')
+    assert.equal(changes.length, 1)
+    assert.equal(changes[0].bestSeeds['garden-1'], 3)
+    store.requestReset()
+    store.reset()
+    assert.deepEqual(store.get(), freshSave())
+  } finally {
+    if (original) Object.defineProperty(globalThis, 'localStorage', original)
+    else delete globalThis.localStorage
+  }
+})
+
+test('save snapshots and change notifications cannot mutate stored progress', () => {
+  const changes = []
+  const store = createSaveStore({ storage: memoryStorage(), onChange: next => changes.push(next) })
+  store.completeLevel('garden-1', 3, 'garden-2')
+  const snapshot = store.get()
+  snapshot.completed.push('keep-4')
+  snapshot.unlocked.length = 0
+  snapshot.bestSeeds['garden-1'] = 0
+  snapshot.dailyWins.push(20260101)
+  snapshot.hiddenLights.push('not-a-light')
+  changes[0].bestSeeds['garden-1'] = 1
+  assert.deepEqual(store.get(), {
+    ...freshSave(), completed: ['garden-1'], unlocked: ['garden-1', 'garden-2'],
+    bestSeeds: { 'garden-1': 3 }, selectedLevel: 'garden-2',
+  })
 })
 
 test('learning the controls is remembered once and cleared only by reset', () => {

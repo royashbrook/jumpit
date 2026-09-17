@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { recordHiddenLightReplay, recordReplay, replayLevel } from '../engine/solvability.js'
-import { createSimulation, enemyAttackLands, stepSimulation } from '../engine/simulation.js'
-import { LEVELS, TILE } from '../levels.js'
+import { recordHiddenLightReplay, recordReplay, replayLevel } from '../src/engine/solvability.ts'
+import { createSimulation, enemyAttackLands, stepSimulation } from '../src/engine/simulation.ts'
+import { LEVELS, TILE } from '../src/levels.ts'
 
 const level = id => LEVELS.find(item => item.id === id)
 const eventTypes = (simulation, input = {}) => stepSimulation(simulation, input).map(event => event.type)

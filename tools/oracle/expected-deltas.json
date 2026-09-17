@@ -1,0 +1,18 @@
+[
+  {
+    "leaf": "pwa.index.manifestHref",
+    "reason": "Vite emits ./manifest.json. It resolves to the same manifest at the origin root and under the supported subpath."
+  },
+  {
+    "leaf": "pwa.index.touchIcon",
+    "reason": "Vite emits ./icon-180.png. The URL resolves to the same unchanged icon."
+  },
+  {
+    "leaf": "pwa.cacheName",
+    "reason": "The old source-only regex cannot read the minified worker. Worker unit and installed-upgrade tests assert the actual jumpit-BUILD_ID message and full emitted precache."
+  },
+  {
+    "leaf": "pwa.cachePrefix",
+    "reason": "The old source-only regex cannot read the minified worker. Worker tests assert jumpit-only cleanup and preserve unrelated caches."
+  }
+]
