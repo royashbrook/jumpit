@@ -10,8 +10,7 @@ The campaign contains 20 trails across Garden Walk, Rooftop Rain,
 Workshop Loft, Lantern Market, and Beacon Keep. Its short First Light opening leads
 into five optional Hidden Lights, one in each place, without turning discovery into
 a gate or an up-front checklist. The seven canvas images ship as selectively loaded WebPs.
-One shared
-fixed-step transition powers live play, deterministic trail replays, and five separate
+One shared fixed-step transition powers live play, deterministic trail replays, and five separate
 discovery replays.
 
 Play at https://jumpit.royashbrook.com/.

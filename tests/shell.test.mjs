@@ -31,9 +31,10 @@ test('the emitted shell, compatibility version and worker share one build identi
   assert.match(await text('src/App.svelte'), /id="version"[^>]*>v\{VERSION\}<\/p>/)
 })
 
-test('the docs preserve the shipped landscape-only v2.0.0 release history', async () => {
+test('the docs describe the typed architecture and preserve landscape-only release history', async () => {
   const [readme, changelog, roadmap] = await Promise.all([text('README.md'), text('CHANGELOG.md'), text('docs/ROADMAP.md')])
-  assert.match(readme, /current v2\.0\.0 release/)
+  assert.match(readme, /The v2\.1 architecture/)
+  assert.match(readme, /Play at https:\/\/jumpit\.royashbrook\.com\//)
   assert.match(readme, /landscape only by design/)
   assert.doesNotMatch(readme, /Home works upright|release candidate|v1\.9 release/)
   assert.match(changelog, /^## 2\.0\.0: \d{4}-\d{2}-\d{2}$/m)
