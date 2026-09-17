@@ -99,6 +99,11 @@ paths stay documents; unknown offline paths fail rather than serving the game as
 document. old caches remain while old tabs are open and are retired only by a sole matching
 current client. the historical v1.5 bridge still runs once, retiring only its marker first.
 
+the shared house checker also found a pre-existing About defect in both artifacts: the three
+maker-mark links were only 15px tall. those links now own at least 44x44px each. a browser
+test fails before the CSS change in both engines and checks size plus hit ownership in
+portrait and landscape. this small touch-target change is separate from gameplay parity.
+
 the original root JS modules and stylesheet are superseded by `src/` and removed
 after import/test conversion. they remain recoverable at the baseline SHA and in the exact
 installed-client fixtures. the old minifier regression is retained while the release itself

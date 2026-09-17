@@ -1260,6 +1260,12 @@ dialog ol {
 }
 
 .maker-mark a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 44px;
+  min-block-size: 44px;
+  vertical-align: middle;
   color: var(--ink);
 }
 

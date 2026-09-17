@@ -2,6 +2,32 @@ import { expect, test } from 'playwright/test'
 import { dailyChallenge } from '../../src/daily.ts'
 import { LEVELS } from '../../src/levels.ts'
 
+test('About links own real 44px touch targets in portrait and landscape', async ({ page }) => {
+  for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
+    await page.setViewportSize(viewport)
+    await page.goto('/')
+    if (viewport.width < viewport.height) await page.locator('#rotate-about').click()
+    else {
+      await page.locator('[data-tab="more"]').click()
+      await page.locator('#about-open').click()
+    }
+    await expect(page.locator('#about')).toBeVisible()
+    const boxes = await page.locator('#about .maker-mark a').evaluateAll(links => links.map(link => {
+      const r = link.getBoundingClientRect()
+      const owns = [[.1, .1], [.9, .1], [.5, .5], [.1, .9], [.9, .9]].every(([x, y]) =>
+        link.contains(document.elementFromPoint(r.x + r.width * x, r.y + r.height * y)))
+      return { text: link.textContent, width: r.width, height: r.height, owns }
+    }))
+    expect(boxes).toHaveLength(3)
+    for (const box of boxes) {
+      expect(box.width, box.text).toBeGreaterThanOrEqual(44)
+      expect(box.height, box.text).toBeGreaterThanOrEqual(44)
+      expect(box.owns, box.text).toBe(true)
+    }
+    await page.locator('#about-close').click()
+  }
+})
+
 test('portrait entry requires landscape before exposing the one-action Home', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')

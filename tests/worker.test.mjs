@@ -181,7 +181,8 @@ test('activation without the exact v1.5 marker preserves old caches and never re
 
 test('only the sole scoped owner acknowledging the current generation retires old Jumpit caches', async () => {
   const owner = { id: 'current', url: scope }
-  const worker = workerWith({ keys: [generation, ...oldGenerations, 'sibling-game-v4'], clients: [owner] })
+  const neighbors = ['sibling-game-v4', 'jumpit', 'jumpitfoo', 'jumpit_other', 'xjumpit-v1']
+  const worker = workerWith({ keys: [generation, ...oldGenerations, ...neighbors], clients: [owner] })
   await worker.dispatch('message', { data: { type: 'CLIENT_GENERATION', generation }, source: owner })
   assert.deepEqual(worker.state.deleted, oldGenerations)
   assert.deepEqual(worker.state.navigated, [])
