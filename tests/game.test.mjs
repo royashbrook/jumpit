@@ -25,9 +25,9 @@ import {
   sparkGlowBright,
   strikeEnemy,
   verticalCameraTarget,
-} from '../game.js'
-import { createBody } from '../engine/physics.js'
-import { LEVELS, TILE } from '../levels.js'
+} from '../src/game.ts'
+import { createBody } from '../src/engine/physics.ts'
+import { LEVELS, TILE } from '../src/levels.ts'
 
 test('the checkpoint becomes the courier restart point exactly once', () => {
   const world = makeWorld(LEVELS[0])

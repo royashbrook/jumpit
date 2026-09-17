@@ -8,9 +8,26 @@ import {
   TILE,
   assertCampaign,
   validateCampaign,
-} from '../levels.js'
+} from '../src/levels.ts'
 
 const copy = () => structuredClone(LEVELS)
+
+test('unknown campaign inputs retain the original validation messages and defaults', () => {
+  assert.deepEqual(validateCampaign(undefined), [])
+  assert.equal(assertCampaign(undefined), LEVELS)
+  for (const value of [null, false, 0, '', {}]) {
+    assert.deepEqual(validateCampaign(value), ['campaign must be an array'])
+  }
+  assert.deepEqual(validateCampaign([]), [
+    'campaign must contain 20 levels',
+    ...REGIONS.map(region => `${region.name}: needs exactly one hidden light, found 0`),
+  ])
+  for (const value of [null, false, 0, '', [], undefined]) {
+    const campaign = copy()
+    campaign[0] = value
+    assert.deepEqual(validateCampaign(campaign), ['level 1: level must be an object'])
+  }
+})
 
 test('the v2 campaign is twenty authored levels across five ordered places', () => {
   assert.equal(TILE, 32)

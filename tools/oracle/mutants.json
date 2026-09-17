@@ -1,0 +1,232 @@
+[
+ [
+  "gravity",
+  "engine/physics.js",
+  "  gravity: 0.62,",
+  "  gravity: 0.6201,"
+ ],
+ [
+  "jumpSpeed",
+  "engine/physics.js",
+  "  jumpSpeed: 11.8,",
+  "  jumpSpeed: 11.79,"
+ ],
+ [
+  "coyoteFrames",
+  "engine/physics.js",
+  "  coyoteFrames: 6,",
+  "  coyoteFrames: 5,"
+ ],
+ [
+  "bufferFrames",
+  "engine/physics.js",
+  "  bufferFrames: 8,",
+  "  bufferFrames: 7,"
+ ],
+ [
+  "landingGrace",
+  "engine/physics.js",
+  "  landingGrace: 6,",
+  "  landingGrace: 5,"
+ ],
+ [
+  "hSubstep",
+  "engine/physics.js",
+  "Math.ceil(Math.abs(amount) / 8))\n  const step = amount / steps\n  for (let index = 0; index < steps; index += 1) {\n    body.x += step",
+  "Math.ceil(Math.abs(amount) / 9))\n  const step = amount / steps\n  for (let index = 0; index < steps; index += 1) {\n    body.x += step"
+ ],
+ [
+  "vSubstep",
+  "engine/physics.js",
+  "Math.ceil(Math.abs(amount) / 8))\n  const step = amount / steps\n  body.onGround = false",
+  "Math.ceil(Math.abs(amount) / 9))\n  const step = amount / steps\n  body.onGround = false"
+ ],
+ [
+  "frictionStop",
+  "engine/physics.js",
+  "Math.abs(body.vx) < 0.08",
+  "Math.abs(body.vx) < 0.081"
+ ],
+ [
+  "stompWindow",
+  "engine/physics.js",
+  "Math.max(12, player.vy + 4)",
+  "Math.max(13, player.vy + 4)"
+ ],
+ [
+  "runPose",
+  "engine/physics.js",
+  "Math.abs(body.vx) > 0.35",
+  "Math.abs(body.vx) > 0.36"
+ ],
+ [
+  "slickFriction",
+  "engine/simulation.js",
+  "'slick' ? .94 : .74",
+  "'slick' ? .93 : .74"
+ ],
+ [
+  "belt",
+  "engine/simulation.js",
+  "player.x += .85",
+  "player.x += .86"
+ ],
+ [
+  "liftAmplitude",
+  "engine/simulation.js",
+  "rect.phase) * 24",
+  "rect.phase) * 23"
+ ],
+ [
+  "sparkFrames",
+  "engine/simulation.js",
+  "const SEED_SPARK_FRAMES = 240",
+  "const SEED_SPARK_FRAMES = 239"
+ ],
+ [
+  "invulnerable",
+  "engine/simulation.js",
+  "enemy.invulnerable = 22",
+  "enemy.invulnerable = 21"
+ ],
+ [
+  "wardenBounce",
+  "engine/simulation.js",
+  "'warden' ? -9.2 : -7.8",
+  "'warden' ? -9.1 : -7.8"
+ ],
+ [
+  "spring",
+  "engine/simulation.js",
+  "player.vy = -13.2",
+  "player.vy = -13.1"
+ ],
+ [
+  "fan",
+  "engine/simulation.js",
+  "player.vy - .48",
+  "player.vy - .47"
+ ],
+ [
+  "crumble",
+  "engine/simulation.js",
+  "rect.timer > 42",
+  "rect.timer > 43"
+ ],
+ [
+  "mothlight",
+  "engine/simulation.js",
+  "enemy.home) * 15",
+  "enemy.home) * 16"
+ ],
+ [
+  "patrolTurn",
+  "engine/simulation.js",
+  "if (enemy.x <= left && enemy.vx < 0)",
+  "if (enemy.x < left && enemy.vx < 0)"
+ ],
+ [
+  "fallReset",
+  "engine/simulation.js",
+  "world.height + 96",
+  "world.height + 97"
+ ],
+ [
+  "checkpointX",
+  "engine/simulation.js",
+  "player.spawnX = checkpoint.x - player.w / 2",
+  "player.spawnX = checkpoint.x - player.w / 2 + 1"
+ ],
+ [
+  "migrateControls",
+  "save.js",
+  "clean.controlsLearned = value.controlsLearned === true",
+  "clean.controlsLearned = Boolean(value.controlsLearned)"
+ ],
+ [
+  "migrateSelect",
+  "save.js",
+  "clean.unlocked.includes(value.selectedLevel)) clean.selectedLevel",
+  "true) clean.selectedLevel"
+ ],
+ [
+  "resetUnarmed",
+  "save.js",
+  "      if (!armed) return false\n      state = freshSave()",
+  "      state = freshSave()"
+ ],
+ [
+  "dailyLimit",
+  "save.js",
+  "export const DAILY_WIN_LIMIT = 14",
+  "export const DAILY_WIN_LIMIT = 15"
+ ],
+ [
+  "rngConstant",
+  "seed.js",
+  "0x6d2b79f5",
+  "0x6d2b79f6"
+ ],
+ [
+  "dailySeedMonth",
+  "seed.js",
+  "const m = date.getMonth() + 1",
+  "const m = date.getMonth()"
+ ],
+ [
+  "dailyPick",
+  "daily.js",
+  "Math.floor(random() * DAILY_CHALLENGES.length)",
+  "Math.round(random() * (DAILY_CHALLENGES.length - 1))"
+ ],
+ [
+  "releaseFallback",
+  "release.js",
+  "for (let index = released.length - 1; index >= 0; index -= 1)",
+  "for (let index = 0; index < released.length; index += 1)"
+ ],
+ [
+  "musicStep",
+  "audio.js",
+  "const MUSIC_STEP = .255",
+  "const MUSIC_STEP = .256"
+ ],
+ [
+  "cueAttack",
+  "audio.js",
+  "start + .012)",
+  "start + .013)"
+ ],
+ [
+  "cueTail",
+  "audio.js",
+  "start + duration + .02)",
+  "start + duration + .021)"
+ ],
+ [
+  "validatorMessage",
+  "levels.js",
+  "name must be present",
+  "name must exist"
+ ],
+ [
+  "themeColor",
+  "manifest.json",
+  "\"theme_color\": \"#0F6F6A\"",
+  "\"theme_color\": \"#0F6F6B\""
+ ],
+ [
+  "onewayToleranceBoth",
+  "engine/physics.js",
+  [
+   [
+    "previousBottom <= rect.y + 1 &&",
+    "previousBottom <= rect.y + 2 &&"
+   ],
+   [
+    "previousBottom > rect.y + 1))",
+    "previousBottom > rect.y + 2))"
+   ]
+  ]
+ ]
+]

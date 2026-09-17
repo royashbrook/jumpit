@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
-const skip = new Set(['.git', 'build', 'node_modules', 'playwright-report', 'test-results'])
+const skip = new Set(['.git', 'build', '.build-public', 'build-harness', 'node_modules', 'playwright-report', 'test-results'])
 
 async function publicText(dir = root) {
   const files = []
@@ -13,7 +13,7 @@ async function publicText(dir = root) {
     if (skip.has(entry.name)) continue
     const path = join(dir, entry.name)
     if (entry.isDirectory()) files.push(...await publicText(path))
-    else if (['.html', '.md'].includes(extname(path))) files.push(path)
+    else if (['.html', '.md', '.svelte'].includes(extname(path))) files.push(path)
   }
   return files
 }

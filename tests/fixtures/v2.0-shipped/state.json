@@ -1,0 +1,206 @@
+{
+  "sourceCommit": "25abd61230184517c85a7b5f381ad25988c81989",
+  "version": "2.0.0",
+  "cache": "jumpit-v2.0.0-r23",
+  "builder": "tools/build.mjs",
+  "esbuild": "0.28.1",
+  "note": "Historical source built without edits using its exact pinned esbuild version. Text files are preserved here byte-for-byte. Shared binary paths are read from the current artifact only after matching these SHA-256 values.",
+  "files": [
+    {
+      "file": "app.css",
+      "sha256": "21c12b4eddbeffcdca0975da9d2d93364fbf58c81e4b43a6a559f5a1f2989395",
+      "bytes": 27994,
+      "sourceBlob": "067be5f6b0117c8cf643434ca5946f8527287663",
+      "shared": false
+    },
+    {
+      "file": "app.js",
+      "sha256": "b7fe310825f67dc4673cb46e23d128941f07352783b5d8e864dd4b20829b2690",
+      "bytes": 25421,
+      "sourceBlob": "839b346a6b9fc6db186535463fac2921725c668d",
+      "shared": false
+    },
+    {
+      "file": "assets/backgrounds/final-atlas.webp",
+      "sha256": "3cca4c4867011c4760d37b3b6c5bedaeedc0ad52522fa36c1bd547caf7ca2cb8",
+      "bytes": 277730,
+      "sourceBlob": "218ea693ea46206e9d12877cc2b89231fefaa49b",
+      "shared": true
+    },
+    {
+      "file": "assets/backgrounds/garden-walk.webp",
+      "sha256": "3fba04ed21942cd8c11e11433f38e8c06ebac284bd9d1c84970ca4087530a633",
+      "bytes": 316416,
+      "sourceBlob": "680426aa91b7f1711cd8c4a758905312d07303e0",
+      "shared": true
+    },
+    {
+      "file": "assets/backgrounds/region-atlas.webp",
+      "sha256": "50555c7662ed97ce787b2d902ea8ede4f41c44483230a4cea86e19b1e17a7672",
+      "bytes": 234906,
+      "sourceBlob": "ac44eee258fc5e1e421f1c257177571a8b98c6d7",
+      "shared": true
+    },
+    {
+      "file": "assets/sprites/courier-sheet.webp",
+      "sha256": "e44ee26a2727c1a867d839ab22038b2731072e8574b78609a7a90c92cbffe66f",
+      "bytes": 300136,
+      "sourceBlob": "ce3ddee03ce9afed6ae56698dbafc5ad00df5fc5",
+      "shared": true
+    },
+    {
+      "file": "assets/sprites/final-sheet.webp",
+      "sha256": "48c2eb509b8fa26112c4d8098fd3090682ee0b26dd1d3b9d453aa2f27ca9e5d1",
+      "bytes": 368110,
+      "sourceBlob": "f0a64b57a470b989e8ce826409492f8cf9f78ce6",
+      "shared": true
+    },
+    {
+      "file": "assets/sprites/region-sheet.webp",
+      "sha256": "0b57968f734606138543bb231971bbd7eea84574a464572c808da6a4a222e1c4",
+      "bytes": 247544,
+      "sourceBlob": "fcfd6fc4025c768744baf3ded2be85726336bc2e",
+      "shared": true
+    },
+    {
+      "file": "assets/sprites/world-sheet.webp",
+      "sha256": "4cf75156d286193735bb05da42556c5239dec3ab8d974609b359c70eef606376",
+      "bytes": 359226,
+      "sourceBlob": "c0e141bafc7229ae40092f4cd5735ecd6f4df396",
+      "shared": true
+    },
+    {
+      "file": "audio.js",
+      "sha256": "246de884a54332c5daf049eea05435463fcd109b874161ba823669cdfab4166f",
+      "bytes": 4647,
+      "sourceBlob": "1345ecc01e4e2b9f8299a650db7e732eb71d56db",
+      "shared": false
+    },
+    {
+      "file": "daily.js",
+      "sha256": "d9e71df18a2558419a6628133f650ca8cd2f9fcc84c769a1e6809e612a32fc6c",
+      "bytes": 774,
+      "sourceBlob": "ca68424b38552e13de5053478a50e43426e355a2",
+      "shared": false
+    },
+    {
+      "file": "engine/physics.js",
+      "sha256": "e44dea8398797a1ff42f5072f021155833c0d21e9ba348aa7a585daf74171c03",
+      "bytes": 3146,
+      "sourceBlob": "8d873544a1d155a74974749612685133fa34f7db",
+      "shared": false
+    },
+    {
+      "file": "engine/simulation.js",
+      "sha256": "de9fd64e9e8ee118b62652e3ea1b19e6ebe683bfe7431208aff367fa55a03c0a",
+      "bytes": 10628,
+      "sourceBlob": "1543e58e7b643ca275e5011c4720900bfeecfa7c",
+      "shared": false
+    },
+    {
+      "file": "game.js",
+      "sha256": "f3f943729f05bc7c196ec8734916a4558ef665069552e887a52b6c3a38154242",
+      "bytes": 27512,
+      "sourceBlob": "1554cb0293ef2940771b88a4bbdd827e74afacf9",
+      "shared": false
+    },
+    {
+      "file": "icon-180.png",
+      "sha256": "40738e43031589ea15dbc732d0b405d4427e3e60f6e690f1aa142c15f4d0a6e3",
+      "bytes": 92541,
+      "sourceBlob": "2fb7753a1b504994de56b8ee3549af32f338bef6",
+      "shared": true
+    },
+    {
+      "file": "icon-192.png",
+      "sha256": "0ab5c53924495e8977ea3ac9c59079530a5f7e84f50e54a1536b458e4bfeff88",
+      "bytes": 103785,
+      "sourceBlob": "e7618c9f8649d1e39147f383119311ebbfa03b79",
+      "shared": true
+    },
+    {
+      "file": "icon-512.png",
+      "sha256": "ffd2bc20fdbad5ccab53f82070b285c1e34d41f91c96144ebe45516bb19384d2",
+      "bytes": 569472,
+      "sourceBlob": "5b8a5b72c68dd6e382c8ed637784bd6b2cf035c5",
+      "shared": true
+    },
+    {
+      "file": "icon-maskable-512.png",
+      "sha256": "ffd2bc20fdbad5ccab53f82070b285c1e34d41f91c96144ebe45516bb19384d2",
+      "bytes": 569472,
+      "sourceBlob": "5b8a5b72c68dd6e382c8ed637784bd6b2cf035c5",
+      "shared": true
+    },
+    {
+      "file": "index.html",
+      "sha256": "35980c8549749e0f3ddfce0ee37cae61fbaf878024d44bfd0c34e3cb3ba51d76",
+      "bytes": 10634,
+      "sourceBlob": "fe8208e2226f3007e36865dbcd2427189972ab5b",
+      "shared": false
+    },
+    {
+      "file": "install.js",
+      "sha256": "9ce0a036f4391b1160ede036855aa7dcb8e4555fcb417470c1488c87796dfe11",
+      "bytes": 1031,
+      "sourceBlob": "4a76b11e01a839377b56ac92bc589b21c1a3c706",
+      "shared": false
+    },
+    {
+      "file": "levels.js",
+      "sha256": "add302e4dfa53615949734a4e512f6b527a27b246f826724f4b9bb612e3dc685",
+      "bytes": 25692,
+      "sourceBlob": "7d00ed63709f46a555e224f23d678d35b6de10be",
+      "shared": false
+    },
+    {
+      "file": "manifest.json",
+      "sha256": "e358f6289fc3f8fd38e12d7085452c261863f8b9b17847daed5423af6584d646",
+      "bytes": 794,
+      "sourceBlob": "70b1d003eb7c5724a5a1b917e2b3af8e80a92a46",
+      "shared": false
+    },
+    {
+      "file": "release.js",
+      "sha256": "aa9a2c48c18681e107a8da81d40f281201882d0e52b6070e5dd3e17a0c75eea5",
+      "bytes": 586,
+      "sourceBlob": "24eb271f629e5c8d97b78e67f5923fac1c23524e",
+      "shared": false
+    },
+    {
+      "file": "save.js",
+      "sha256": "0d304c153d1b92a0bf93384a31cdb01ec33319fe54e92857e448c758559f8c40",
+      "bytes": 3729,
+      "sourceBlob": "71682bc995d08c33de4e6afc625d78aa0a8f96d6",
+      "shared": false
+    },
+    {
+      "file": "seed.js",
+      "sha256": "0a6ccf452704488735daf33b55e383a194cb98fd40af881f028d1abdf010a6c0",
+      "bytes": 1277,
+      "sourceBlob": "82fec142f47f64db189d0a4c69d82d5c8422e72f",
+      "shared": false
+    },
+    {
+      "file": "sw.js",
+      "sha256": "c30d9f5c2100da17ff46120e652f78ea6c20a70607d5fe2ed88d084cfc58d8e9",
+      "bytes": 2161,
+      "sourceBlob": "96a9fcf12e2e6091a8a099bbeee29338e2a0e7a9",
+      "shared": false
+    },
+    {
+      "file": "update.js",
+      "sha256": "145f4108fe4f64a6a5d403afc09a27ebf453eb52a278579a229c2a4219e36a0f",
+      "bytes": 1584,
+      "sourceBlob": "05e9a0e6f16bcd47627a81bdf3ee5bb3ca8fc522",
+      "shared": false
+    },
+    {
+      "file": "version.js",
+      "sha256": "c3b658f935bd1c471d4490a31da3fade3bad0b172b9f22a66ed1933e2de24340",
+      "bytes": 30,
+      "sourceBlob": "bb4c7f26f563607c3c0c16477c1c594cbea6f672",
+      "shared": false
+    }
+  ]
+}

@@ -1,5 +1,5 @@
-import { proveFinishable } from '../engine/solvability.js'
-import { LEVELS } from '../levels.js'
+import { proveFinishable } from '../src/engine/solvability.ts'
+import { LEVELS } from '../src/levels.ts'
 
 let failed = false
 for (const level of LEVELS) {

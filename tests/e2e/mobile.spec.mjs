@@ -1,6 +1,32 @@
 import { expect, test } from 'playwright/test'
-import { dailyChallenge } from '../../daily.js'
-import { LEVELS } from '../../levels.js'
+import { dailyChallenge } from '../../src/daily.ts'
+import { LEVELS } from '../../src/levels.ts'
+
+test('About links own real 44px touch targets in portrait and landscape', async ({ page }) => {
+  for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
+    await page.setViewportSize(viewport)
+    await page.goto('/')
+    if (viewport.width < viewport.height) await page.locator('#rotate-about').click()
+    else {
+      await page.locator('[data-tab="more"]').click()
+      await page.locator('#about-open').click()
+    }
+    await expect(page.locator('#about')).toBeVisible()
+    const boxes = await page.locator('#about .maker-mark a').evaluateAll(links => links.map(link => {
+      const r = link.getBoundingClientRect()
+      const owns = [[.1, .1], [.9, .1], [.5, .5], [.1, .9], [.9, .9]].every(([x, y]) =>
+        link.contains(document.elementFromPoint(r.x + r.width * x, r.y + r.height * y)))
+      return { text: link.textContent, width: r.width, height: r.height, owns }
+    }))
+    expect(boxes).toHaveLength(3)
+    for (const box of boxes) {
+      expect(box.width, box.text).toBeGreaterThanOrEqual(44)
+      expect(box.height, box.text).toBeGreaterThanOrEqual(44)
+      expect(box.owns, box.text).toBe(true)
+    }
+    await page.locator('#about-close').click()
+  }
+})
 
 test('portrait entry requires landscape before exposing the one-action Home', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
@@ -503,9 +529,14 @@ test('the portrait trail gate has a direct, stopped exit to Home', async ({ page
 
 test('two-times text and phone safe-area insets keep menu and play inside the viewport', async ({ page }) => {
   await page.setViewportSize({ width: 844, height: 390 })
-  await page.route('**/app.css*', async route => {
+  let patchedStylesheets = 0
+  await page.route(url => url.pathname.endsWith('.css'), async route => {
     const response = await route.fetch()
-    const css = (await response.text())
+    const original = await response.text()
+    if (['top', 'right', 'bottom', 'left'].every(side => original.includes(`env(safe-area-inset-${side})`))) {
+      patchedStylesheets += 1
+    }
+    const css = original
       .replaceAll('env(safe-area-inset-top)', '19px')
       .replaceAll('env(safe-area-inset-right)', '47px')
       .replaceAll('env(safe-area-inset-bottom)', '21px')
@@ -513,6 +544,7 @@ test('two-times text and phone safe-area insets keep menu and play inside the vi
     await route.fulfill({ response, body: `${css}\nhtml { font-size: 200%; }\n` })
   })
   await page.goto('/')
+  expect(patchedStylesheets, 'the emitted app stylesheet must receive all four safe-area overrides').toBe(1)
 
   const menuFit = await page.evaluate(() => {
     const body = getComputedStyle(document.body)

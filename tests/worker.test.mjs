@@ -1,81 +1,133 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
+import { readFile, readdir } from 'node:fs/promises'
 import test from 'node:test'
 import vm from 'node:vm'
 
-const REQUIRED_SHELL = [
-  './', './index.html', './app.css?v=13', './app.js?v=21', './audio.js?v=2', './daily.js',
-  './game.js?v=17', './levels.js?v=2', './release.js', './save.js?v=4', './engine/physics.js?v=2',
-  './engine/simulation.js?v=3', './version.js', './seed.js', './install.js', './update.js?v=8', './manifest.json',
-  './icon-180.png', './icon-192.png', './icon-512.png', './icon-maskable-512.png',
-  './assets/backgrounds/garden-walk.webp', './assets/backgrounds/region-atlas.webp',
-  './assets/backgrounds/final-atlas.webp', './assets/sprites/courier-sheet.webp',
-  './assets/sprites/world-sheet.webp', './assets/sprites/region-sheet.webp',
-  './assets/sprites/final-sheet.webp',
+const build = new URL('../build/', import.meta.url)
+const source = await readFile(new URL('sw.js', build), 'utf8')
+const identity = JSON.parse(await readFile(new URL('version.json', build), 'utf8'))
+const generation = `jumpit-${identity.build}`
+const scope = 'https://example.test/jumpit/'
+const oldGenerations = [
+  'jumpit-v0.9.0', 'jumpit-v1.5.0', 'jumpit-v1.7.0', 'jumpit-v1.8.0', 'jumpit-v1.9.0', 'jumpit-v2.0.0',
+  ...Array.from({ length: 23 }, (_, index) => `jumpit-v2.0.0-r${index + 1}`),
 ]
 
-const source = await readFile(new URL('../sw.js', import.meta.url), 'utf8')
-const generation = source.match(/const CACHE = '([^']+)'/)?.[1]
-
-const gitBlobId = bytes => createHash('sha1')
-  .update(`blob ${bytes.length}\0`)
-  .update(bytes)
-  .digest('hex')
-
-function installWith(addAll) {
-  const listeners = {}
-  let skipped = 0
-  const sandbox = {
-    self: {
-      addEventListener: (name, listener) => { listeners[name] = listener },
-      skipWaiting: async () => { skipped += 1 },
-      clients: { claim: async () => {} },
-      location: { origin: 'https://example.test' },
-    },
-    caches: { open: async () => ({ addAll }) },
-    URL,
-  }
-  vm.runInNewContext(source, sandbox)
-  let done
-  listeners.install({ waitUntil: promise => { done = promise } })
-  return { done, skipped: () => skipped }
+async function builtPaths(directory = build, prefix = '') {
+  const paths = await Promise.all((await readdir(directory, { withFileTypes: true })).map(entry => {
+    const path = `${prefix}${entry.name}`
+    return entry.isDirectory() ? builtPaths(new URL(`${entry.name}/`, directory), `${path}/`) : path
+  }))
+  return paths.flat().sort()
 }
 
-test('the worker precaches every required shell entry before it can activate', async () => {
-  let received
-  const install = installWith(async entries => { received = [...entries] })
-  await install.done
-  assert.deepEqual(received, REQUIRED_SHELL)
-  assert.equal(install.skipped(), 1)
-})
+const requiredShell = ['./', ...(await builtPaths()).filter(path => !['sw.js', '_headers'].includes(path)).map(path => `./${path}`)]
+const gitBlobId = bytes => createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex')
+const request = (path = './', mode = 'navigate', method = 'GET') => ({ url: new URL(path, scope).href, mode, method })
 
-test('one failed shell entry rejects installation and never calls skipWaiting', async () => {
-  const install = installWith(async entries => {
-    assert.deepEqual([...entries], REQUIRED_SHELL)
-    throw new Error('required shell entry failed')
-  })
-  await assert.rejects(install.done, /required shell entry failed/)
-  assert.equal(install.skipped(), 0)
-})
-
-test('the active worker reports the exact generation it installed', () => {
+function workerWith({
+  keys = [generation], clients = [], registration = {},
+  addAll = async () => {}, currentMatch = async () => undefined,
+  previousMatch = async () => undefined, fetch = async () => { throw new Error('offline') },
+} = {}) {
   const listeners = {}
+  const remaining = new Set(keys)
+  const state = { opened: [], deleted: [], navigated: [], entries: [], claims: 0, skips: 0, matches: 0, network: 0 }
   vm.runInNewContext(source, {
     self: {
       addEventListener: (name, listener) => { listeners[name] = listener },
-      clients: { claim: async () => {} },
-      location: { origin: 'https://example.test' },
+      skipWaiting: async () => { state.skips += 1 },
+      location: { origin: new URL(scope).origin },
+      registration: { scope, installing: null, waiting: null, ...registration },
+      clients: {
+        claim: async () => { state.claims += 1 },
+        matchAll: async options => {
+          state.matches += 1
+          assert.deepEqual({ ...options }, { type: 'window', includeUncontrolled: true })
+          return clients.map(client => ({
+            navigate: target => {
+              state.navigated.push(target)
+              // Browser navigation waits for activation. Awaiting it here would deadlock.
+              return { catch: () => {}, then: () => assert.fail('activation must not await navigation') }
+            },
+            ...client,
+          }))
+        },
+      },
     },
-    caches: {},
+    caches: {
+      open: async name => {
+        state.opened.push(name)
+        assert.equal(name, generation, 'a candidate must never modify an installed generation')
+        return {
+          addAll: async entries => { state.entries.push([...entries]); await addAll(entries) },
+          match: currentMatch,
+          put: () => assert.fail('installed caches are immutable'),
+        }
+      },
+      match: previousMatch,
+      keys: async () => [...remaining],
+      delete: async name => { state.deleted.push(name); return remaining.delete(name) },
+    },
+    fetch: async value => { state.network += 1; return fetch(value) },
     URL,
+    Response,
   })
+  return {
+    state,
+    async dispatch(name, payload = {}) {
+      const pending = []
+      listeners[name]({ ports: [], ...payload, waitUntil: promise => { pending.push(promise) } })
+      await Promise.all(pending)
+    },
+    fetch(value) {
+      let response
+      listeners.fetch({ request: value, respondWith: promise => { response = promise } })
+      return response
+    },
+  }
+}
+
+test('the emitted worker precaches every built path before requesting activation', async () => {
+  let finish
+  const pending = new Promise(resolve => { finish = resolve })
+  const worker = workerWith({ addAll: () => pending })
+  const installed = worker.dispatch('install')
+  await Promise.resolve()
+  assert.deepEqual(worker.state.entries, [requiredShell])
+  assert.equal(worker.state.skips, 0)
+  finish()
+  await installed
+  assert.deepEqual(worker.state.opened, [generation])
+  assert.equal(worker.state.skips, 1)
+  assert.ok(requiredShell.includes('./index.html'))
+  assert.ok(requiredShell.some(path => /^\.\/assets\/.+\.js$/.test(path)))
+  assert.ok(requiredShell.some(path => /^\.\/assets\/.+\.css$/.test(path)))
+})
+
+test('a failed precache cannot activate or touch any installed generation', async () => {
+  const worker = workerWith({
+    keys: [...oldGenerations, 'sibling-game-v4'],
+    addAll: async entries => {
+      assert.deepEqual([...entries], requiredShell)
+      throw new Error('required shell entry failed')
+    },
+  })
+  await assert.rejects(worker.dispatch('install'), /required shell entry failed/)
+  assert.deepEqual(worker.state.opened, [generation])
+  assert.deepEqual(worker.state.deleted, [])
+  assert.equal(worker.state.skips, 0)
+  assert.equal(worker.state.claims, 0)
+})
+
+test('the legacy generation protocol returns the exact emitted build identity', async () => {
+  const worker = workerWith()
   let received
-  listeners.message({
-    data: 'jumpit:generation',
-    ports: [{ postMessage: value => { received = value } }],
-  })
+  await worker.dispatch('message', { data: 'jumpit:generation', ports: [{ postMessage: value => { received = value } }] })
   assert.equal(received, generation)
+  await worker.dispatch('message', { data: 'jumpit:generation' })
+  assert.equal(worker.state.matches, 0)
 })
 
 test('migration fixtures are byte-for-byte shipped and preview clients', async () => {
@@ -94,153 +146,139 @@ test('migration fixtures are byte-for-byte shipped and preview clients', async (
   }
 })
 
-function activateWith(keys, clients = []) {
-  const listeners = {}
-  const deleted = []
-  const navigated = []
-  let claims = 0
-  let matches = 0
-  const sandbox = {
-    self: {
-      addEventListener: (name, listener) => { listeners[name] = listener },
-      skipWaiting: async () => {},
-      clients: {
-        claim: async () => { claims += 1 },
-        matchAll: async options => {
-          matches += 1
-          assert.deepEqual({ ...options }, { type: 'window', includeUncontrolled: true })
-          return clients.map(url => ({
-            url,
-            navigate: target => {
-              navigated.push(target)
-              return {
-                catch: () => {},
-                then: () => assert.fail('activation must not await client navigation'),
-              }
-            },
-          }))
-        },
-      },
-      location: { origin: 'https://example.test' },
-      registration: { scope: 'https://example.test/jumpit/' },
-    },
-    caches: {
-      keys: async () => keys,
-      delete: async key => { deleted.push(key) },
-    },
-    URL,
-  }
-  vm.runInNewContext(source, sandbox)
-  let done
-  listeners.activate({ waitUntil: promise => { done = promise } })
-  return { done, deleted, navigated, claims: () => claims, matches: () => matches }
-}
-
-test('activation migrates v1.5 clients in scope after the complete B cache wins', async () => {
-  const activation = activateWith(
-    ['jumpit-v1.5.0', 'jumpit-v1.9.0', 'jumpit-v2.0.0', 'jumpit-v2.0.0-r2', 'jumpit-v2.0.0-r3', 'jumpit-v2.0.0-r4', 'jumpit-v2.0.0-r5', 'jumpit-v2.0.0-r6', 'jumpit-v2.0.0-r7', 'jumpit-v2.0.0-r8', 'jumpit-v2.0.0-r9', 'jumpit-v2.0.0-r10', 'jumpit-v2.0.0-r11', 'jumpit-v2.0.0-r12', 'jumpit-v2.0.0-r13', 'jumpit-v2.0.0-r14', 'jumpit-v2.0.0-r15', 'sibling-game-v4'],
-    [
-      'https://example.test/jumpit/?seed=7',
-      'https://example.test/other-game/',
-      'https://elsewhere.test/jumpit/',
+test('the exact v1.5 marker bridges scoped clients once without awaiting their navigation', async () => {
+  const worker = workerWith({
+    keys: [generation, ...oldGenerations, 'sibling-game-v4'],
+    clients: [
+      { id: 'game', url: `${scope}?seed=7` },
+      { id: 'sibling', url: 'https://example.test/other-game/' },
+      { id: 'prefix', url: 'https://example.test/jumpit-other/' },
+      { id: 'other-origin', url: 'https://elsewhere.test/jumpit/' },
     ],
-  )
-  await activation.done
-  assert.deepEqual(activation.deleted, ['jumpit-v1.5.0', 'jumpit-v1.9.0', 'jumpit-v2.0.0', 'jumpit-v2.0.0-r2', 'jumpit-v2.0.0-r3', 'jumpit-v2.0.0-r4', 'jumpit-v2.0.0-r5', 'jumpit-v2.0.0-r6', 'jumpit-v2.0.0-r7', 'jumpit-v2.0.0-r8', 'jumpit-v2.0.0-r9', 'jumpit-v2.0.0-r10', 'jumpit-v2.0.0-r11', 'jumpit-v2.0.0-r12', 'jumpit-v2.0.0-r13', 'jumpit-v2.0.0-r14', 'jumpit-v2.0.0-r15'])
-  assert.equal(activation.claims(), 1)
-  assert.equal(activation.matches(), 1)
-  assert.deepEqual(activation.navigated, ['https://example.test/jumpit/?seed=7'])
+  })
+  await worker.dispatch('activate')
+  assert.deepEqual(worker.state.deleted, ['jumpit-v1.5.0'])
+  assert.deepEqual(worker.state.navigated, [`${scope}?seed=7`])
+  assert.equal(worker.state.claims, 1)
+  await worker.dispatch('activate')
+  assert.deepEqual(worker.state.deleted, ['jumpit-v1.5.0'])
+  assert.deepEqual(worker.state.navigated, [`${scope}?seed=7`])
+  assert.equal(worker.state.claims, 2)
+  assert.equal(worker.state.matches, 1)
 })
 
-test('activation without the v1.5 cache claims but never forces a navigation', async () => {
-  const activation = activateWith(['jumpit-v1.8.0', 'jumpit-v1.9.0', 'jumpit-v2.0.0', 'jumpit-v2.0.0-r2', 'jumpit-v2.0.0-r3', 'jumpit-v2.0.0-r4', 'jumpit-v2.0.0-r5', 'jumpit-v2.0.0-r6', 'jumpit-v2.0.0-r7', 'jumpit-v2.0.0-r8', 'jumpit-v2.0.0-r9', 'jumpit-v2.0.0-r10', 'jumpit-v2.0.0-r11', 'jumpit-v2.0.0-r12', 'jumpit-v2.0.0-r13', 'jumpit-v2.0.0-r14', 'jumpit-v2.0.0-r15'], [
-    'https://example.test/jumpit/',
-  ])
-  await activation.done
-  assert.deepEqual(activation.deleted, ['jumpit-v1.8.0', 'jumpit-v1.9.0', 'jumpit-v2.0.0', 'jumpit-v2.0.0-r2', 'jumpit-v2.0.0-r3', 'jumpit-v2.0.0-r4', 'jumpit-v2.0.0-r5', 'jumpit-v2.0.0-r6', 'jumpit-v2.0.0-r7', 'jumpit-v2.0.0-r8', 'jumpit-v2.0.0-r9', 'jumpit-v2.0.0-r10', 'jumpit-v2.0.0-r11', 'jumpit-v2.0.0-r12', 'jumpit-v2.0.0-r13', 'jumpit-v2.0.0-r14', 'jumpit-v2.0.0-r15'])
-  assert.equal(activation.claims(), 1)
-  assert.equal(activation.matches(), 0)
-  assert.deepEqual(activation.navigated, [])
+test('activation without the exact v1.5 marker preserves old caches and never reloads clients', async () => {
+  const worker = workerWith({
+    keys: [generation, ...oldGenerations.filter(key => key !== 'jumpit-v1.5.0'), 'jumpit-v1.5.0-preview'],
+    clients: [{ id: 'game', url: scope }],
+  })
+  await worker.dispatch('activate')
+  assert.deepEqual(worker.state.deleted, [])
+  assert.deepEqual(worker.state.navigated, [])
+  assert.equal(worker.state.claims, 1)
+  assert.equal(worker.state.matches, 0)
 })
 
-function dispatchFetch(request, {
-  match,
-  fetch,
-  open = async () => ({ put: async () => {} }),
-  waitUntil = () => {},
-}) {
-  const listeners = {}
-  const sandbox = {
-    self: {
-      addEventListener: (name, listener) => { listeners[name] = listener },
-      skipWaiting: async () => {},
-      clients: { claim: async () => {} },
-      location: { origin: 'https://example.test' },
-    },
-    caches: { match, open },
-    fetch,
-    URL,
+test('only the sole scoped owner acknowledging the current generation retires old Jumpit caches', async () => {
+  const owner = { id: 'current', url: scope }
+  const neighbors = ['sibling-game-v4', 'jumpit', 'jumpitfoo', 'jumpit_other', 'xjumpit-v1']
+  const worker = workerWith({ keys: [generation, ...oldGenerations, ...neighbors], clients: [owner] })
+  await worker.dispatch('message', { data: { type: 'CLIENT_GENERATION', generation }, source: owner })
+  assert.deepEqual(worker.state.deleted, oldGenerations)
+  assert.deepEqual(worker.state.navigated, [])
+})
+
+test('unsafe cleanup acknowledgments retain every installed generation', async t => {
+  const owner = { id: 'current', url: scope }
+  const cases = [
+    { name: 'wrong generation', data: { type: 'CLIENT_GENERATION', generation: 'jumpit-stale' } },
+    { name: 'wrong message', data: { type: 'UNKNOWN', generation } },
+    { name: 'missing generation', data: { type: 'CLIENT_GENERATION' } },
+    { name: 'no source', source: null },
+    { name: 'source without an id', source: {} },
+    { name: 'different owner', source: { id: 'other', url: scope } },
+    { name: 'no clients', clients: [] },
+    { name: 'another open old tab', clients: [owner, { id: 'old', url: `${scope}?seed=7` }] },
+    { name: 'installing candidate', registration: { installing: {} } },
+    { name: 'waiting candidate', registration: { waiting: {} } },
+    { name: 'sole client outside scope', clients: [{ id: 'current', url: 'https://example.test/other-game/' }], source: { id: 'current', url: 'https://example.test/other-game/' } },
+  ]
+  for (const scenario of cases) await t.test(scenario.name, async () => {
+    const worker = workerWith({ keys: [generation, ...oldGenerations], clients: [owner], ...scenario })
+    await worker.dispatch('message', { data: { type: 'CLIENT_GENERATION', generation }, source: owner, ...scenario })
+    assert.deepEqual(worker.state.deleted, [])
+  })
+})
+
+test('installed root, index and seed navigation use the immutable current shell before network', async () => {
+  for (const path of ['./', './?seed=7', './index.html', './index.html?seed=7']) {
+    const cached = new Response('installed shell')
+    const worker = workerWith({ currentMatch: async key => key === scope ? cached : undefined })
+    assert.equal(await worker.fetch(request(path)), cached)
+    assert.equal(worker.state.network, 0)
   }
-  vm.runInNewContext(source, sandbox)
-  let response
-  listeners.fetch({
-    request,
-    respondWith: promise => { response = promise },
-    waitUntil,
-  })
-  return response
-}
-
-test('the real worker serves cached navigation or its shell fallback when the network is offline', async () => {
-  const request = { method: 'GET', mode: 'navigate', url: 'https://example.test/jumpit/deep-link' }
-  const cachedRequest = { id: 'cached-request' }
-  const cachedShell = { id: 'cached-index' }
-
-  assert.equal(await dispatchFetch(request, {
-    fetch: async () => { throw new Error('offline') },
-    match: async key => key === request ? cachedRequest : null,
-  }), cachedRequest)
-
-  const lookups = []
-  assert.equal(await dispatchFetch(request, {
-    fetch: async () => { throw new Error('offline') },
-    match: async key => {
-      lookups.push(key)
-      return key === './index.html' ? cachedShell : null
-    },
-  }), cachedShell)
-  assert.deepEqual(lookups, [request, './index.html'])
 })
 
-test('the real worker serves a cached asset without touching the network', async () => {
-  const request = {
-    method: 'GET',
-    mode: 'same-origin',
-    url: 'https://example.test/assets/sprites/courier-sheet.webp',
+test('a known cached document is served exactly, but unknown offline navigation is not a fake game page', async () => {
+  const documentRequest = request('./licenses.md')
+  const document = new Response('license text')
+  const shell = new Response('game shell')
+  const worker = workerWith({ currentMatch: async key => key === documentRequest ? document : key === scope ? shell : undefined })
+  assert.equal(await worker.fetch(documentRequest), document)
+  // Intentional change from the old generic index fallback: there is no pathname router.
+  assert.equal((await worker.fetch(request('./deep-link'))).type, 'error')
+  assert.equal((await worker.fetch(request('./unknown-license.md'))).type, 'error')
+})
+
+test('redirected cached navigation is reconstructed into an offline-safe response', async () => {
+  const cached = new Response('redirected shell', { status: 200, statusText: 'OK', headers: { 'content-type': 'text/html', 'x-build': identity.build } })
+  Object.defineProperty(cached, 'redirected', { value: true })
+  const worker = workerWith({ currentMatch: async () => cached })
+  const response = await worker.fetch(request())
+  assert.notEqual(response, cached)
+  assert.equal(response.redirected, false)
+  assert.equal(response.status, cached.status)
+  assert.equal(response.statusText, cached.statusText)
+  assert.equal(response.headers.get('x-build'), identity.build)
+  assert.equal(response.headers.get('content-type'), 'text/html')
+  assert.equal(await response.text(), 'redirected shell')
+  assert.equal(worker.state.network, 0)
+})
+
+test('current assets and held old hashed modules remain available without network', async () => {
+  const asset = request('./assets/sprites/courier-sheet.webp', 'same-origin')
+  const cached = new Response('art')
+  const current = workerWith({ currentMatch: async key => key === asset ? cached : undefined })
+  assert.equal(await current.fetch(asset), cached)
+  assert.equal(current.state.network, 0)
+  const oldModule = request('./assets/app-previoushash.js', 'same-origin')
+  const previous = new Response('old module')
+  const held = workerWith({ previousMatch: async key => key === oldModule ? previous : undefined })
+  assert.equal(await held.fetch(oldModule), previous)
+  assert.equal(held.state.network, 0)
+})
+
+test('network misses never write into the immutable installed cache', async () => {
+  for (const mode of ['navigate', 'same-origin']) {
+    const networkResponse = new Response('network content')
+    const worker = workerWith({ fetch: async () => networkResponse })
+    assert.equal(await worker.fetch(request('./uncached', mode)), networkResponse)
+    assert.equal(worker.state.network, 1)
+    assert.deepEqual(worker.state.entries, [])
+    assert.deepEqual(worker.state.deleted, [])
   }
-  const cachedAsset = { id: 'cached-art' }
-  let network = 0
-  const response = await dispatchFetch(request, {
-    fetch: async () => { network += 1; throw new Error('network must stay unused') },
-    match: async key => key === request ? cachedAsset : null,
-  })
-  assert.equal(response, cachedAsset)
-  assert.equal(network, 0)
+  const worker = workerWith()
+  assert.equal((await worker.fetch(request('./missing.png', 'same-origin'))).type, 'error')
 })
 
-test('a successful network navigation never rewrites the immutable active cache', async () => {
-  const request = { method: 'GET', mode: 'navigate', url: 'https://example.test/jumpit/' }
-  const networkResponse = { ok: true, id: 'newer-html' }
-  networkResponse.clone = () => networkResponse
-  let opens = 0
-  let waits = 0
-  const response = await dispatchFetch(request, {
-    fetch: async () => networkResponse,
-    match: async () => assert.fail('online navigation must stay network-first'),
-    open: async () => { opens += 1; return { put: async () => {} } },
-    waitUntil: () => { waits += 1 },
-  })
-  assert.equal(response, networkResponse)
-  assert.equal(opens, 0)
-  assert.equal(waits, 0)
+test('update probes, non-GET requests and cross-origin requests bypass the worker cache', () => {
+  const worker = workerWith()
+  for (const value of [
+    request('./version.js?update-probe=1', 'same-origin'),
+    request('./?seed=7&update-probe', 'navigate'),
+    request('./', 'same-origin', 'POST'),
+    request('https://elsewhere.test/jumpit/', 'same-origin'),
+  ]) assert.equal(worker.fetch(value), undefined)
+  assert.deepEqual(worker.state.opened, [])
+  assert.equal(worker.state.network, 0)
 })

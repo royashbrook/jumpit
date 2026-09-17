@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { createSimulation, finishOutcome, stepSimulation } from '../engine/simulation.js'
-import { LEVELS, TILE } from '../levels.js'
+import { createSimulation, finishOutcome, stepSimulation } from '../src/engine/simulation.ts'
+import { LEVELS, TILE } from '../src/levels.ts'
 
 const level = id => LEVELS.find(item => item.id === id)
 

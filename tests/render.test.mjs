@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { recordHiddenLightReplay, recordReplay } from '../engine/solvability.js'
-import { LEVELS, TILE } from '../levels.js'
+import { recordHiddenLightReplay, recordReplay } from '../src/engine/solvability.ts'
+import { LEVELS, TILE } from '../src/levels.ts'
 
 class FakeImage {
   static instances = []
@@ -10,12 +10,17 @@ class FakeImage {
     this.complete = true
     this.naturalWidth = 1536
     this.naturalHeight = 1024
+    this.listeners = new Map()
     FakeImage.instances.push(this)
   }
   set src(value) { this.source = value }
   get src() { return this.source }
   decode() { return Promise.resolve() }
-  addEventListener() {}
+  addEventListener(type, callback) {
+    if (!this.listeners.has(type)) this.listeners.set(type, new Set())
+    this.listeners.get(type).add(callback)
+  }
+  removeEventListener(type, callback) { this.listeners.get(type)?.delete(callback) }
   removeAttribute(name) { if (name === 'src') this.source = '' }
 }
 
@@ -33,7 +38,7 @@ const {
   createGame,
   terrainVisible,
   verticalCameraTarget,
-} = await import('../game.js')
+} = await import('../src/game.ts')
 
 function canvasHarness(width = 390, height = 720) {
   const draws = []
@@ -710,5 +715,95 @@ test('real Hidden Light discovery renders warm feedback and rehydrates without r
   } finally {
     globalThis.requestAnimationFrame = originalRequest
     globalThis.cancelAnimationFrame = originalCancel
+  }
+})
+
+test('destroy removes owned listeners and frames, including late callbacks and reentrant start reports', () => {
+  const originals = new Map(['window', 'requestAnimationFrame', 'cancelAnimationFrame'].map(key => [key, globalThis[key]]))
+  const listeners = new Map()
+  const frames = new Map()
+  let nextFrame = 0
+  globalThis.window = {
+    addEventListener(type, callback) {
+      if (!listeners.has(type)) listeners.set(type, new Set())
+      listeners.get(type).add(callback)
+    },
+    removeEventListener(type, callback) { listeners.get(type)?.delete(callback) },
+  }
+  globalThis.requestAnimationFrame = callback => { frames.set(++nextFrame, callback); return nextFrame }
+  globalThis.cancelAnimationFrame = id => frames.delete(id)
+  try {
+    const firstImage = FakeImage.instances.length
+    const harness = canvasHarness(844, 320)
+    const states = []
+    const cues = []
+    const game = createGame(harness.canvas, state => states.push(state), cue => cues.push(cue))
+    game.start('garden-1')
+    game.setInput('right', true)
+    game.setInput('jump', true)
+    game.resize()
+    const images = FakeImage.instances.slice(firstImage)
+    const lateFrame = [...frames.values()][0]
+    const lateLoads = images.flatMap(image => [...image.listeners.get('load')])
+    const lateKeys = [...listeners.get('keydown')]
+    const drawingCount = harness.draws.length
+    game.destroy()
+    game.destroy()
+    assert.equal(frames.size, 0)
+    assert.ok([...listeners.values()].every(callbacks => callbacks.size === 0))
+    assert.ok(images.every(image => image.src === '' && image.listeners.get('load').size === 0))
+    lateFrame(1_000)
+    for (const callback of lateLoads) callback()
+    for (const callback of lateKeys) callback({ code: 'Space', type: 'keydown', target: null, preventDefault() { assert.fail('destroyed keyboard listener ran') } })
+    game.start('garden-1')
+    game.restart()
+    game.setInput('jump', true)
+    game.togglePause()
+    game.pause()
+    game.resize()
+    assert.equal(frames.size, 0)
+    assert.equal(harness.draws.length, drawingCount)
+    assert.equal(states.length, 1)
+    assert.deepEqual(cues, [])
+    assert.ok(images.every(image => image.src === ''))
+
+    const remounted = createGame(harness.canvas, () => remounted.destroy())
+    assert.equal(listeners.get('keydown').size, 1)
+    assert.equal(listeners.get('keyup').size, 1)
+    remounted.start('garden-1')
+    assert.equal(frames.size, 0, 'a synchronous start report must not schedule a frame after destroy')
+    assert.ok([...listeners.values()].every(callbacks => callbacks.size === 0))
+    assert.ok(FakeImage.instances.slice(firstImage).every(image => image.listeners.get('load').size === 0))
+  } finally {
+    for (const [key, value] of originals) globalThis[key] = value
+  }
+})
+
+test('destroy from a simulation cue stops the current frame before paint or rescheduling', () => {
+  const originals = new Map(['window', 'requestAnimationFrame', 'cancelAnimationFrame'].map(key => [key, globalThis[key]]))
+  const frames = new Map()
+  let nextFrame = 0
+  globalThis.window = { addEventListener() {}, removeEventListener() {} }
+  globalThis.requestAnimationFrame = callback => { frames.set(++nextFrame, callback); return nextFrame }
+  globalThis.cancelAnimationFrame = id => frames.delete(id)
+  try {
+    const harness = canvasHarness(844, 320)
+    const cues = []
+    const game = createGame(harness.canvas, () => {}, cue => { cues.push(cue); game.destroy() })
+    const tick = time => {
+      const [id, callback] = [...frames][0]
+      frames.delete(id)
+      callback(time)
+    }
+    game.start('garden-1')
+    tick(1)
+    const drawingCount = harness.draws.length
+    game.setInput('jump', true)
+    tick(101)
+    assert.deepEqual(cues, ['jump'])
+    assert.equal(frames.size, 0)
+    assert.equal(harness.draws.length, drawingCount)
+  } finally {
+    for (const [key, value] of originals) globalThis[key] = value
   }
 })

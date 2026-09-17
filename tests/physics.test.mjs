@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createBody, isSideDamage, isStomp, stepPhysics } from '../engine/physics.js'
+import { createBody, isSideDamage, isStomp, stepPhysics } from '../src/engine/physics.ts'
 
 const floor = [{ type: 'solid', x: -100, y: 100, w: 500, h: 40 }]
 

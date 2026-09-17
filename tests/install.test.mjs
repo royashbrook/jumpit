@@ -8,6 +8,9 @@ class Target {
     listeners.push(listener)
     this.listeners.set(name, listeners)
   }
+  removeEventListener(name, listener) {
+    this.listeners.set(name, (this.listeners.get(name) || []).filter(item => item !== listener))
+  }
   async emit(name, event = {}) {
     for (const listener of this.listeners.get(name) || []) await listener(event)
   }
@@ -34,7 +37,7 @@ async function withInstall({ ios = false, installed = false }, run) {
     navigator: { configurable: true, value: navigator },
   })
   try {
-    const module = await import(`../install.js?test=${Math.random()}`)
+    const module = await import(`../src/install.ts?test=${Math.random()}`)
     await run({ ...module, window })
   } finally {
     for (const key of ['window', 'navigator']) {
@@ -107,5 +110,60 @@ test('iOS gets real instructions until standalone installation completes', async
     assert.equal(hints, 1)
     await window.emit('appinstalled')
     assert.equal(button.hidden, true)
+  })
+})
+
+test('dispose removes install listeners and allows a clean remount', async () => {
+  await withInstall({ ios: true }, async ({ wireInstall, window }) => {
+    const button = new Button()
+    let hints = 0
+    const first = wireInstall(button, { showIosHint: () => { hints += 1 } })
+    first.dispose()
+    first.dispose()
+    assert.equal(window.listeners.get('beforeinstallprompt').length, 0)
+    assert.equal(window.listeners.get('appinstalled').length, 0)
+    assert.equal(button.listeners.get('click').length, 0)
+    await button.click()
+    assert.equal(hints, 0)
+    const second = wireInstall(button, { showIosHint: () => { hints += 1 } })
+    await button.click()
+    assert.equal(hints, 1)
+    assert.equal(window.listeners.get('beforeinstallprompt').length, 1)
+    second.dispose()
+  })
+})
+
+test('a native prompt settling after disposal cannot mutate the old button', async () => {
+  await withInstall({}, async ({ wireInstall, window }) => {
+    const button = new Button()
+    let finishPrompt
+    const pendingPrompt = new Promise(resolve => { finishPrompt = resolve })
+    const install = wireInstall(button)
+    await window.emit('beforeinstallprompt', {
+      preventDefault() {},
+      prompt: () => pendingPrompt,
+      userChoice: Promise.resolve({ outcome: 'accepted' }),
+    })
+    const click = button.click()
+    assert.equal(button.disabled, true)
+    install.dispose()
+    const snapshot = { hidden: button.hidden, disabled: button.disabled }
+    finishPrompt()
+    await click
+    await window.emit('appinstalled')
+    assert.deepEqual({ hidden: button.hidden, disabled: button.disabled }, snapshot)
+    const next = new Button()
+    const remounted = wireInstall(next)
+    assert.equal(next.hidden, true)
+    assert.equal(next.disabled, false)
+    remounted.dispose()
+  })
+})
+
+test('absent and already-installed controls still return disposable handles', async () => {
+  await withInstall({ installed: true }, async ({ wireInstall, window }) => {
+    wireInstall(null).dispose()
+    wireInstall(new Button()).dispose()
+    assert.equal(window.listeners.size, 0)
   })
 })
