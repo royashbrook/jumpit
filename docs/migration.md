@@ -1,7 +1,7 @@
 # typed app migration
 
 tracking: [#24](https://github.com/royashbrook/jumpit/issues/24).
-status: typed implementation in integration, not shipped.
+target: v2.1 architecture release. exact published identity and live receipts are tracked on #24.
 
 ## preserve the game
 
@@ -128,5 +128,19 @@ never into the deployed `build/` allowlist.
   not just the migrated tests. four named PWA parser/URL deltas are explicit and cannot
   exempt gameplay, content, saves or audio.
 
-independent review, hosted verification, milestone tag and live installed-update receipt
-remain release gates. this integration is not yet deployed.
+## release gates
+
+independent review and hosted verification must pass at the reviewed head before merging.
+the new `v2.1` milestone anchors the release without moving historical tags. deployment checks
+the current main tip again and publishes only a complete clean artifact.
+
+the live receipt must use actual old r23 pages kept open before deployment, observe the update
+notice without an automatic reload, then accept it and verify unchanged saved bytes, preferences,
+working old-tab dependencies, and cleanup only after the old tab closes. the new artifact must
+play and pause through real controls. offline reopening and license bytes are checked in Chromium.
+that is browser evidence, not a claim of a physical iPhone test.
+
+the reference hash is platform-specific because the original game's sine produces one transient
+enemy-coordinate rounding difference between macOS ARM64 and Linux x64. both full reference
+recordings are pinned, unknown platforms fail, and old-versus-new comparison remains exact on
+each runtime. see [the oracle's measured limits](../tools/oracle/README.md).
