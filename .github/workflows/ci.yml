@@ -25,4 +25,6 @@ jobs:
       - run: npm run check
       - name: diagnose reference platform drift
         if: failure()
-        run: node tools/oracle/fingerprint.mjs . tools/oracle/record.mjs
+        run: |
+          node tools/oracle/fingerprint.mjs . tools/oracle/record.mjs
+          node tools/oracle/market1-diag.mjs .
